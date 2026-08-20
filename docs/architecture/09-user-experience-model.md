@@ -6,12 +6,15 @@ Oxide presents a semantic workspace first and source files second. Files remain
 authoritative and always accessible, but the primary interface is organized
 around concepts, relationships, and authoring tasks.
 
-The interface must answer four questions wherever the user is:
+The interface must answer these questions wherever the user is:
 
 1. What game concept am I looking at?
 2. What is its effective value in this playset?
 3. Where did that value come from?
 4. What will change in source files if I edit it?
+5. What else is required for this feature to work?
+6. How has it been validated in the selected game and playset?
+7. What may break when the game, DLC, or dependency set changes?
 
 ## Workspace shell
 
@@ -23,12 +26,12 @@ The main window has five durable regions:
 +----------------+----------------------------------+---------------+
 | Explorer       | Workspace                        | Inspector     |
 |                |                                  |               |
-| Concepts       | cards, text, map, graph, table   | properties    |
-| Files          | or diff tabs                     | relations     |
-| Problems       |                                  | provenance    |
-| Layers         |                                  | diagnostics   |
+| Projects       | cards, text, map, graph, table   | properties    |
+| Concepts       | feature plan, diff, log or media | relations     |
+| Files          |                                  | provenance    |
+| Problems/Layers|                                  | diagnostics   |
 +----------------+----------------------------------+---------------+
-| Status: indexing | snapshot | errors | active mod | source mode   |
+| Status: indexing | snapshot | errors | active mod | run/validation|
 +-------------------------------------------------------------------+
 ```
 
@@ -36,11 +39,21 @@ The main window has five durable regions:
 - The workspace hosts several synchronized views of the selected concept.
 - The inspector exposes effective properties, relationships, and provenance.
 - The playset and game profile are globally visible because they change meaning.
+- The active project and latest validation target are visible because writable
+  output and runtime evidence are not properties of the selected entity.
 
 Panels are rearrangeable, but semantic selection is shared: selecting a state
 on the map selects the same state in search, tables, relationships, and source.
 
 ## Explorer perspectives
+
+### Projects and features
+
+The project perspective exposes the active mod's descriptors, supported game
+version, dependencies, replacement paths, content inventory, feature plans,
+validation history, and packaging state. A feature plan groups work such as
+“add a country” or “create an event chain” even when it spans many entities and
+files.
 
 ### Concepts
 
@@ -70,6 +83,33 @@ related definitions, and safe fixes.
 The layer perspective explains base game, DLC, dependencies, and active-mod
 precedence. It can compare declarations and preview what a different playset
 would make effective.
+
+### Runs and validation
+
+The run perspective records static validation and game launches against an
+exact installation, playset, snapshot, and mod configuration. It presents game
+and error logs, checksum and loading evidence where available, and diagnostics
+mapped back to declarations. A clean static analysis and a successful runtime
+validation are separate claims.
+
+## Project lifecycle
+
+Oxide supports the modder's workflow before and after entity editing:
+
+1. discover or select a game installation and versioned game profile;
+2. create or import a mod, validate its descriptor pair, and choose writable
+   source and generated-output locations;
+3. select or construct a playset, including DLC and dependency order;
+4. create a feature plan or inspect existing content;
+5. edit source or apply previewed semantic operations;
+6. run static checks and, when configured, launch the game;
+7. correlate logs and observed failures with the exact workspace snapshot; and
+8. package the mod or compare it against another game-version baseline.
+
+Oxide never edits the game installation in place. Creating an override copies or
+generates only the content required by the verified load policy, and the impact
+preview distinguishes copied vanilla content from references that remain
+resolved from upstream layers.
 
 ## Concept pages
 
@@ -113,6 +153,29 @@ The event workspace provides a navigable event graph and a focused event form.
 It distinguishes proven callers, dynamic possible callers, and missing targets.
 Triggers and effects may be shown in structured form while their source text is
 one action away.
+
+### Asset workspace
+
+The asset workspace follows logical registrations through textures, flags,
+portraits, meshes, animations, materials, sound files, and consumers. Depending
+on format support it provides previews, audio playback, dimensions and encoding
+checks, convention-based fallback traces, and safe copying of known dependency
+sets. Unsupported binary formats remain navigable physical assets rather than
+disappearing from the model.
+
+### Localisation workspace
+
+The localisation workspace presents related keys as a language matrix. It shows
+missing and duplicate entries, encoding problems, inferred fallback behavior,
+and usages. Rename and fill operations preview all affected language files and
+never assume that the English value is an adequate translation.
+
+### Generic registry workspace
+
+A registry without a specialized concept page still has a generic declaration
+table, source navigation, layer status, duplicate detection, structurally
+discovered references, and an explicit support-level label. New game systems do
+not have to wait for a bespoke form before they are searchable and inspectable.
 
 ## Progressive disclosure
 
@@ -162,6 +225,42 @@ active mod” and explains the smallest safe override known for that entity kind
 If that behavior is not verified, Oxide offers source navigation rather than an
 unsafe generated edit.
 
+### Task-level change plans
+
+Cross-file tasks use a feature plan rather than a sequence of disconnected
+forms. Templates such as country creation, province addition, focus-branch
+cloning, technology and equipment creation, music registration, or compatibility
+patching may list:
+
+- required, optional, existing, and generated declarations;
+- localisation and asset obligations;
+- implicit naming, folder, scope, and registry contracts;
+- DLC, dependency, and supported-version requirements;
+- source files to create or override; and
+- static and runtime checks appropriate to the feature.
+
+Templates are versioned game-profile knowledge, not universal promises. The user
+can inspect and modify the resulting change set before any files are written.
+
+### Runtime testing
+
+When launch integration is configured, Oxide can start the selected mod
+configuration and ingest supported logs. A run records its installation build,
+playset, source snapshot, launch options, and outcome. Console or reload helpers
+may be offered when verified for the current platform and game version.
+
+Oxide distinguishes four outcomes: not checked, statically valid, loaded by the
+game, and behavior observed or manually confirmed. It does not claim that valid
+syntax proves UI appearance, AI behavior, performance, or campaign correctness.
+
+### Compatibility and game updates
+
+Changing the game baseline or playset opens a compatibility comparison. It
+highlights upstream declarations that changed, stale copied vanilla content,
+newly shadowed definitions, missing identifiers, schema changes, and altered DLC
+requirements. Findings retain both baselines and their evidence; migration
+operations use the normal source-impact preview.
+
 ## Uncertainty and conflicts
 
 Oxide never communicates uncertain data solely through colour. Each uncertain
@@ -177,6 +276,11 @@ value has a label and explanation:
 
 The user can inspect every candidate and resolution trace. Concept pages remain
 usable when part of the model is invalid.
+
+Each registry and operation also displays its support level: source-only,
+structural, inferred, typed, safely editable, task-automated, or runtime
+verified. Unsupported rich editing is a capability limitation, not evidence
+that the underlying content is invalid or unimportant.
 
 ## Saved UI metadata
 
@@ -203,3 +307,9 @@ The first interface slice is a read-only world explorer:
 It should use production semantic APIs, not temporary UI-specific parsing. A
 successful slice demonstrates the interaction contract that later focus-tree,
 event, asset, and editing work can reuse.
+
+The first slice does not claim to prove the complete mod-authoring lifecycle.
+The next workflow slice should create or import a minimal mod, build one
+cross-file feature plan, preview its edits, run static validation, and record a
+configured game launch. This tests the project, authoring, and validation
+objects that a read-only explorer does not exercise.
