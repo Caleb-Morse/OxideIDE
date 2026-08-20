@@ -65,6 +65,8 @@ but the semantic layer must not depend on Avalonia.
 5. [Safe round-trip editing](05-safe-round-trip-editing.md)
 6. [Incremental reparsing](06-incremental-reparsing.md)
 7. [Verification and open questions](07-verification-and-open-questions.md)
+8. [Domain model](08-domain-model.md)
+9. [User experience model](09-user-experience-model.md)
 
 ## Non-goals for the first vertical slice
 
