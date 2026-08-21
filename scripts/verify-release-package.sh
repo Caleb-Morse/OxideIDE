@@ -28,12 +28,12 @@ trap cleanup EXIT
 
 case "$archive" in
     *.zip)
-        if command -v unzip >/dev/null 2>&1; then
-            unzip -q "$archive" -d "$extract_root"
-        elif command -v powershell >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+        if command -v powershell >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
             windows_archive="$(cygpath -w "$archive")"
             windows_extract="$(cygpath -w "$extract_root")"
             powershell -NoProfile -Command "Expand-Archive -Path '$windows_archive' -DestinationPath '$windows_extract' -Force"
+        elif command -v unzip >/dev/null 2>&1; then
+            unzip -q "$archive" -d "$extract_root"
         else
             echo "Extracting zip packages requires unzip or PowerShell Expand-Archive." >&2
             exit 1
