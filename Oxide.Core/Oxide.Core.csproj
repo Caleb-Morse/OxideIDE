@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Oxide.Syntax\Oxide.Syntax.csproj" />
+  </ItemGroup>
+</Project>

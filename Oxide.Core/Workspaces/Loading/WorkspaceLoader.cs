@@ -1,0 +1,233 @@
+using System.Collections.Immutable;
+using System.Security;
+using System.Text;
+using Oxide.Core.Workspaces.Configuration;
+using Oxide.Core.Workspaces.Documents;
+using Oxide.Core.Workspaces.Snapshots;
+using Oxide.Syntax.Diagnostics;
+using Oxide.Syntax.Parsing;
+using Oxide.Syntax.Text;
+using Oxide.Core.Semantics.Building;
+
+namespace Oxide.Core.Workspaces.Loading;
+
+internal sealed class WorkspaceLoader
+{
+    private static readonly ImmutableArray<DiscoveryRule> DiscoveryRules =
+    [
+        new("history/states", "*.txt"),
+        new("common/country_tags", "*.txt"),
+    ];
+
+    public Task<WorkspaceSnapshot> LoadAsync(
+        long version,
+        WorkspaceConfiguration configuration,
+        IProgress<WorkspaceLoadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        return Task.Run(
+            () => LoadCore(version, configuration, progress, cancellationToken),
+            cancellationToken);
+    }
+
+    private static WorkspaceSnapshot LoadCore(
+        long version,
+        WorkspaceConfiguration configuration,
+        IProgress<WorkspaceLoadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var diagnostics = ImmutableArray.CreateBuilder<WorkspaceDiagnostic>();
+        var layers = CreateLayers(configuration);
+        progress?.Report(new WorkspaceLoadProgress(WorkspaceLoadStage.Discovering, 0, 0));
+
+        var candidates = DiscoverFiles(layers, diagnostics, cancellationToken);
+        var documents = ImmutableArray.CreateBuilder<SourceDocument>(candidates.Length);
+
+        for (var index = 0; index < candidates.Length; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var candidate = candidates[index];
+            progress?.Report(new WorkspaceLoadProgress(
+                WorkspaceLoadStage.LoadingDocuments,
+                index,
+                candidates.Length,
+                candidate.PhysicalPath));
+            documents.Add(LoadDocument(candidate));
+        }
+
+        var classifiedDocuments = ClassifyContributions(documents.ToImmutable());
+        foreach (var document in classifiedDocuments)
+        {
+            diagnostics.AddRange(document.Diagnostics);
+        }
+
+        progress?.Report(new WorkspaceLoadProgress(
+            WorkspaceLoadStage.LoadingDocuments,
+            candidates.Length,
+            candidates.Length));
+
+        var semantics = SemanticBuilder.Build(classifiedDocuments);
+        return new WorkspaceSnapshot(
+            version,
+            configuration,
+            layers,
+            classifiedDocuments,
+            diagnostics.ToImmutable(),
+            semantics);
+    }
+
+    private static ImmutableArray<ContentLayer> CreateLayers(WorkspaceConfiguration configuration)
+    {
+        var layers = ImmutableArray.CreateBuilder<ContentLayer>();
+        layers.Add(ContentLayer.BaseGame(configuration.GameRoot));
+        if (configuration.ActiveModRoot is not null)
+        {
+            layers.Add(ContentLayer.ActiveMod(configuration.ActiveModRoot));
+        }
+
+        return layers.ToImmutable();
+    }
+
+    private static ImmutableArray<DocumentCandidate> DiscoverFiles(
+        ImmutableArray<ContentLayer> layers,
+        ImmutableArray<WorkspaceDiagnostic>.Builder diagnostics,
+        CancellationToken cancellationToken)
+    {
+        var candidates = ImmutableArray.CreateBuilder<DocumentCandidate>();
+        foreach (var layer in layers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Directory.Exists(layer.RootPath))
+            {
+                diagnostics.Add(new WorkspaceDiagnostic(
+                    "OXIDE3001",
+                    DiagnosticSeverity.Error,
+                    $"The {DescribeLayer(layer)} root does not exist.",
+                    layer.RootPath));
+                continue;
+            }
+
+            foreach (var rule in DiscoveryRules)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var directory = Path.Combine(layer.RootPath, rule.VirtualDirectory.Replace('/', Path.DirectorySeparatorChar));
+                if (!Directory.Exists(directory))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    foreach (var physicalPath in Directory.EnumerateFiles(directory, rule.Pattern, SearchOption.TopDirectoryOnly))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var relativePath = Path.GetRelativePath(layer.RootPath, physicalPath);
+                        candidates.Add(new DocumentCandidate(
+                            layer,
+                            Path.GetFullPath(physicalPath),
+                            new VirtualPath(relativePath)));
+                    }
+                }
+                catch (Exception exception) when (IsFileSystemException(exception))
+                {
+                    diagnostics.Add(new WorkspaceDiagnostic(
+                        "OXIDE3002",
+                        DiagnosticSeverity.Error,
+                        $"Could not discover files in '{directory}': {exception.Message}",
+                        directory));
+                }
+            }
+        }
+
+        return candidates
+            .OrderBy(candidate => candidate.Layer.Position)
+            .ThenBy(candidate => candidate.VirtualPath)
+            .ThenBy(candidate => candidate.PhysicalPath, StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    private static SourceDocument LoadDocument(DocumentCandidate candidate)
+    {
+        var documentId = DocumentId.Create(candidate.Layer.Id, candidate.VirtualPath);
+        try
+        {
+            var source = SourceText.Load(candidate.PhysicalPath);
+            var syntaxTree = ClausewitzParser.Parse(source);
+            var diagnostics = syntaxTree.Diagnostics
+                .Select(diagnostic => new WorkspaceDiagnostic(
+                    diagnostic.Code,
+                    diagnostic.Severity,
+                    diagnostic.Message,
+                    candidate.PhysicalPath,
+                    documentId,
+                    diagnostic.Span))
+                .ToImmutableArray();
+
+            return new SourceDocument(
+                documentId,
+                candidate.Layer,
+                candidate.PhysicalPath,
+                candidate.VirtualPath,
+                DocumentLoadStatus.Loaded,
+                DocumentContributionStatus.SoleCandidate,
+                source,
+                syntaxTree,
+                diagnostics);
+        }
+        catch (Exception exception) when (IsFileSystemException(exception) || exception is DecoderFallbackException)
+        {
+            var diagnostic = new WorkspaceDiagnostic(
+                "OXIDE3003",
+                DiagnosticSeverity.Error,
+                $"Could not load '{candidate.PhysicalPath}': {exception.Message}",
+                candidate.PhysicalPath,
+                documentId);
+
+            return new SourceDocument(
+                documentId,
+                candidate.Layer,
+                candidate.PhysicalPath,
+                candidate.VirtualPath,
+                DocumentLoadStatus.Failed,
+                DocumentContributionStatus.SoleCandidate,
+                null,
+                null,
+                [diagnostic]);
+        }
+    }
+
+    private static ImmutableArray<SourceDocument> ClassifyContributions(
+        ImmutableArray<SourceDocument> documents)
+    {
+        var collisions = documents
+            .GroupBy(document => document.VirtualPath)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet();
+
+        return documents
+            .Select(document => collisions.Contains(document.VirtualPath)
+                ? document with { ContributionStatus = DocumentContributionStatus.UnknownPrecedence }
+                : document)
+            .ToImmutableArray();
+    }
+
+    private static string DescribeLayer(ContentLayer layer) => layer.Kind switch
+    {
+        ContentLayerKind.BaseGame => "base-game",
+        ContentLayerKind.ActiveMod => "active-mod",
+        _ => "content-layer",
+    };
+
+    private static bool IsFileSystemException(Exception exception) => exception is
+        IOException or
+        UnauthorizedAccessException or
+        SecurityException;
+
+    private sealed record DiscoveryRule(string VirtualDirectory, string Pattern);
+
+    private sealed record DocumentCandidate(
+        ContentLayer Layer,
+        string PhysicalPath,
+        VirtualPath VirtualPath);
+}

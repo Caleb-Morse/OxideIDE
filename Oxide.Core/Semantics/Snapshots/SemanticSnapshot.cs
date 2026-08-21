@@ -1,0 +1,42 @@
+using System.Collections.Immutable;
+using Oxide.Core.Semantics.Declarations;
+using Oxide.Core.Semantics.Diagnostics;
+using Oxide.Core.Semantics.Identity;
+using Oxide.Core.Semantics.Model;
+
+namespace Oxide.Core.Semantics.Snapshots;
+
+public sealed class SemanticSnapshot
+{
+    internal SemanticSnapshot(
+        ImmutableArray<StateDeclaration> stateDeclarations,
+        ImmutableArray<CountryTagDeclaration> countryDeclarations,
+        ImmutableDictionary<int, StateEntity> states,
+        ImmutableDictionary<string, CountryEntity> countries,
+        ImmutableArray<SemanticDiagnostic> diagnostics)
+    {
+        StateDeclarations = stateDeclarations;
+        CountryDeclarations = countryDeclarations;
+        States = states;
+        Countries = countries;
+        Diagnostics = diagnostics;
+        Entities = states.Values.Cast<ISemanticEntity>()
+            .Concat(countries.Values)
+            .ToImmutableDictionary(entity => entity.Id);
+    }
+
+    public ImmutableArray<StateDeclaration> StateDeclarations { get; }
+
+    public ImmutableArray<CountryTagDeclaration> CountryDeclarations { get; }
+
+    public ImmutableDictionary<int, StateEntity> States { get; }
+
+    public ImmutableDictionary<string, CountryEntity> Countries { get; }
+
+    public ImmutableDictionary<EntityId, ISemanticEntity> Entities { get; }
+
+    public ImmutableArray<SemanticDiagnostic> Diagnostics { get; }
+
+    public static SemanticSnapshot Empty { get; } = new([], [], ImmutableDictionary<int, StateEntity>.Empty,
+        ImmutableDictionary<string, CountryEntity>.Empty, []);
+}

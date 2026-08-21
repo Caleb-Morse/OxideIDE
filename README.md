@@ -18,19 +18,35 @@ The goal of Oxide is to streamline and enhance the modding experience by making 
 
 ## 🚧 Project Status
 
-This project is in early development. The current focus is on:
-- Setting up core architecture in .NET
-- Implementing parsers for key HoI4 mod files
-- Building a working UI shell with Avalonia
+This project is in early development. The first read-only vertical slice is
+working: Oxide can open a game installation and optional active mod, build an
+immutable semantic workspace, browse and search states, inspect provenance, and
+show workspace and semantic problems.
 
 ---
 
 ## 🛠 Built With
 
-- [.NET 8](https://dotnet.microsoft.com/)  
-- [Avalonia UI](https://avaloniaui.net/)  
-- [C#]  
+- [.NET 9](https://dotnet.microsoft.com/)
+- [Avalonia UI](https://avaloniaui.net/)
+- C#
 - [GitHub Projects](https://github.com/features/project-management/) for planning and issue tracking
+
+---
+
+## Getting started
+
+The repository pins the .NET 9 SDK in `global.json`. From this directory, run:
+
+```sh
+dotnet restore Oxide.sln
+dotnet build Oxide.sln --no-restore
+dotnet test Oxide.sln --no-build
+dotnet run --project Oxide.App/Oxide.App.csproj
+```
+
+The first three commands form the local build-and-test workflow. The final
+command launches the desktop application.
 
 ---
 
@@ -44,9 +60,17 @@ This project is in early development. The current focus is on:
 
 ---
 
-## 📂 Folder Structure
+## 📂 Solution structure
 
-_To be expanded as development progresses._
+- `Oxide.Syntax`: source text, tokens, lossless syntax trees, and parsing.
+- `Oxide.Core`: workspace, semantic, diagnostic, and application services.
+- `Oxide.App`: Avalonia composition and presentation.
+- `Oxide.Tests`: unit, integration, and architecture tests.
+- `docs/architecture`: product and architecture decisions.
+
+Dependencies point inward: `Oxide.App` depends on `Oxide.Core`, and
+`Oxide.Core` depends on `Oxide.Syntax`. Neither core project may depend on
+Avalonia.
 
 ---
 

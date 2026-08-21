@@ -67,6 +67,10 @@ but the semantic layer must not depend on Avalonia.
 7. [Verification and open questions](07-verification-and-open-questions.md)
 8. [Domain model](08-domain-model.md)
 9. [User experience model](09-user-experience-model.md)
+10. [Lossless syntax core](10-syntax-core.md)
+11. [Workspace core](11-workspace-core.md)
+12. [First semantic core](12-semantic-core.md)
+13. [First application slice](13-first-application-slice.md)
 
 ## Non-goals for the first vertical slice
 

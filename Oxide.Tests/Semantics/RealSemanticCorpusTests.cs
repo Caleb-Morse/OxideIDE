@@ -1,0 +1,28 @@
+using Oxide.Core.Semantics.Model;
+using Oxide.Core.Workspaces;
+using Oxide.Core.Workspaces.Configuration;
+
+namespace Oxide.Tests.Semantics;
+
+public sealed class RealSemanticCorpusTests
+{
+    [Fact]
+    [Trait("Category", "Corpus")]
+    public async Task Configured_hoi4_installation_builds_state_and_country_indexes()
+    {
+        var root = Environment.GetEnvironmentVariable("OXIDE_HOI4_CORPUS_ROOT");
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return;
+        }
+
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(root));
+
+        Assert.Equal(1_081, snapshot.Semantics.StateDeclarations.Length);
+        Assert.Equal(1_081, snapshot.Semantics.States.Count);
+        Assert.True(snapshot.Semantics.Countries.Count > 200);
+        Assert.All(snapshot.Semantics.States.Values, state =>
+            Assert.Equal(SemanticEntityStatus.Effective, state.Status));
+    }
+}
