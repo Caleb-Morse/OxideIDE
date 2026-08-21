@@ -75,6 +75,7 @@ but the semantic layer must not depend on Avalonia.
 15. [Parser, workspace, and semantic robustness](15-parser-workspace-semantic-robustness.md)
 16. [Performance and responsiveness baseline](16-performance-and-responsiveness.md)
 17. [Application resilience and material themes](17-application-resilience-and-material-themes.md)
+18. [Release packaging and clean-environment verification](18-release-packaging.md)
 
 ## Non-goals for the first vertical slice
 
