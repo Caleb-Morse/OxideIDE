@@ -7,7 +7,7 @@ namespace Oxide.Tests.Workspaces;
 public sealed class RealWorkspaceSmokeTests
 {
     [Fact]
-    [Trait("Category", "Corpus")]
+    [Trait("Category", "ExternalCorpus")]
     public async Task Configured_hoi4_installation_builds_an_inspectable_workspace()
     {
         var root = Environment.GetEnvironmentVariable("OXIDE_HOI4_CORPUS_ROOT");

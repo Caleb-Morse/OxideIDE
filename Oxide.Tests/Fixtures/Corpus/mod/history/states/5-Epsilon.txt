@@ -1,0 +1,6 @@
+state = {
+    id = 5
+    name = "SYNTHETIC_STATE_5"
+    history = { owner = AAA }
+    provinces = { 50 }
+}

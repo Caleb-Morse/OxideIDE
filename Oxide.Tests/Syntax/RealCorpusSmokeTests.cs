@@ -6,7 +6,7 @@ namespace Oxide.Tests.Syntax;
 public sealed class RealCorpusSmokeTests
 {
     [Fact]
-    [Trait("Category", "Corpus")]
+    [Trait("Category", "ExternalCorpus")]
     public void Configured_hoi4_state_and_country_tag_files_round_trip_exactly()
     {
         var root = Environment.GetEnvironmentVariable("OXIDE_HOI4_CORPUS_ROOT");

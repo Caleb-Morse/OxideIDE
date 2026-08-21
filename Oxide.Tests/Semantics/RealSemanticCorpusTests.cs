@@ -7,7 +7,7 @@ namespace Oxide.Tests.Semantics;
 public sealed class RealSemanticCorpusTests
 {
     [Fact]
-    [Trait("Category", "Corpus")]
+    [Trait("Category", "ExternalCorpus")]
     public async Task Configured_hoi4_installation_builds_state_and_country_indexes()
     {
         var root = Environment.GetEnvironmentVariable("OXIDE_HOI4_CORPUS_ROOT");

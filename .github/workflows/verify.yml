@@ -1,0 +1,32 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Run canonical verification
+        run: bash scripts/verify.sh
+
+      - name: Upload synthetic corpus summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-corpus-summary
+          path: artifacts/synthetic-corpus-summary.json
+          if-no-files-found: error

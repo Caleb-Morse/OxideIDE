@@ -55,3 +55,17 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Local Hearts of Iron IV installations and extracted game content
+/history/
+/common/
+/map/
+/localisation/
+/events/
+/gfx/
+/sound/
+/music/
+/interface/
+
+# Generated verification reports
+/corpus-results/

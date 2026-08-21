@@ -18,4 +18,10 @@
     <ProjectReference Include="..\Oxide.Core\Oxide.Core.csproj" />
     <ProjectReference Include="..\Oxide.Syntax\Oxide.Syntax.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Fixtures\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
