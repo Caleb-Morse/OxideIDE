@@ -53,8 +53,8 @@ completion. Discovery and parsing execute on a worker thread.
 
 ## Precedence and uncertainty
 
-This phase does not claim a base/mod file-precedence rule. When several layers
-contain the same virtual path, every candidate is marked
+The workspace core does not claim a base/mod file-precedence rule. When several
+layers contain the same virtual path, every candidate is marked
 `UnknownPrecedence`. When only one candidate exists, it is marked
 `SoleCandidate`. Later versioned game-profile policies will determine effective
 visibility without removing the complete view.
@@ -72,6 +72,7 @@ physical path, and source span.
 
 ## Current limitations
 
-This phase uses explicit reload rather than file watching, supports only base
-game plus one active mod, and does not resolve DLC, dependency mods, launcher
-playsets, declarations, entities, or effective semantic values.
+The current implementation uses explicit reload rather than file watching,
+supports only base game plus one active mod, and does not resolve DLC,
+dependency mods, launcher playsets, declarations, entities, or effective
+semantic values.

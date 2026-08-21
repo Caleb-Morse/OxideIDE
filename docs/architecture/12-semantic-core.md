@@ -1,4 +1,4 @@
-# First semantic core
+# Semantic core
 
 ## Scope
 

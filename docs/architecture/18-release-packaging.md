@@ -2,7 +2,7 @@
 
 ## Primary distribution model
 
-The first Oxide development release uses self-contained, platform-specific
+Oxide development releases use self-contained, platform-specific
 packages. A self-contained package carries the matching .NET runtime, making it
 larger than a framework-dependent publish but avoiding an installation and
 version prerequisite for testers. This is the credible default for an early
@@ -45,4 +45,4 @@ Self-contained does not mean trusted or installed. These development packages
 are not yet Windows code-signed, Apple Developer ID signed, or notarized.
 SmartScreen or Gatekeeper warnings are expected and must be stated in release
 notes. Signing, notarization, installers, update channels, and stable versioning
-belong to a later release-engineering phase.
+are not yet implemented.

@@ -2,7 +2,7 @@
 
 ## Measurement before optimization
 
-Phase 5.3 records where workspace time is spent without introducing
+The workspace records where load time is spent without introducing
 incremental parsing, caches, file watchers, or speculative optimization. A
 `WorkspaceSnapshot` exposes immutable `WorkspaceLoadMetrics` for:
 
