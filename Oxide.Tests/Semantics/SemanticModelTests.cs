@@ -155,4 +155,33 @@ public sealed class SemanticModelTests
         Assert.Null(state.Name);
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "OXIDE4005");
     }
+
+    [Fact]
+    public async Task Malformed_semantic_values_remain_inspectable_without_partial_entities()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("common/country_tags/00_countries.txt", "TOOLONG=\"countries/Bad.txt\" USA>=\"countries/USA.txt\" GER=\"countries/Germany.txt\"");
+        fixture.WriteGameFile("history/states/Broken.txt", """
+            state = {
+                id = 2147483648
+                manpower = many
+                resources = { oil = nope steel = { nested = value } }
+                provinces = { 1 nope { nested = value } }
+                history = { owner = USA add_core_of = TOOLONG }
+            }
+            state = missing_block
+            state >= { id = 2 }
+            """);
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+
+        Assert.Empty(snapshot.Semantics.States);
+        Assert.Single(snapshot.Semantics.StateDeclarations);
+        Assert.Single(snapshot.Semantics.Countries);
+        Assert.True(snapshot.Semantics.Countries.ContainsKey("GER"));
+        Assert.Contains(snapshot.Semantics.Diagnostics, diagnostic => diagnostic.Code == "OXIDE4001");
+        Assert.Contains(snapshot.Semantics.Diagnostics, diagnostic => diagnostic.Code == "OXIDE4002");
+        Assert.Contains(snapshot.Semantics.Diagnostics, diagnostic => diagnostic.Code == "OXIDE4004");
+    }
 }

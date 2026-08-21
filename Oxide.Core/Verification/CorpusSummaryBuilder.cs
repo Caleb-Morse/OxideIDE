@@ -45,6 +45,7 @@ public static class CorpusSummaryBuilder
                 references.Count(reference => reference is MissingCountry),
                 references.Count(reference => reference is AmbiguousCountry),
                 references.Count(reference => reference is InvalidCountry)),
+            snapshot.LoadMetrics,
             totalLoadDuration.TotalMilliseconds);
     }
 

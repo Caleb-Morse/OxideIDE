@@ -14,4 +14,11 @@ public enum SyntaxKind
     OpenBraceToken,
     CloseBraceToken,
     EqualsToken,
+    DoubleEqualsToken,
+    NotEqualsToken,
+    LessThanToken,
+    LessThanOrEqualsToken,
+    GreaterThanToken,
+    GreaterThanOrEqualsToken,
+    QuestionEqualsToken,
 }

@@ -1,8 +1,40 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Oxide.App.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="OxideBackground">#0D1013</Color>
+                    <Color x:Key="OxideSurface">#171A1E</Color>
+                    <Color x:Key="OxideSurfaceRaised">#24282D</Color>
+                    <Color x:Key="OxideBorder">#3A3F45</Color>
+                    <Color x:Key="OxideText">#F3EEE8</Color>
+                    <Color x:Key="OxideMuted">#ABA198</Color>
+                    <Color x:Key="OxideAccent">#C85A24</Color>
+                    <Color x:Key="OxideAccentSoft">#ED8A4B</Color>
+                    <Color x:Key="OxideOnAccent">#FFF8F1</Color>
+                    <Color x:Key="OxideErrorSurface">#38241C</Color>
+                    <Color x:Key="OxideErrorText">#FFC39C</Color>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="OxideBackground">#F4F1E8</Color>
+                    <Color x:Key="OxideSurface">#FFFCF3</Color>
+                    <Color x:Key="OxideSurfaceRaised">#E4E5D8</Color>
+                    <Color x:Key="OxideBorder">#A9AEA2</Color>
+                    <Color x:Key="OxideText">#20302D</Color>
+                    <Color x:Key="OxideMuted">#60706B</Color>
+                    <Color x:Key="OxideAccent">#268C83</Color>
+                    <Color x:Key="OxideAccentSoft">#397E75</Color>
+                    <Color x:Key="OxideOnAccent">#F7FFFC</Color>
+                    <Color x:Key="OxideErrorSurface">#F5DDD3</Color>
+                    <Color x:Key="OxideErrorText">#873A27</Color>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />

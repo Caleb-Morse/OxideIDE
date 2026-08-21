@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Security;
 using System.Text;
 using Oxide.Core.Workspaces.Configuration;
@@ -36,13 +37,23 @@ internal sealed class WorkspaceLoader
         IProgress<WorkspaceLoadProgress>? progress,
         CancellationToken cancellationToken)
     {
+        var totalStart = Stopwatch.GetTimestamp();
         var diagnostics = ImmutableArray.CreateBuilder<WorkspaceDiagnostic>();
         var layers = CreateLayers(configuration);
         progress?.Report(new WorkspaceLoadProgress(WorkspaceLoadStage.Discovering, 0, 0));
 
+        var discoveryStart = Stopwatch.GetTimestamp();
         var candidates = DiscoverFiles(layers, diagnostics, cancellationToken);
+        var discoveryElapsed = Stopwatch.GetElapsedTime(discoveryStart);
+        progress?.Report(new WorkspaceLoadProgress(
+            WorkspaceLoadStage.Discovering,
+            candidates.Length,
+            candidates.Length,
+            ElapsedMilliseconds: discoveryElapsed.TotalMilliseconds,
+            DiagnosticCount: diagnostics.Count));
         var documents = ImmutableArray.CreateBuilder<SourceDocument>(candidates.Length);
 
+        var documentLoadingStart = Stopwatch.GetTimestamp();
         for (var index = 0; index < candidates.Length; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -61,19 +72,46 @@ internal sealed class WorkspaceLoader
             diagnostics.AddRange(document.Diagnostics);
         }
 
+        var documentLoadingElapsed = Stopwatch.GetElapsedTime(documentLoadingStart);
         progress?.Report(new WorkspaceLoadProgress(
             WorkspaceLoadStage.LoadingDocuments,
             candidates.Length,
-            candidates.Length));
+            candidates.Length,
+            ElapsedMilliseconds: documentLoadingElapsed.TotalMilliseconds,
+            DiagnosticCount: diagnostics.Count));
 
+        progress?.Report(new WorkspaceLoadProgress(
+            WorkspaceLoadStage.BuildingSemantics,
+            candidates.Length,
+            candidates.Length));
+        var semanticStart = Stopwatch.GetTimestamp();
         var semantics = SemanticBuilder.Build(classifiedDocuments);
+        var semanticElapsed = Stopwatch.GetElapsedTime(semanticStart);
+        var totalElapsed = Stopwatch.GetElapsedTime(totalStart);
+        var metrics = new WorkspaceLoadMetrics(
+            classifiedDocuments.Length,
+            classifiedDocuments.Count(document => document.IsLoaded),
+            classifiedDocuments.Count(document => !document.IsLoaded),
+            diagnostics.Count,
+            semantics.Diagnostics.Length,
+            discoveryElapsed.TotalMilliseconds,
+            documentLoadingElapsed.TotalMilliseconds,
+            semanticElapsed.TotalMilliseconds,
+            totalElapsed.TotalMilliseconds);
+        progress?.Report(new WorkspaceLoadProgress(
+            WorkspaceLoadStage.BuildingSemantics,
+            candidates.Length,
+            candidates.Length,
+            ElapsedMilliseconds: semanticElapsed.TotalMilliseconds,
+            DiagnosticCount: semantics.Diagnostics.Length));
         return new WorkspaceSnapshot(
             version,
             configuration,
             layers,
             classifiedDocuments,
             diagnostics.ToImmutable(),
-            semantics);
+            semantics,
+            metrics);
     }
 
     private static ImmutableArray<ContentLayer> CreateLayers(WorkspaceConfiguration configuration)

@@ -14,7 +14,8 @@ public sealed class WorkspaceSnapshot
         ImmutableArray<ContentLayer> layers,
         ImmutableArray<SourceDocument> documents,
         ImmutableArray<WorkspaceDiagnostic> diagnostics,
-        SemanticSnapshot semantics)
+        SemanticSnapshot semantics,
+        WorkspaceLoadMetrics loadMetrics)
     {
         Version = version;
         Configuration = configuration;
@@ -22,6 +23,7 @@ public sealed class WorkspaceSnapshot
         Documents = documents;
         Diagnostics = diagnostics;
         Semantics = semantics;
+        LoadMetrics = loadMetrics;
         LoadedAt = DateTimeOffset.UtcNow;
         DocumentsById = documents.ToImmutableDictionary(document => document.Id);
         DocumentsByVirtualPath = documents
@@ -48,4 +50,6 @@ public sealed class WorkspaceSnapshot
     public ImmutableArray<WorkspaceDiagnostic> Diagnostics { get; }
 
     public SemanticSnapshot Semantics { get; }
+
+    public WorkspaceLoadMetrics LoadMetrics { get; }
 }

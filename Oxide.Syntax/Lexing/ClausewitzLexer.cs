@@ -26,7 +26,12 @@ public sealed class ClausewitzLexer
     {
         while (position < source.Length)
         {
+            var start = position;
             LexToken();
+            if (position == start)
+            {
+                RecoverWithoutProgress();
+            }
         }
 
         tokens.Add(new SyntaxToken(
@@ -40,17 +45,22 @@ public sealed class ClausewitzLexer
     private void LexToken()
     {
         var character = source[position];
+        if (char.IsWhiteSpace(character))
+        {
+            if (character is '\r' or '\n')
+            {
+                LexNewline();
+            }
+            else
+            {
+                LexWhitespace();
+            }
+
+            return;
+        }
+
         switch (character)
         {
-            case ' ':
-            case '\t':
-            case '\f':
-                LexWhitespace();
-                return;
-            case '\r':
-            case '\n':
-                LexNewline();
-                return;
             case '#':
                 LexComment();
                 return;
@@ -64,7 +74,19 @@ public sealed class ClausewitzLexer
                 AddSingleCharacterToken(SyntaxKind.CloseBraceToken);
                 return;
             case '=':
-                AddSingleCharacterToken(SyntaxKind.EqualsToken);
+                LexOperator(SyntaxKind.EqualsToken, '=', SyntaxKind.DoubleEqualsToken);
+                return;
+            case '!':
+                LexOperatorOrAtom('=', SyntaxKind.NotEqualsToken);
+                return;
+            case '<':
+                LexOperator(SyntaxKind.LessThanToken, '=', SyntaxKind.LessThanOrEqualsToken);
+                return;
+            case '>':
+                LexOperator(SyntaxKind.GreaterThanToken, '=', SyntaxKind.GreaterThanOrEqualsToken);
+                return;
+            case '?':
+                LexOperatorOrAtom('=', SyntaxKind.QuestionEqualsToken);
                 return;
             default:
                 if (char.IsControl(character))
@@ -83,7 +105,9 @@ public sealed class ClausewitzLexer
     private void LexWhitespace()
     {
         var start = position;
-        while (position < source.Length && source[position] is ' ' or '\t' or '\f')
+        while (position < source.Length
+            && source[position] is not '\r' and not '\n'
+            && char.IsWhiteSpace(source[position]))
         {
             position++;
         }
@@ -182,10 +206,47 @@ public sealed class ClausewitzLexer
             new TextSpan(start, 1)));
     }
 
+    private void RecoverWithoutProgress()
+    {
+        var start = position++;
+        AddToken(SyntaxKind.BadToken, start, position);
+        diagnostics.Add(new SyntaxDiagnostic(
+            "OXIDE1003",
+            DiagnosticSeverity.Error,
+            "Lexer recovery consumed a character that was not classified.",
+            new TextSpan(start, 1)));
+    }
+
     private void AddSingleCharacterToken(SyntaxKind kind)
     {
         var start = position++;
         AddToken(kind, start, position);
+    }
+
+    private void LexOperator(SyntaxKind singleKind, char continuation, SyntaxKind combinedKind)
+    {
+        var start = position++;
+        if (position < source.Length && source[position] == continuation)
+        {
+            position++;
+            AddToken(combinedKind, start, position);
+            return;
+        }
+
+        AddToken(singleKind, start, position);
+    }
+
+    private void LexOperatorOrAtom(char continuation, SyntaxKind combinedKind)
+    {
+        if (position + 1 < source.Length && source[position + 1] == continuation)
+        {
+            var start = position;
+            position += 2;
+            AddToken(combinedKind, start, position);
+            return;
+        }
+
+        LexAtom();
     }
 
     private void AddToken(SyntaxKind kind, int start, int end)
@@ -195,7 +256,7 @@ public sealed class ClausewitzLexer
     }
 
     private static bool IsAtomBoundary(char character) =>
-        char.IsWhiteSpace(character) || char.IsControl(character) || character is '#' or '"' or '{' or '}' or '=';
+        char.IsWhiteSpace(character) || char.IsControl(character) || character is '#' or '"' or '{' or '}' or '=' or '<' or '>';
 
     private static bool IsDate(ReadOnlySpan<char> text)
     {

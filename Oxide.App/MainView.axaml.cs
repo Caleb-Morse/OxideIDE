@@ -1,6 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using Oxide.App.Settings;
 using Oxide.App.ViewModels;
 
 namespace Oxide.App;
@@ -17,7 +20,13 @@ public partial class MainView : Window
         ViewModel = viewModel;
         DataContext = viewModel;
         Title = viewModel.ApplicationName;
-        Closing += (_, _) => ViewModel.Dispose();
+        ViewModel.ThemeChanged += ApplyTheme;
+        Opened += async (_, _) => await ViewModel.InitializeAsync();
+        Closing += (_, _) =>
+        {
+            ViewModel.ThemeChanged -= ApplyTheme;
+            ViewModel.Dispose();
+        };
     }
 
     public MainWindowViewModel ViewModel { get; }
@@ -39,14 +48,34 @@ public partial class MainView : Window
     private async void Reload_Click(object? sender, RoutedEventArgs e) => await ViewModel.ReloadAsync();
     private void CancelLoading_Click(object? sender, RoutedEventArgs e) => ViewModel.CancelLoading();
     private void ChangeWorkspace_Click(object? sender, RoutedEventArgs e) => ViewModel.ShowWelcome();
+    private async void ToggleTheme_Click(object? sender, RoutedEventArgs e) => await ViewModel.ToggleThemeAsync();
+    private void DismissError_Click(object? sender, RoutedEventArgs e) => ViewModel.DismissError();
+
+    private static void ApplyTheme(OxideTheme theme)
+    {
+        if (Application.Current is not null)
+        {
+            Application.Current.RequestedThemeVariant = theme is OxideTheme.IronRustDark
+                ? ThemeVariant.Dark
+                : ThemeVariant.Light;
+        }
+    }
 
     private async Task<string?> PickFolderAsync(string title)
     {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        try
         {
-            Title = title,
-            AllowMultiple = false,
-        });
-        return folders.Count == 0 ? null : folders[0].TryGetLocalPath();
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = title,
+                AllowMultiple = false,
+            });
+            return folders.Count == 0 ? null : folders[0].TryGetLocalPath();
+        }
+        catch (Exception exception)
+        {
+            ViewModel.ReportError($"Oxide could not open the folder picker: {exception.Message}");
+            return null;
+        }
     }
 }
