@@ -65,4 +65,23 @@ public sealed class ClausewitzLexerTests
         Assert.Equal(text, string.Concat(result.Tokens.Select(token => token.Text)));
         Assert.Equal("OXIDE1002", Assert.Single(result.Diagnostics).Code);
     }
+
+    [Theory]
+    [InlineData("\u00A0")]
+    [InlineData("\u1680")]
+    [InlineData("\u2003")]
+    [InlineData("\u2028")]
+    [InlineData("\u2029")]
+    [InlineData("\u3000")]
+    public void Lexer_consumes_unicode_whitespace_without_losing_text(string whitespace)
+    {
+        var text = $"left{whitespace}right";
+
+        var result = ClausewitzLexer.Lex(SourceText.From(text));
+
+        Assert.Equal(text, string.Concat(result.Tokens.Select(token => token.Text)));
+        Assert.Equal(SyntaxKind.WhitespaceToken, result.Tokens[1].Kind);
+        Assert.Equal(whitespace, result.Tokens[1].Text);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == "OXIDE1003");
+    }
 }

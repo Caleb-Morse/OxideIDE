@@ -22,6 +22,11 @@ internal static class CountryTagDeclarationExtractor
         var diagnostics = ImmutableArray.CreateBuilder<SemanticDiagnostic>();
         foreach (var property in document.SyntaxTree.Root.Elements.OfType<PropertySyntax>())
         {
+            if (property.OperatorToken.Kind is not Oxide.Syntax.Lexing.SyntaxKind.EqualsToken)
+            {
+                continue;
+            }
+
             var definition = SyntaxExtraction.ReadString(document, property);
             if (definition is null || !LooksLikeCountryDefinition(definition.Value))
             {

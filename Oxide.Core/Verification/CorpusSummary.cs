@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Oxide.Core.Workspaces.Loading;
 
 namespace Oxide.Core.Verification;
 
@@ -18,4 +19,5 @@ public sealed record CorpusSummary(
     int SemanticDiagnosticCount,
     ImmutableSortedDictionary<string, int> SemanticDiagnosticsByCode,
     ReferenceResolutionCounts CountryReferences,
+    WorkspaceLoadMetrics WorkspacePerformance,
     double TotalLoadMilliseconds);

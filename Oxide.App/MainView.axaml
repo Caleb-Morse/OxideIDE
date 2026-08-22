@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="Oxide.App.MainView" x:DataType="vm:MainWindowViewModel"
         Width="1280" Height="800" MinWidth="980" MinHeight="640"
-        Background="#0B1120" Foreground="#E5E7EB">
+        Background="{DynamicResource OxideBackground}" Foreground="{DynamicResource OxideText}">
 
     <Window.Styles>
         <Style Selector="Button">
@@ -15,28 +15,28 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
         <Style Selector="Button.primary">
-            <Setter Property="Background" Value="#EA580C" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource OxideAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource OxideOnAccent}" />
         </Style>
         <Style Selector="Button.quiet">
-            <Setter Property="Background" Value="#1E293B" />
-            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="Background" Value="{DynamicResource OxideSurfaceRaised}" />
+            <Setter Property="Foreground" Value="{DynamicResource OxideText}" />
         </Style>
         <Style Selector="TextBox">
-            <Setter Property="Background" Value="#111827" />
-            <Setter Property="BorderBrush" Value="#334155" />
-            <Setter Property="Foreground" Value="#F8FAFC" />
+            <Setter Property="Background" Value="{DynamicResource OxideSurface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource OxideBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource OxideText}" />
             <Setter Property="CornerRadius" Value="7" />
         </Style>
         <Style Selector="Border.card">
-            <Setter Property="Background" Value="#111827" />
-            <Setter Property="BorderBrush" Value="#253247" />
+            <Setter Property="Background" Value="{DynamicResource OxideSurface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource OxideBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="10" />
         </Style>
-        <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="#94A3B8" /></Style>
+        <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{DynamicResource OxideMuted}" /></Style>
         <Style Selector="TextBlock.label">
-            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="Foreground" Value="{DynamicResource OxideMuted}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
@@ -53,12 +53,12 @@
     </Window.Styles>
 
     <Grid RowDefinitions="60,*,34">
-        <Border Grid.Row="0" Background="#111827" BorderBrush="#253247" BorderThickness="0,0,0,1">
-            <Grid Margin="18,0" ColumnDefinitions="Auto,18,*,Auto,10,Auto">
+        <Border Grid.Row="0" Background="{DynamicResource OxideSurface}" BorderBrush="{DynamicResource OxideBorder}" BorderThickness="0,0,0,1">
+            <Grid Margin="18,0" ColumnDefinitions="Auto,18,*,Auto,10,Auto,10,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                    <Border Width="30" Height="30" CornerRadius="7" Background="#EA580C">
+                    <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource OxideAccent}">
                         <TextBlock Text="O" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   FontWeight="Bold" FontSize="18" Foreground="White" />
+                                   FontWeight="Bold" FontSize="18" Foreground="{DynamicResource OxideOnAccent}" />
                     </Border>
                     <TextBlock Text="Oxide" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
                 </StackPanel>
@@ -66,9 +66,10 @@
                     <TextBlock Text="{Binding WorkspaceName}" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding WorkspaceSummary}" Classes="muted" FontSize="11" />
                 </StackPanel>
-                <Button Grid.Column="3" Classes="quiet" Content="Change workspace"
+                <Button Grid.Column="3" Classes="quiet" Content="{Binding ThemeActionLabel}" Click="ToggleTheme_Click" />
+                <Button Grid.Column="5" Classes="quiet" Content="Change workspace"
                         IsVisible="{Binding IsWorkspaceVisible}" Click="ChangeWorkspace_Click" />
-                <Button Grid.Column="5" Classes="primary" Content="Reload"
+                <Button Grid.Column="7" Classes="primary" Content="Reload"
                         IsVisible="{Binding IsWorkspaceVisible}" Click="Reload_Click" />
             </Grid>
         </Border>
@@ -82,9 +83,6 @@
                             <TextBlock Classes="muted" TextWrapping="Wrap"
                                        Text="Choose your Hearts of Iron IV installation and, optionally, the mod you are actively developing. Oxide builds a read-only semantic view without changing either folder." />
                         </StackPanel>
-                        <Border Background="#172033" CornerRadius="8" Padding="14" IsVisible="{Binding HasError}">
-                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FDBA74" TextWrapping="Wrap" />
-                        </Border>
                         <StackPanel Spacing="7">
                             <TextBlock Classes="label" Text="HEARTS OF IRON IV INSTALLATION" />
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -135,7 +133,7 @@
                                         <DataTemplate x:DataType="vm:StateListItemViewModel">
                                             <Grid ColumnDefinitions="58,*" RowDefinitions="Auto,Auto">
                                                 <TextBlock Grid.Column="0" Grid.RowSpan="2" Text="{Binding Id}"
-                                                           Foreground="#FB923C" FontWeight="Bold" FontSize="15" />
+                                                           Foreground="{DynamicResource OxideAccentSoft}" FontWeight="Bold" FontSize="15" />
                                                 <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontWeight="SemiBold" />
                                                 <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal" Spacing="8">
                                                     <TextBlock Text="{Binding Owner}" Classes="muted" FontSize="11" />
@@ -157,7 +155,7 @@
                                         <DataTemplate x:DataType="vm:ProblemListItemViewModel">
                                             <StackPanel Spacing="3">
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="{Binding SeverityText}" Foreground="#FB923C" FontWeight="Bold" FontSize="11" />
+                                                    <TextBlock Text="{Binding SeverityText}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="Bold" FontSize="11" />
                                                     <TextBlock Text="{Binding Code}" Classes="muted" FontSize="11" />
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
@@ -179,16 +177,16 @@
                             <TextBlock Classes="muted" Text="Choose a state to inspect semantic values and provenance." />
                         </StackPanel>
                         <Grid IsVisible="{Binding HasSelectedState}" RowDefinitions="Auto,*">
-                            <Border Grid.Row="0" Padding="24,20" Background="#151E2E" CornerRadius="10,10,0,0">
+                            <Border Grid.Row="0" Padding="24,20" Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="10,10,0,0">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <StackPanel Grid.Column="0" Spacing="4">
                                         <TextBlock Text="{Binding SelectedState.DisplayName}" FontSize="26" FontWeight="Bold" />
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <TextBlock Text="{Binding SelectedState.Id, StringFormat=State {0}}" Foreground="#FB923C" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding SelectedState.Id, StringFormat=State {0}}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="SemiBold" />
                                             <TextBlock Text="{Binding SelectedState.LocalizationKey}" Classes="muted" />
                                         </StackPanel>
                                     </StackPanel>
-                                    <Border Grid.Column="1" Background="#263449" CornerRadius="12" Padding="10,5" VerticalAlignment="Center">
+                                    <Border Grid.Column="1" Background="{DynamicResource OxideSurface}" CornerRadius="12" Padding="10,5" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding SelectedState.Status}" FontWeight="SemiBold" />
                                     </Border>
                                 </Grid>
@@ -240,11 +238,20 @@
             </Grid>
         </Grid>
 
-        <Border Grid.Row="2" Background="#111827" BorderBrush="#253247" BorderThickness="0,1,0,0">
+        <Border Grid.Row="2" Background="{DynamicResource OxideSurface}" BorderBrush="{DynamicResource OxideBorder}" BorderThickness="0,1,0,0">
             <Grid Margin="14,0" ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusSummary}" VerticalAlignment="Center" FontSize="11" Classes="muted" />
                 <TextBlock Grid.Column="1" Text="Read-only semantic workspace" VerticalAlignment="Center" FontSize="11" Classes="muted" />
             </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Margin="20" Padding="14,10" HorizontalAlignment="Center" VerticalAlignment="Top"
+                Background="{DynamicResource OxideErrorSurface}" CornerRadius="8" IsVisible="{Binding HasError}" ZIndex="10">
+            <StackPanel Orientation="Horizontal" Spacing="14">
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource OxideErrorText}"
+                           TextWrapping="Wrap" MaxWidth="760" VerticalAlignment="Center" />
+                <Button Classes="quiet" Content="Dismiss" Click="DismissError_Click" />
+            </StackPanel>
         </Border>
     </Grid>
 </Window>

@@ -11,7 +11,8 @@ internal static class SyntaxExtraction
     public static IEnumerable<PropertySyntax> Properties(BlockValueSyntax block, string key) =>
         block.Elements
             .OfType<PropertySyntax>()
-            .Where(property => string.Equals(property.Key.Text, key, StringComparison.Ordinal));
+            .Where(property => property.OperatorToken.Kind is SyntaxKind.EqualsToken
+                && string.Equals(property.Key.Text, key, StringComparison.Ordinal));
 
     public static SourcedValue<string>? ReadString(SourceDocument document, PropertySyntax property)
     {

@@ -26,6 +26,8 @@ public sealed class WorkspaceServiceTests
         Assert.Equal("Fixture", snapshot.Configuration.DisplayName);
         Assert.Equal(2, snapshot.Layers.Length);
         Assert.Equal(3, snapshot.Documents.Length);
+        Assert.Equal(3, snapshot.LoadMetrics.DocumentCount);
+        Assert.Equal(3, snapshot.LoadMetrics.LoadedDocumentCount);
         Assert.Equal(2, snapshot.Documents.Count(document => document.Layer.Kind is ContentLayerKind.BaseGame));
         Assert.Single(snapshot.Documents, document => document.Layer.Kind is ContentLayerKind.ActiveMod);
         Assert.DoesNotContain(snapshot.Documents, document => document.VirtualPath.Value.StartsWith("events/", StringComparison.Ordinal));
@@ -134,6 +136,98 @@ public sealed class WorkspaceServiceTests
     }
 
     [Fact]
+    public async Task Failed_reload_leaves_the_previous_snapshot_published()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 }");
+        using var service = new WorkspaceService();
+        var original = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+        var progress = new InlineProgress<WorkspaceLoadProgress>(report =>
+        {
+            if (report.Stage is WorkspaceLoadStage.LoadingDocuments)
+            {
+                throw new ExpectedLoadFailureException();
+            }
+        });
+
+        await Assert.ThrowsAsync<ExpectedLoadFailureException>(() => service.ReloadAsync(progress));
+
+        Assert.Same(original, service.CurrentSnapshot);
+        Assert.Equal(original.Version, service.CurrentSnapshot!.Version);
+    }
+
+    [Fact]
+    public async Task File_removed_after_discovery_becomes_a_failed_document_diagnostic()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var removedPath = fixture.WriteGameFile("history/states/1-Vanishing.txt", "state={ id=1 }");
+        fixture.WriteGameFile("history/states/2-Stable.txt", "state={ id=2 }");
+        using var service = new WorkspaceService();
+        var removed = false;
+        var progress = new InlineProgress<WorkspaceLoadProgress>(report =>
+        {
+            if (!removed && report.Stage is WorkspaceLoadStage.LoadingDocuments)
+            {
+                File.Delete(removedPath);
+                removed = true;
+            }
+        });
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot), progress);
+
+        Assert.Equal(2, snapshot.Documents.Length);
+        Assert.Single(snapshot.Documents, document => document.LoadStatus is DocumentLoadStatus.Failed);
+        Assert.Single(snapshot.Documents, document => document.IsLoaded);
+        Assert.Contains(snapshot.Diagnostics, diagnostic => diagnostic.Code == "OXIDE3003");
+    }
+
+    [Fact]
+    public async Task Reload_reflects_added_changed_and_removed_files_atomically()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var firstPath = fixture.WriteGameFile("history/states/1-First.txt", "state={ id=1 name=OLD }");
+        using var service = new WorkspaceService();
+        var first = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+
+        File.WriteAllText(firstPath, "state={ id=1 name=NEW }");
+        fixture.WriteGameFile("history/states/2-Second.txt", "state={ id=2 }");
+        var second = await service.ReloadAsync();
+
+        File.Delete(firstPath);
+        var third = await service.ReloadAsync();
+
+        Assert.Equal("OLD", first.Semantics.States[1].Name?.Value);
+        Assert.Equal("NEW", second.Semantics.States[1].Name?.Value);
+        Assert.True(second.Semantics.States.ContainsKey(2));
+        Assert.False(third.Semantics.States.ContainsKey(1));
+        Assert.True(third.Semantics.States.ContainsKey(2));
+        Assert.Same(third, service.CurrentSnapshot);
+    }
+
+    [Fact]
+    public async Task Cancellation_during_reload_leaves_the_previous_snapshot_published()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 }");
+        fixture.WriteGameFile("history/states/2-Test.txt", "state={ id=2 }");
+        using var service = new WorkspaceService();
+        var original = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress<WorkspaceLoadProgress>(report =>
+        {
+            if (report.Stage is WorkspaceLoadStage.LoadingDocuments)
+            {
+                cancellation.Cancel();
+            }
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => service.ReloadAsync(progress, cancellation.Token));
+
+        Assert.Same(original, service.CurrentSnapshot);
+    }
+
+    [Fact]
     public async Task Load_reports_discovery_document_and_publication_stages()
     {
         using var fixture = new TemporaryWorkspace();
@@ -154,4 +248,6 @@ public sealed class WorkspaceServiceTests
     {
         public void Report(T value) => report(value);
     }
+
+    private sealed class ExpectedLoadFailureException : Exception;
 }

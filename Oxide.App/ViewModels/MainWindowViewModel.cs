@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Oxide.App.Settings;
 using Oxide.Core;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
@@ -12,6 +13,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
     private readonly IWorkspaceService workspaceService;
     private readonly bool ownsWorkspaceService;
+    private readonly IApplicationSettingsStore? settingsStore;
     private readonly List<StateListItemViewModel> allStates = [];
     private CancellationTokenSource? loadCancellation;
     private ApplicationScreen screen = ApplicationScreen.Welcome;
@@ -24,18 +26,25 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private StateListItemViewModel? selectedState;
     private ProblemListItemViewModel? selectedProblem;
     private WorkspaceSnapshot? snapshot;
+    private OxideTheme theme = OxideTheme.IronRustDark;
 
     public MainWindowViewModel()
-        : this(new WorkspaceService(), ownsWorkspaceService: true)
+        : this(new WorkspaceService(), new JsonApplicationSettingsStore(), ownsWorkspaceService: true)
     {
     }
 
-    public MainWindowViewModel(IWorkspaceService workspaceService, bool ownsWorkspaceService = false)
+    public MainWindowViewModel(
+        IWorkspaceService workspaceService,
+        IApplicationSettingsStore? settingsStore = null,
+        bool ownsWorkspaceService = false)
     {
         this.workspaceService = workspaceService;
+        this.settingsStore = settingsStore;
         this.ownsWorkspaceService = ownsWorkspaceService;
         ApplicationName = ApplicationInfo.Oxide.Name;
     }
+
+    public event Action<OxideTheme>? ThemeChanged;
 
     public string ApplicationName { get; }
 
@@ -121,6 +130,31 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
+    public OxideTheme Theme
+    {
+        get => theme;
+        private set
+        {
+            if (SetProperty(ref theme, value))
+            {
+                OnPropertyChanged(nameof(ThemeName));
+                OnPropertyChanged(nameof(ThemeActionLabel));
+                ThemeChanged?.Invoke(value);
+            }
+        }
+    }
+
+    public string ThemeName => Theme switch
+    {
+        OxideTheme.IronRustDark => "Iron Rust Dark",
+        OxideTheme.CopperVerdigrisLight => "Copper Verdigris Light",
+        _ => "Oxide theme",
+    };
+
+    public string ThemeActionLabel => Theme is OxideTheme.IronRustDark
+        ? "Use Copper Verdigris"
+        : "Use Iron Rust";
+
     public StateListItemViewModel? SelectedState
     {
         get => selectedState;
@@ -158,11 +192,50 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public string StatusSummary => snapshot is null
         ? "Ready"
-        : $"Snapshot {snapshot.Version} · {ErrorCount:N0} errors · {WarningCount:N0} warnings";
+        : $"Snapshot {snapshot.Version} · {snapshot.LoadMetrics.TotalMilliseconds:N0} ms · {ErrorCount:N0} errors · {WarningCount:N0} warnings";
 
     public int ErrorCount => Problems.Count(problem => problem.Severity is DiagnosticSeverity.Error);
 
     public int WarningCount => Problems.Count(problem => problem.Severity is DiagnosticSeverity.Warning);
+
+    public async Task InitializeAsync()
+    {
+        if (settingsStore is null)
+        {
+            ThemeChanged?.Invoke(Theme);
+            return;
+        }
+
+        try
+        {
+            var result = await settingsStore.LoadAsync();
+            GameRootPath = result.Settings.LastGameRoot ?? string.Empty;
+            ActiveModRootPath = result.Settings.LastActiveModRoot ?? string.Empty;
+            Theme = result.Settings.Theme;
+            ThemeChanged?.Invoke(Theme);
+            if (result.Warning is not null)
+            {
+                ErrorMessage = result.Warning + " Defaults were restored.";
+            }
+        }
+        catch (Exception exception)
+        {
+            ErrorMessage = $"Oxide could not initialize saved settings: {exception.Message}";
+            ThemeChanged?.Invoke(Theme);
+        }
+    }
+
+    public async Task ToggleThemeAsync()
+    {
+        Theme = Theme is OxideTheme.IronRustDark
+            ? OxideTheme.CopperVerdigrisLight
+            : OxideTheme.IronRustDark;
+        await SaveSettingsAsync();
+    }
+
+    public void DismissError() => ErrorMessage = null;
+
+    public void ReportError(string message) => ErrorMessage = message;
 
     public async Task OpenWorkspaceAsync()
     {
@@ -172,9 +245,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var configuration = new WorkspaceConfiguration(
-            GameRootPath,
-            string.IsNullOrWhiteSpace(ActiveModRootPath) ? null : ActiveModRootPath);
+        WorkspaceConfiguration configuration;
+        try
+        {
+            configuration = new WorkspaceConfiguration(
+                GameRootPath,
+                string.IsNullOrWhiteSpace(ActiveModRootPath) ? null : ActiveModRootPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
+        {
+            ErrorMessage = $"Oxide could not use the selected workspace paths: {exception.Message}";
+            Screen = snapshot is null ? ApplicationScreen.Welcome : ApplicationScreen.Workspace;
+            return;
+        }
+
         await LoadAsync((progress, cancellation) =>
             workspaceService.OpenAsync(configuration, progress, cancellation));
     }
@@ -225,6 +309,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var loadedSnapshot = await load(progress, loadCancellation.Token);
             ApplySnapshot(loadedSnapshot);
             Screen = ApplicationScreen.Workspace;
+            await SaveSettingsAsync();
         }
         catch (OperationCanceledException)
         {
@@ -235,6 +320,26 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             ErrorMessage = $"Oxide could not open the workspace: {exception.Message}";
             Screen = snapshot is null ? ApplicationScreen.Welcome : ApplicationScreen.Workspace;
+        }
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        if (settingsStore is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await settingsStore.SaveAsync(new ApplicationSettings(
+                LastGameRoot: string.IsNullOrWhiteSpace(GameRootPath) ? null : GameRootPath,
+                LastActiveModRoot: string.IsNullOrWhiteSpace(ActiveModRootPath) ? null : ActiveModRootPath,
+                Theme: Theme));
+        }
+        catch (Exception exception)
+        {
+            ErrorMessage = $"The workspace opened, but Oxide could not save its settings: {exception.Message}";
         }
     }
 
@@ -249,6 +354,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             WorkspaceLoadStage.LoadingDocuments when progress.CurrentPath is not null =>
                 $"Loading {Path.GetFileName(progress.CurrentPath)}",
             WorkspaceLoadStage.LoadingDocuments => "Building source documents…",
+            WorkspaceLoadStage.BuildingSemantics => "Building semantic model…",
             WorkspaceLoadStage.Publishing => "Publishing workspace snapshot…",
             WorkspaceLoadStage.Complete => "Workspace ready",
             _ => "Loading workspace…",

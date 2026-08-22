@@ -41,6 +41,10 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(1, summary.CountryReferences.Ambiguous);
         Assert.Equal(0, summary.CountryReferences.Invalid);
         Assert.Equal(2, summary.CountryReferences.Unresolved);
+        Assert.Equal(8, summary.WorkspacePerformance.DocumentCount);
+        Assert.Equal(8, summary.WorkspacePerformance.LoadedDocumentCount);
+        Assert.Equal(0, summary.WorkspacePerformance.FailedDocumentCount);
+        Assert.True(summary.WorkspacePerformance.TotalMilliseconds >= 0);
         Assert.Equal(123, summary.TotalLoadMilliseconds);
         Assert.IsType<MissingCountry>(snapshot.Semantics.States[2].Owner!.Resolution);
         Assert.IsType<AmbiguousCountry>(snapshot.Semantics.States[5].Owner!.Resolution);

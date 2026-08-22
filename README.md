@@ -57,6 +57,27 @@ dotnet run --project Oxide.App/Oxide.App.csproj
 The first three commands form the local build-and-test workflow. The final
 command launches the desktop application.
 
+### Development packages
+
+Development releases are self-contained: testers do not need to install .NET.
+Download the archive matching the operating system and CPU, extract it, then
+launch `Oxide.exe` on Windows, `Oxide.app` on macOS, or `app/Oxide` on Linux.
+These early packages are not code-signed or notarized, so the operating system
+may ask for confirmation before opening them.
+
+Maintainers can create and verify a native package with:
+
+```sh
+./scripts/package-release.sh osx-arm64 0.1.0-dev
+./scripts/verify-release-package.sh artifacts/releases/oxide-0.1.0-dev-osx-arm64.zip osx-arm64
+```
+
+Supported runtime identifiers are `win-x64`, `linux-x64`, `osx-x64`, and
+`osx-arm64`. GitHub Actions builds all four in clean hosted environments and
+creates a draft release when a `v*` tag is pushed. Framework-dependent output
+remains available to developers through ordinary `dotnet publish`, but it is
+not the primary downloadable artifact.
+
 Tests requiring a local HOI4 installation are deliberately separate:
 
 ```sh

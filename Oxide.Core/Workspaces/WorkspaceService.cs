@@ -63,13 +63,17 @@ public sealed class WorkspaceService : IWorkspaceService, IDisposable
             progress?.Report(new WorkspaceLoadProgress(
                 WorkspaceLoadStage.Publishing,
                 snapshot.Documents.Length,
-                snapshot.Documents.Length));
+                snapshot.Documents.Length,
+                ElapsedMilliseconds: snapshot.LoadMetrics.TotalMilliseconds,
+                DiagnosticCount: snapshot.Diagnostics.Length + snapshot.Semantics.Diagnostics.Length));
             Interlocked.Exchange(ref currentSnapshot, snapshot);
             SnapshotPublished?.Invoke(snapshot);
             progress?.Report(new WorkspaceLoadProgress(
                 WorkspaceLoadStage.Complete,
                 snapshot.Documents.Length,
-                snapshot.Documents.Length));
+                snapshot.Documents.Length,
+                ElapsedMilliseconds: snapshot.LoadMetrics.TotalMilliseconds,
+                DiagnosticCount: snapshot.Diagnostics.Length + snapshot.Semantics.Diagnostics.Length));
             return snapshot;
         }
         finally

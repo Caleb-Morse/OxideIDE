@@ -12,9 +12,12 @@ public abstract record ClausewitzElementSyntax(TextSpan Span) : SyntaxNode(Span)
 
 public sealed record PropertySyntax(
     SyntaxToken Key,
-    SyntaxToken EqualsToken,
+    SyntaxToken OperatorToken,
     ClausewitzValueSyntax Value,
-    TextSpan Span) : ClausewitzElementSyntax(Span);
+    TextSpan Span) : ClausewitzElementSyntax(Span)
+{
+    public SyntaxToken EqualsToken => OperatorToken;
+}
 
 public sealed record BareValueSyntax(
     ClausewitzValueSyntax Value,

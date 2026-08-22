@@ -13,4 +13,14 @@ public static class SyntaxKindFacts
         SyntaxKind.NumberToken or
         SyntaxKind.DateToken or
         SyntaxKind.BadToken;
+
+    public static bool IsPropertyOperator(this SyntaxKind kind) => kind is
+        SyntaxKind.EqualsToken or
+        SyntaxKind.DoubleEqualsToken or
+        SyntaxKind.NotEqualsToken or
+        SyntaxKind.LessThanToken or
+        SyntaxKind.LessThanOrEqualsToken or
+        SyntaxKind.GreaterThanToken or
+        SyntaxKind.GreaterThanOrEqualsToken or
+        SyntaxKind.QuestionEqualsToken;
 }

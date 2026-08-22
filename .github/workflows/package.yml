@@ -1,0 +1,95 @@
+name: Package development release
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version
+        required: true
+        default: 0.1.0-dev
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: win-x64
+            os: windows-latest
+          - rid: osx-x64
+            os: macos-14
+          - rid: osx-arm64
+            os: macos-14
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Select package version
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${INPUT_VERSION:-0.1.0-dev}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build self-contained package
+        shell: bash
+        run: bash scripts/package-release.sh "${{ matrix.rid }}" "${{ steps.version.outputs.value }}"
+
+      - name: Verify package in a fresh directory
+        shell: bash
+        run: |
+          archive="$(find artifacts/releases -type f \( -name '*.zip' -o -name '*.tar.gz' \) | head -n 1)"
+          bash scripts/verify-release-package.sh "$archive" "${{ matrix.rid }}"
+
+      - name: Upload package and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: oxide-${{ steps.version.outputs.value }}-${{ matrix.rid }}
+          path: |
+            artifacts/releases/*.zip
+            artifacts/releases/*.tar.gz
+            artifacts/releases/*.sha256
+          if-no-files-found: error
+
+  draft-release:
+    if: github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download verified packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: oxide-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create draft GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release-assets/* --draft --generate-notes --title "Oxide $GITHUB_REF_NAME"

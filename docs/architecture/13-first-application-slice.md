@@ -1,4 +1,4 @@
-# First application slice
+# Application slice
 
 ## Purpose
 

@@ -1,4 +1,5 @@
 using Oxide.App.ViewModels;
+using Oxide.App.Settings;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
@@ -27,6 +28,7 @@ public sealed class MainWindowViewModelTests
         Assert.Equal(1, viewModel.SelectedState?.Id);
         Assert.Contains(viewModel.Problems, problem => problem.Code == "OXIDE4006" && problem.StateId == 2);
         Assert.Contains("2 states", viewModel.WorkspaceSummary, StringComparison.Ordinal);
+        Assert.Contains(" ms", viewModel.StatusSummary, StringComparison.Ordinal);
         Assert.False(viewModel.HasError);
     }
 
@@ -119,6 +121,80 @@ public sealed class MainWindowViewModelTests
         Assert.Empty(viewModel.States);
     }
 
+    [Fact]
+    public async Task Initialization_restores_last_workspace_paths_and_copper_verdigris_theme()
+    {
+        var settings = new RecordingSettingsStore(new ApplicationSettingsLoadResult(new ApplicationSettings(
+            LastGameRoot: "/remembered/game",
+            LastActiveModRoot: "/remembered/mod",
+            Theme: OxideTheme.CopperVerdigrisLight)));
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service, settings);
+        OxideTheme? appliedTheme = null;
+        viewModel.ThemeChanged += value => appliedTheme = value;
+
+        await viewModel.InitializeAsync();
+
+        Assert.Equal("/remembered/game", viewModel.GameRootPath);
+        Assert.Equal("/remembered/mod", viewModel.ActiveModRootPath);
+        Assert.Equal(OxideTheme.CopperVerdigrisLight, viewModel.Theme);
+        Assert.Equal(OxideTheme.CopperVerdigrisLight, appliedTheme);
+        Assert.Equal("Copper Verdigris Light", viewModel.ThemeName);
+    }
+
+    [Fact]
+    public async Task Theme_toggle_is_persisted_with_current_workspace_paths()
+    {
+        var settings = new RecordingSettingsStore(new ApplicationSettingsLoadResult(new ApplicationSettings()));
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service, settings)
+        {
+            GameRootPath = "/game",
+            ActiveModRootPath = "/mod",
+        };
+
+        await viewModel.ToggleThemeAsync();
+
+        Assert.Equal(OxideTheme.CopperVerdigrisLight, viewModel.Theme);
+        Assert.Equal("/game", settings.Saved!.LastGameRoot);
+        Assert.Equal("/mod", settings.Saved.LastActiveModRoot);
+        Assert.Equal(OxideTheme.CopperVerdigrisLight, settings.Saved.Theme);
+    }
+
+    [Fact]
+    public async Task Settings_save_failure_does_not_discard_a_successfully_opened_workspace()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 }");
+        using var service = new WorkspaceService();
+        var settings = new RecordingSettingsStore(
+            new ApplicationSettingsLoadResult(new ApplicationSettings()),
+            saveException: new IOException("disk unavailable"));
+        using var viewModel = new MainWindowViewModel(service, settings) { GameRootPath = fixture.GameRoot };
+
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.Equal(ApplicationScreen.Workspace, viewModel.Screen);
+        Assert.Single(viewModel.States);
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.Contains("could not save", viewModel.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Invalid_pasted_workspace_path_is_recoverable_on_the_welcome_screen()
+    {
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = "invalid\0path" };
+
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.Equal(ApplicationScreen.Welcome, viewModel.Screen);
+        Assert.True(viewModel.HasError);
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.Contains("workspace paths", viewModel.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(service.CurrentSnapshot);
+    }
+
     private sealed class CancellableWorkspaceService : IWorkspaceService
     {
         public WorkspaceSnapshot? CurrentSnapshot => null;
@@ -142,5 +218,26 @@ public sealed class MainWindowViewModelTests
             IProgress<WorkspaceLoadProgress>? progress = null,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class RecordingSettingsStore(
+        ApplicationSettingsLoadResult loadResult,
+        Exception? saveException = null) : IApplicationSettingsStore
+    {
+        public ApplicationSettings? Saved { get; private set; }
+
+        public Task<ApplicationSettingsLoadResult> LoadAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(loadResult);
+
+        public Task SaveAsync(ApplicationSettings settings, CancellationToken cancellationToken = default)
+        {
+            if (saveException is not null)
+            {
+                return Task.FromException(saveException);
+            }
+
+            Saved = settings;
+            return Task.CompletedTask;
+        }
     }
 }

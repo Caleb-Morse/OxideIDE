@@ -71,7 +71,7 @@ The current extracted-installation baseline is:
 - 2,612 resolved country references with zero unresolved references.
 
 Load duration is reported for observation but is not a deterministic baseline
-or CI failure threshold in Phase 5.1.
+or CI failure threshold.
 
 ## Corpus summary contract
 

@@ -22,7 +22,8 @@ internal static class StateDeclarationExtractor
 
         var stateProperties = document.SyntaxTree.Root.Elements
             .OfType<PropertySyntax>()
-            .Where(property => string.Equals(property.Key.Text, "state", StringComparison.Ordinal))
+            .Where(property => property.OperatorToken.Kind is Oxide.Syntax.Lexing.SyntaxKind.EqualsToken
+                && string.Equals(property.Key.Text, "state", StringComparison.Ordinal))
             .ToArray();
 
         foreach (var stateProperty in stateProperties)

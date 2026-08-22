@@ -99,4 +99,22 @@ public sealed class ClausewitzParserTests
         Assert.Equal("owner", tree.Source.GetText(property.Key.Span));
         Assert.Equal("GER", tree.Source.GetText(property.Value.Span));
     }
+
+    [Theory]
+    [InlineData("value == 4", SyntaxKind.DoubleEqualsToken)]
+    [InlineData("value != 4", SyntaxKind.NotEqualsToken)]
+    [InlineData("value < 4", SyntaxKind.LessThanToken)]
+    [InlineData("value <= 4", SyntaxKind.LessThanOrEqualsToken)]
+    [InlineData("value > 4", SyntaxKind.GreaterThanToken)]
+    [InlineData("value >= 4", SyntaxKind.GreaterThanOrEqualsToken)]
+    [InlineData("value ?= 4", SyntaxKind.QuestionEqualsToken)]
+    public void Parser_recognizes_clausewitz_property_operators_losslessly(string text, SyntaxKind expectedKind)
+    {
+        var tree = ClausewitzParser.Parse(text);
+
+        var property = Assert.IsType<PropertySyntax>(Assert.Single(tree.Root.Elements));
+        Assert.Equal(expectedKind, property.OperatorToken.Kind);
+        Assert.Equal(text, tree.ToFullString());
+        Assert.Empty(tree.Diagnostics);
+    }
 }

@@ -59,7 +59,12 @@ public sealed class ClausewitzParser
                 continue;
             }
 
+            var startPosition = position;
             elements.Add(ParseElement());
+            if (position == startPosition && Current.Kind is not SyntaxKind.EndOfFileToken)
+            {
+                elements.Add(ParseUnexpectedToken("Parser recovery skipped a token to ensure forward progress."));
+            }
         }
 
         return elements.ToImmutable();
@@ -67,7 +72,7 @@ public sealed class ClausewitzParser
 
     private ClausewitzElementSyntax ParseElement()
     {
-        if (Current.Kind.CanBeScalar() && PeekSignificant(1).Kind is SyntaxKind.EqualsToken)
+        if (Current.Kind.CanBeScalar() && PeekSignificant(1).Kind.IsPropertyOperator())
         {
             return ParseProperty();
         }
@@ -85,7 +90,7 @@ public sealed class ClausewitzParser
     {
         var key = ConsumeCurrent();
         SkipTrivia();
-        var equalsToken = Match(SyntaxKind.EqualsToken);
+        var operatorToken = MatchPropertyOperator();
         SkipTrivia();
 
         ClausewitzValueSyntax value;
@@ -106,7 +111,7 @@ public sealed class ClausewitzParser
 
         return new PropertySyntax(
             key,
-            equalsToken,
+            operatorToken,
             value,
             TextSpan.FromBounds(key.Span.Start, value.Span.End));
     }
@@ -190,6 +195,16 @@ public sealed class ClausewitzParser
             $"Expected {kind}.",
             token.Span));
         return token;
+    }
+
+    private SyntaxToken MatchPropertyOperator()
+    {
+        if (Current.Kind.IsPropertyOperator())
+        {
+            return ConsumeCurrent();
+        }
+
+        return Match(SyntaxKind.EqualsToken);
     }
 
     private void SkipTrivia()
