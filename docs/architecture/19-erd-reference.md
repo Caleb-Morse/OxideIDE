@@ -49,6 +49,8 @@ erDiagram
     CONTENT_LAYER ||--o{ SOURCE_DOCUMENT : owns
     SOURCE_DOCUMENT ||--o{ STATE_DECLARATION : contains
     SOURCE_DOCUMENT ||--o{ COUNTRY_TAG_DECLARATION : contains
+    SOURCE_DOCUMENT ||--o{ LOCALISATION_DECLARATION : contains
+    LOCALISATION_ENTRY ||--|{ LOCALISATION_DECLARATION : contributions
     STATE_ENTITY ||--|{ STATE_DECLARATION : contributions
     COUNTRY_ENTITY ||--|{ COUNTRY_TAG_DECLARATION : contributions
     STATE_ENTITY ||--o{ STATE_RESOURCE : has
@@ -62,6 +64,7 @@ erDiagram
     SOURCE_DOCUMENT ||--o{ SOURCE_PROVENANCE : locates
     STATE_DECLARATION ||--o{ SOURCE_PROVENANCE : values_from
     COUNTRY_TAG_DECLARATION ||--o{ SOURCE_PROVENANCE : values_from
+    LOCALISATION_DECLARATION ||--o{ SOURCE_PROVENANCE : values_from
 
     WORKSPACE_SNAPSHOT {
         bigint version PK
@@ -107,6 +110,21 @@ erDiagram
         string definition_path
         int span_start
         int span_length
+    }
+    LOCALISATION_DECLARATION {
+        string declaration_id PK
+        string document_id FK
+        string language
+        string localisation_key
+        int version "nullable"
+        string value
+        int span_start
+        int span_length
+    }
+    LOCALISATION_ENTRY {
+        string language PK
+        string localisation_key PK
+        enum resolution_status
     }
     STATE_ENTITY {
         string entity_id PK
@@ -189,6 +207,9 @@ Standalone chart source: [`diagrams/implemented-logical-erd.mmd`](diagrams/imple
 | `SourceDocument` | SHA-256 `document_id` from layer ID + virtual path | physical/virtual paths, load and contribution status, text, syntax tree | Layer has zero or many documents. Same virtual path may occur in many layers. |
 | `StateDeclaration` | no implemented standalone ID | document, complete provenance, ID/name/manpower/category/resource/province/owner/core candidates | Document has zero or many; entity has one or many contributions. A database projection should add `declaration_id`. |
 | `CountryTagDeclaration` | no implemented standalone ID | document, original and normalized tag, definition path, provenance | Same ID recommendation as above. |
+| `LocalisationDeclaration` | no implemented standalone ID | language, case-sensitive key, optional version, sourced value, declaration provenance | Every duplicate remains a contribution to its language-qualified entry. |
+| `LocalisationEntry` | `(language, localisation_key)` | immutable declaration contributions | One contribution resolves; multiple contributions are ambiguous. |
+| `LocalisationResolution` | requested language and key | resolved, missing, or ambiguous payload | English fallback is attempted only after an exact-language miss. Invalid raw requests have a distinct result. |
 | `EntityId` | `(kind, namespace, local_key)` | typed canonical identity | Current kinds: `State`, `Country`. State namespace is `global`; country namespace is `tag`. |
 | `StateEntity` | `EntityId` | status, effective name/manpower/category/resources/provinces, owner and core references | Derived per semantic snapshot. |
 | `CountryEntity` | `EntityId` | status, effective definition path | Derived per semantic snapshot. |
@@ -213,6 +234,8 @@ Standalone chart source: [`diagrams/implemented-logical-erd.mmd`](diagrams/imple
 - `DocumentContributionStatus`: `SoleCandidate`, `UnknownPrecedence`.
 - `CountryResolution`: `ResolvedCountry`, `MissingCountry`, `AmbiguousCountry`,
   `InvalidCountry`.
+- `LocalisationResolution`: `ResolvedLocalisation`, `MissingLocalisation`,
+  `AmbiguousLocalisation`; invalid input returns `InvalidLocalisation`.
 - A state gets one effective declaration only when it has one contribution.
 - Effective scalar properties require exactly one candidate. Duplicate resources do
   not receive an effective value. Owner is optional and is resolved only when there is

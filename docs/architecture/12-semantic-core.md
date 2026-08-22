@@ -3,8 +3,9 @@
 ## Scope
 
 Every published workspace snapshot now contains a derived `SemanticSnapshot`.
-The first semantic profile recognizes state declarations and country-tag
-registrations and turns them into typed, provenance-backed entities.
+The semantic profile recognizes state declarations, country-tag registrations,
+and language-qualified localisation declarations and turns them into immutable,
+provenance-backed indexes.
 
 The source documents and syntax trees remain authoritative. Semantic data is an
 immutable, reproducible index and is never serialized back into source.
@@ -38,6 +39,11 @@ candidates for:
 A `CountryTagDeclaration` records the original and normalized tag, definition
 path, declaration span, document, and content layer.
 
+A `LocalisationDeclaration` is identified by `LocalisationLanguage` plus the
+case-sensitive `LocalisationKey`. It records the decoded value, optional version,
+complete declaration provenance, and exact value provenance. Multiple declarations
+with the same identity are retained as contributions to one `LocalisationEntry`.
+
 Invalid declarations remain in the declaration arrays even when they cannot be
 assigned a typed identity. Duplicate property candidates remain inspectable;
 Oxide does not silently choose one.
@@ -64,6 +70,14 @@ State entities expose effective scalar properties, resources and provinces,
 plus resolved owner and core references. Country entities expose their
 effective definition path when unambiguous.
 
+The localisation index is keyed by `(language, key)`. `LocalisationResolver`
+returns explicit resolved, missing, ambiguous, or invalid outcomes. It first tries
+the requested language and may fall back to English only when the exact key is
+missing. It never selects from duplicate candidates. Resolved outcomes carry the
+selected declaration and exact value provenance. `ResolveName` applies this same
+policy to state name keys and country tags, returning a deterministic identifier
+fallback when no human-readable value can be selected.
+
 ## Reference outcomes
 
 Country references have explicit outcomes:
@@ -87,16 +101,16 @@ Codes introduced by this slice are:
 - `OXIDE4005`: duplicate recognized property with no selected value;
 - `OXIDE4006`: missing country reference;
 - `OXIDE4007`: ambiguous country reference; and
-- `OXIDE4008`: invalid country tag.
+- `OXIDE4008`: invalid country tag; and
+- `OXIDE4009`: duplicate language-qualified localisation identity.
 
 Diagnostics can identify an entity and carry primary and related source
 provenance. Syntax, workspace, and semantic diagnostics remain distinct layers.
 
 ## Current limitations
 
-This slice does not load country history files or build semantic localisation
-declarations, simulate dated history, select among duplicate declarations,
-infer mod precedence, or model states beyond the listed properties. Owner and
-core extraction is limited to immediate properties of the state's initial
-`history` block; dated or scripted changes are not presented as initial
-ownership.
+This slice does not load country history files, infer ideology-specific country
+name conventions, simulate dated history, select among duplicate declarations,
+infer mod precedence, or model states beyond the listed properties. Owner and core
+extraction is limited to immediate properties of the state's initial `history`
+block; dated or scripted changes are not presented as initial ownership.
