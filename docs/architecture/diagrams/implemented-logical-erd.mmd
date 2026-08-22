@@ -5,6 +5,8 @@ erDiagram
     CONTENT_LAYER ||--o{ SOURCE_DOCUMENT : owns
     SOURCE_DOCUMENT ||--o{ STATE_DECLARATION : contains
     SOURCE_DOCUMENT ||--o{ COUNTRY_TAG_DECLARATION : contains
+    SOURCE_DOCUMENT ||--o{ LOCALISATION_DECLARATION : contains
+    LOCALISATION_ENTRY ||--|{ LOCALISATION_DECLARATION : contributions
     STATE_ENTITY ||--|{ STATE_DECLARATION : contributions
     COUNTRY_ENTITY ||--|{ COUNTRY_TAG_DECLARATION : contributions
     STATE_ENTITY ||--o{ STATE_RESOURCE : has
@@ -18,6 +20,7 @@ erDiagram
     SOURCE_DOCUMENT ||--o{ SOURCE_PROVENANCE : locates
     STATE_DECLARATION ||--o{ SOURCE_PROVENANCE : values_from
     COUNTRY_TAG_DECLARATION ||--o{ SOURCE_PROVENANCE : values_from
+    LOCALISATION_DECLARATION ||--o{ SOURCE_PROVENANCE : values_from
 
     WORKSPACE_SNAPSHOT {
         bigint version PK
@@ -63,6 +66,21 @@ erDiagram
         string definition_path
         int span_start
         int span_length
+    }
+    LOCALISATION_DECLARATION {
+        string declaration_id PK
+        string document_id FK
+        string language
+        string localisation_key
+        int version "nullable"
+        string value
+        int span_start
+        int span_length
+    }
+    LOCALISATION_ENTRY {
+        string language PK
+        string localisation_key PK
+        enum resolution_status
     }
     STATE_ENTITY {
         string entity_id PK

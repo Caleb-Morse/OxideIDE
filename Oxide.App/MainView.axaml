@@ -100,7 +100,7 @@
                         </StackPanel>
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
-                                       Text="Supported now: states and country tags" />
+                                       Text="Supported now: states, country tags and localisation syntax" />
                             <Button Grid.Column="1" Classes="primary" Content="Open workspace"
                                     IsEnabled="{Binding CanOpenWorkspace}" Click="OpenWorkspace_Click" />
                         </Grid>

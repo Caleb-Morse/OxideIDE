@@ -21,7 +21,9 @@ The goal of Oxide is to streamline and enhance the modding experience by making 
 This project is in early development. The first read-only vertical slice is
 working: Oxide can open a game installation and optional active mod, build an
 immutable semantic workspace, browse and search states, inspect provenance, and
-show workspace and semantic problems.
+show workspace and semantic problems. The workspace also discovers and
+losslessly parses multilingual localisation files; resolving those entries to
+human-readable entity names is the next semantic step.
 
 ---
 

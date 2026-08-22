@@ -16,11 +16,16 @@ internal static class SemanticBuilder
     {
         var states = ImmutableArray.CreateBuilder<StateDeclaration>();
         var countries = ImmutableArray.CreateBuilder<CountryTagDeclaration>();
+        var localisations = ImmutableArray.CreateBuilder<LocalisationDeclaration>();
         var diagnostics = ImmutableArray.CreateBuilder<SemanticDiagnostic>();
 
         foreach (var document in documents.Where(document => document.IsLoaded))
         {
-            if (document.VirtualPath.Value.StartsWith("history/states/", StringComparison.OrdinalIgnoreCase))
+            if (document.LocalisationSyntaxTree is not null)
+            {
+                localisations.AddRange(LocalisationDeclarationExtractor.Extract(document));
+            }
+            else if (document.VirtualPath.Value.StartsWith("history/states/", StringComparison.OrdinalIgnoreCase))
             {
                 var result = StateDeclarationExtractor.Extract(document);
                 states.AddRange(result.Declarations);
@@ -36,14 +41,46 @@ internal static class SemanticBuilder
 
         var countryEntities = BuildCountries(countries.ToImmutable(), diagnostics);
         var stateEntities = BuildStates(states.ToImmutable(), countryEntities, diagnostics);
+        var localisationEntries = BuildLocalisations(localisations.ToImmutable(), diagnostics);
         var allDiagnostics = diagnostics.ToImmutable();
 
         return new SemanticSnapshot(
             states.ToImmutable(),
             countries.ToImmutable(),
+            localisations.ToImmutable(),
             stateEntities,
             countryEntities,
+            localisationEntries,
             allDiagnostics);
+    }
+
+    private static ImmutableDictionary<LocalisationIdentity, LocalisationEntry> BuildLocalisations(
+        ImmutableArray<LocalisationDeclaration> declarations,
+        ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
+    {
+        var entries = ImmutableDictionary.CreateBuilder<LocalisationIdentity, LocalisationEntry>();
+        foreach (var group in declarations.GroupBy(declaration => declaration.Identity))
+        {
+            var contributions = group
+                .OrderBy(declaration => declaration.Provenance.Layer.Position)
+                .ThenBy(declaration => declaration.Provenance.PhysicalPath, StringComparer.Ordinal)
+                .ThenBy(declaration => declaration.Provenance.Span.Start)
+                .ToImmutableArray();
+            entries.Add(group.Key, new LocalisationEntry(group.Key, contributions));
+
+            if (contributions.Length > 1)
+            {
+                diagnostics.Add(new SemanticDiagnostic(
+                    "OXIDE4009",
+                    DiagnosticSeverity.Warning,
+                    $"Localisation '{group.Key.Key}' for language '{group.Key.Language}' has multiple declarations; resolution is ambiguous.",
+                    null,
+                    contributions[0].Provenance,
+                    contributions.Skip(1).Select(declaration => declaration.Provenance).ToImmutableArray()));
+            }
+        }
+
+        return entries.ToImmutable();
     }
 
     private static ImmutableDictionary<string, CountryEntity> BuildCountries(

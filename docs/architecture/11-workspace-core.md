@@ -6,10 +6,11 @@
 discovers the currently supported files, parses them away from the UI thread,
 and publishes an immutable `WorkspaceSnapshot`.
 
-The first discovery profile includes:
+The discovery profile includes:
 
-- `history/states/*.txt`; and
-- `common/country_tags/*.txt`.
+- `history/states/*.txt`;
+- `common/country_tags/*.txt`; and
+- `localisation/**/*.yml`.
 
 Additional directories belong in later schema/profile work rather than being
 silently treated as supported.
@@ -31,10 +32,11 @@ not be read or decoded. Document IDs are deterministic SHA-256 identifiers
 derived from content-layer ID and virtual path. They remain stable across
 reloads while distinguishing the same virtual path in different layers.
 
-A loaded document contains its `SourceText`, lossless `SyntaxTree`, syntax
-diagnostics, physical and virtual paths, and layer. A failed document retains
-its identity and an `OXIDE3003` diagnostic so one bad file cannot make the
-workspace disappear.
+A loaded document identifies its source kind and contains `SourceText` plus
+either a lossless Clausewitz `SyntaxTree` or `LocalisationSyntaxTree`. It also
+retains syntax diagnostics, physical and virtual paths, and layer. A failed
+document retains its identity and an `OXIDE3003` diagnostic so one bad file
+cannot make the workspace disappear.
 
 ## Snapshots and publication
 
@@ -74,5 +76,5 @@ physical path, and source span.
 
 The current implementation uses explicit reload rather than file watching,
 supports only base game plus one active mod, and does not resolve DLC,
-dependency mods, launcher playsets, declarations, entities, or effective
-semantic values.
+dependency mods, launcher playsets, localisation semantics, or effective
+base/mod precedence.

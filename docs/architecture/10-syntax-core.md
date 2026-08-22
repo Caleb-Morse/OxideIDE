@@ -2,9 +2,11 @@
 
 ## Scope
 
-`Oxide.Syntax` provides a game-agnostic structural parser for Clausewitz text.
-It recognizes assignments, blocks, scalar values, and bare values without
-assigning HOI4 meaning to any key or value.
+`Oxide.Syntax` provides game-agnostic lossless parsers for Clausewitz text and
+HOI4 localisation text. The Clausewitz parser recognizes assignments, blocks,
+scalar values, and bare values without assigning HOI4 meaning to any key or
+value. The localisation parser recognizes language headers and quoted entries
+while retaining every source line.
 
 ## Fidelity contract
 
@@ -26,6 +28,9 @@ unsupported by the workspace layer rather than silently converted.
   diagnostics.
 - `ClausewitzParser` produces a `SyntaxTree` containing the source, tokens,
   generic root, and combined diagnostics.
+- `LocalisationParser` produces a `LocalisationSyntaxTree` containing ordered
+  blank, comment, language-header, entry, and unknown lines. Entries expose
+  language, key, optional version, decoded value, and exact source spans.
 - `PropertySyntax`, `BlockValueSyntax`, `ScalarValueSyntax`, and
   `BareValueSyntax` are the generic structural forms consumed by later schema
   extractors.
@@ -46,6 +51,13 @@ Syntax diagnostic codes are stable identifiers:
 - `OXIDE2003`: block missing a closing brace;
 - `OXIDE2004`: unexpected token; and
 - `OXIDE2005`: expected token.
+
+Localisation diagnostic codes are:
+
+- `OXIDE1201`: malformed language header;
+- `OXIDE1202`: entry before a valid language header;
+- `OXIDE1203`: malformed entry; and
+- `OXIDE1204`: document without a valid language header.
 
 Recovery diagnostics do not prevent consumers from inspecting successfully
 parsed siblings or the original token stream.
