@@ -71,6 +71,7 @@ but the semantic layer must not depend on Avalonia.
 11. [Workspace core](11-workspace-core.md)
 12. [First semantic core](12-semantic-core.md)
 13. [First application slice](13-first-application-slice.md)
+14. [Verification and corpus baselines](14-verification-and-corpus-baselines.md)
 
 ## Non-goals for the first vertical slice
 

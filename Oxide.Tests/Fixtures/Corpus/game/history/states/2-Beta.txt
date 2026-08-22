@@ -1,0 +1,7 @@
+state = {
+    id = 2
+    name = "SYNTHETIC_STATE_2"
+    resources = { coal = not_a_number }
+    history = { owner = ZZZ }
+    provinces = { 20 invalid_province }
+}

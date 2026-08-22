@@ -1,0 +1,4 @@
+state = {
+    id = not_an_integer
+    name = "SYNTHETIC_INVALID_STATE"
+}

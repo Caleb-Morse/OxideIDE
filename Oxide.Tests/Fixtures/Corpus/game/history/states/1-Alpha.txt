@@ -1,0 +1,9 @@
+state = {
+    id = 1
+    name = "SYNTHETIC_STATE_1"
+    manpower = 1000
+    state_category = city
+    resources = { steel = 5 }
+    history = { owner = AAA add_core_of = BBB }
+    provinces = { 10 11 }
+}

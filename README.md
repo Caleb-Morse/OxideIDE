@@ -36,7 +36,16 @@ show workspace and semantic problems.
 
 ## Getting started
 
-The repository pins the .NET 9 SDK in `global.json`. From this directory, run:
+The repository pins the .NET 9 SDK in `global.json`. The canonical local
+verification command is:
+
+```sh
+./scripts/verify.sh
+```
+
+It restores the solution, builds Debug and Release, runs all normal tests,
+checks formatting and repository contents, and generates the synthetic corpus
+summary. To run the individual development commands manually:
 
 ```sh
 dotnet restore Oxide.sln
@@ -47,6 +56,12 @@ dotnet run --project Oxide.App/Oxide.App.csproj
 
 The first three commands form the local build-and-test workflow. The final
 command launches the desktop application.
+
+Tests requiring a local HOI4 installation are deliberately separate:
+
+```sh
+./scripts/verify-external-corpus.sh /path/to/hoi4 [optional-mod-root]
+```
 
 ---
 

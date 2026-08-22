@@ -1,0 +1,5 @@
+state = {
+    id = 1
+    name = "SYNTHETIC_STATE_1_MOD"
+    history = { owner = AAA }
+}
