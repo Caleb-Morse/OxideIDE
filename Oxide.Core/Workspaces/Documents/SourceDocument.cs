@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
+using Oxide.Syntax.Localisation;
 using Oxide.Syntax.Parsing;
 using Oxide.Syntax.Text;
 
@@ -11,10 +12,12 @@ public sealed record SourceDocument(
     ContentLayer Layer,
     string PhysicalPath,
     VirtualPath VirtualPath,
+    SourceDocumentKind Kind,
     DocumentLoadStatus LoadStatus,
     DocumentContributionStatus ContributionStatus,
     SourceText? Text,
     SyntaxTree? SyntaxTree,
+    LocalisationSyntaxTree? LocalisationSyntaxTree,
     ImmutableArray<WorkspaceDiagnostic> Diagnostics)
 {
     public bool IsLoaded => LoadStatus is DocumentLoadStatus.Loaded;

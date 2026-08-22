@@ -597,7 +597,8 @@ are mainly an implementation detail. If materialized:
 4. Content precedence is intentionally unknown. Do not add a universal “last file
    wins” constraint. Policies depend on directory, file type, entity kind, game
    version, `replace_path`, and verified ordering.
-5. Country history and localisation are planned but not implemented. Current state
+5. Country history and semantic localisation resolution are planned but not
+   implemented. Localisation syntax is loaded losslessly, while current state
    ownership is only an initial-history extraction.
 6. Province, strategic-region, supply, and map-adjacency identities and membership
    constraints need profile-backed validation before making them mandatory.
@@ -608,9 +609,9 @@ are mainly an implementation detail. If materialized:
 9. “Resistance/compliance definitions,” “peace-conference behavior,” operative
    registries, MIO subtypes, AI subregistries, and material registrations are named as
    families but not assigned final concrete kind names.
-10. The current first slice discovers only `history/states/*.txt` and
-    `common/country_tags/*.txt`; target-domain rows outside those paths are design
-    vocabulary, not current runtime coverage.
+10. The current slice discovers `history/states/*.txt`,
+    `common/country_tags/*.txt`, and `localisation/**/*.yml`; target-domain rows
+    outside those paths are design vocabulary, not current runtime coverage.
 
 ## Practical diagram split
 

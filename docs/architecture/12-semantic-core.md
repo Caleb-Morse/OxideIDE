@@ -94,8 +94,9 @@ provenance. Syntax, workspace, and semantic diagnostics remain distinct layers.
 
 ## Current limitations
 
-This slice does not load country history files or localisation, simulate dated
-history, select among duplicate declarations, infer mod precedence, or model
-states beyond the listed properties. Owner and core extraction is limited to
-immediate properties of the state's initial `history` block; dated or scripted
-changes are not presented as initial ownership.
+This slice does not load country history files or build semantic localisation
+declarations, simulate dated history, select among duplicate declarations,
+infer mod precedence, or model states beyond the listed properties. Owner and
+core extraction is limited to immediate properties of the state's initial
+`history` block; dated or scripted changes are not presented as initial
+ownership.

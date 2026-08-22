@@ -138,11 +138,12 @@ are intentionally ahead of the implementation:
 The implemented application is a read-only state explorer that can:
 
 1. open a vanilla installation and one mod;
-2. discover `history/states/*.txt`;
+2. discover state, country-tag, and multilingual localisation source files;
 3. parse state IDs, name keys, owners, cores, resources, and province lists;
-4. resolve state owner and core references against country-tag registrations;
-5. display source provenance and diagnostics; and
-6. navigate from a state to every known reference.
+4. preserve localisation language headers and entries without resolving them;
+5. resolve state owner and core references against country-tag registrations;
+6. display source provenance and diagnostics; and
+7. navigate from a state to every known reference.
 
 This exercises all core boundaries. Editing and map rendering remain product
 direction rather than current application capabilities.

@@ -6,6 +6,7 @@ using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Documents;
 using Oxide.Core.Workspaces.Snapshots;
 using Oxide.Syntax.Diagnostics;
+using Oxide.Syntax.Localisation;
 using Oxide.Syntax.Parsing;
 using Oxide.Syntax.Text;
 using Oxide.Core.Semantics.Building;
@@ -16,8 +17,9 @@ internal sealed class WorkspaceLoader
 {
     private static readonly ImmutableArray<DiscoveryRule> DiscoveryRules =
     [
-        new("history/states", "*.txt"),
-        new("common/country_tags", "*.txt"),
+        new("history/states", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
+        new("common/country_tags", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
+        new("localisation", "*.yml", SearchOption.AllDirectories, SourceDocumentKind.Localisation),
     ];
 
     public Task<WorkspaceSnapshot> LoadAsync(
@@ -156,14 +158,15 @@ internal sealed class WorkspaceLoader
 
                 try
                 {
-                    foreach (var physicalPath in Directory.EnumerateFiles(directory, rule.Pattern, SearchOption.TopDirectoryOnly))
+                    foreach (var physicalPath in Directory.EnumerateFiles(directory, rule.Pattern, rule.SearchOption))
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         var relativePath = Path.GetRelativePath(layer.RootPath, physicalPath);
                         candidates.Add(new DocumentCandidate(
                             layer,
                             Path.GetFullPath(physicalPath),
-                            new VirtualPath(relativePath)));
+                            new VirtualPath(relativePath),
+                            rule.Kind));
                     }
                 }
                 catch (Exception exception) when (IsFileSystemException(exception))
@@ -190,8 +193,16 @@ internal sealed class WorkspaceLoader
         try
         {
             var source = SourceText.Load(candidate.PhysicalPath);
-            var syntaxTree = ClausewitzParser.Parse(source);
-            var diagnostics = syntaxTree.Diagnostics
+            var syntaxTree = candidate.Kind is SourceDocumentKind.Clausewitz
+                ? ClausewitzParser.Parse(source)
+                : null;
+            var localisationSyntaxTree = candidate.Kind is SourceDocumentKind.Localisation
+                ? LocalisationParser.Parse(source)
+                : null;
+            var syntaxDiagnostics = syntaxTree?.Diagnostics
+                ?? localisationSyntaxTree?.Diagnostics
+                ?? [];
+            var diagnostics = syntaxDiagnostics
                 .Select(diagnostic => new WorkspaceDiagnostic(
                     diagnostic.Code,
                     diagnostic.Severity,
@@ -206,10 +217,12 @@ internal sealed class WorkspaceLoader
                 candidate.Layer,
                 candidate.PhysicalPath,
                 candidate.VirtualPath,
+                candidate.Kind,
                 DocumentLoadStatus.Loaded,
                 DocumentContributionStatus.SoleCandidate,
                 source,
                 syntaxTree,
+                localisationSyntaxTree,
                 diagnostics);
         }
         catch (Exception exception) when (IsFileSystemException(exception) || exception is DecoderFallbackException)
@@ -226,8 +239,10 @@ internal sealed class WorkspaceLoader
                 candidate.Layer,
                 candidate.PhysicalPath,
                 candidate.VirtualPath,
+                candidate.Kind,
                 DocumentLoadStatus.Failed,
                 DocumentContributionStatus.SoleCandidate,
+                null,
                 null,
                 null,
                 [diagnostic]);
@@ -262,10 +277,15 @@ internal sealed class WorkspaceLoader
         UnauthorizedAccessException or
         SecurityException;
 
-    private sealed record DiscoveryRule(string VirtualDirectory, string Pattern);
+    private sealed record DiscoveryRule(
+        string VirtualDirectory,
+        string Pattern,
+        SearchOption SearchOption,
+        SourceDocumentKind Kind);
 
     private sealed record DocumentCandidate(
         ContentLayer Layer,
         string PhysicalPath,
-        VirtualPath VirtualPath);
+        VirtualPath VirtualPath,
+        SourceDocumentKind Kind);
 }
