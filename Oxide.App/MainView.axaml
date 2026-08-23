@@ -273,6 +273,19 @@
                                             </Grid>
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="7"><TextBlock Classes="label" Text="CORES" /><TextBlock Text="{Binding SelectedState.Cores}" TextWrapping="Wrap" /></StackPanel></Border>
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="7"><TextBlock Classes="label" Text="RESOURCES" /><TextBlock Text="{Binding SelectedState.Resources}" TextWrapping="Wrap" /></StackPanel></Border>
+                                            <Border Classes="card" Padding="16">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                                    <StackPanel Grid.Column="0" Spacing="5">
+                                                        <TextBlock Classes="label" Text="STRATEGIC REGION" />
+                                                        <TextBlock Text="{Binding SelectedState.StrategicRegion}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding SelectedState.StrategicRegionSummary}" Classes="muted" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="12"
+                                                            Padding="10,5" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding SelectedState.StrategicRegionStatus}" FontWeight="SemiBold" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="7"><TextBlock Classes="label" Text="PROVINCES" /><TextBlock Text="{Binding SelectedState.Provinces}" TextWrapping="Wrap" /></StackPanel></Border>
                                         </StackPanel>
                                     </ScrollViewer>
@@ -298,6 +311,30 @@
                                                     <TextBlock Text="{Binding SelectedState.LocalisationSource}" TextWrapping="Wrap" FontFamily="Menlo,Consolas,monospace" />
                                                     <TextBlock Text="{Binding SelectedState.LocalisationLocation}" Classes="muted" />
                                                     <TextBlock Text="{Binding SelectedState.ResolvedLanguage, StringFormat=Language: {0}}" Classes="muted" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Classes="card" Padding="18">
+                                                <StackPanel Spacing="10">
+                                                    <TextBlock Classes="label" Text="STRATEGIC-REGION MEMBERSHIP" />
+                                                    <TextBlock Text="{Binding SelectedState.StrategicRegion}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding SelectedState.StrategicRegionStatus}" />
+                                                    <TextBlock Text="{Binding SelectedState.StrategicRegionSummary}" Classes="muted" TextWrapping="Wrap" />
+                                                    <ItemsControl ItemsSource="{Binding SelectedState.StrategicRegionEvidence}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:ProvinceRegionEvidenceViewModel">
+                                                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="12" Margin="0,0,0,7">
+                                                                    <StackPanel Spacing="4">
+                                                                        <TextBlock Text="{Binding ProvinceId, StringFormat=Province {0}}" FontWeight="SemiBold" />
+                                                                        <TextBlock Text="{Binding Outcome}" Foreground="{DynamicResource OxideAccentSoft}" TextWrapping="Wrap" />
+                                                                        <TextBlock Text="{Binding StateSource, StringFormat=State source: {0}}" Classes="muted"
+                                                                                   FontFamily="Menlo,Consolas,monospace" FontSize="10" TextWrapping="Wrap" />
+                                                                        <TextBlock Text="{Binding RegionSources, StringFormat=Region source: {0}}" Classes="muted"
+                                                                                   FontFamily="Menlo,Consolas,monospace" FontSize="10" TextWrapping="Wrap" />
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
                                                 </StackPanel>
                                             </Border>
                                             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Every value is derived from the source declaration above. Editing remains disabled in this first application slice." />
