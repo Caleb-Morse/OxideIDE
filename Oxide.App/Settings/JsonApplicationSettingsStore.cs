@@ -26,7 +26,8 @@ public sealed class JsonApplicationSettingsStore : IApplicationSettingsStore
                 stream,
                 JsonOptions,
                 cancellationToken);
-            if (settings is null || settings.SchemaVersion != 1 || !Enum.IsDefined(settings.Theme))
+            if (settings is null || settings.SchemaVersion != 1 || !Enum.IsDefined(settings.Theme) ||
+                string.IsNullOrWhiteSpace(settings.PreferredLanguage))
             {
                 return InvalidSettings("The saved settings use an unsupported format.");
             }

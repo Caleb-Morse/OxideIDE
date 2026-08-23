@@ -14,6 +14,12 @@ public sealed class LocalisationResolver
         _entries = entries;
     }
 
+    public ImmutableArray<LocalisationLanguage> AvailableLanguages => _entries.Keys
+        .Select(identity => identity.Language)
+        .Distinct()
+        .OrderBy(language => language.Value, StringComparer.Ordinal)
+        .ToImmutableArray();
+
     public LocalisationLookupResult Resolve(string language, string key, bool allowEnglishFallback = true)
     {
         if (string.IsNullOrWhiteSpace(language))
@@ -46,7 +52,10 @@ public sealed class LocalisationResolver
             : fallback;
     }
 
-    public HumanReadableName ResolveName(ISemanticEntity entity, string language)
+    public HumanReadableName ResolveName(
+        ISemanticEntity entity,
+        string language,
+        bool allowEnglishFallback = true)
     {
         var (key, fallback) = entity switch
         {
@@ -60,7 +69,7 @@ public sealed class LocalisationResolver
             return new HumanReadableName(fallback, fallback, null);
         }
 
-        var outcome = Resolve(language, key);
+        var outcome = Resolve(language, key, allowEnglishFallback);
         return outcome is ResolvedLocalisation resolved
             ? new HumanReadableName(resolved.Value, fallback, resolved)
             : new HumanReadableName(fallback, fallback, outcome);

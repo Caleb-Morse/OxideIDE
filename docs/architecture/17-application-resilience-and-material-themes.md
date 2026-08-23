@@ -23,8 +23,15 @@ with a visible warning.
 The current schema stores:
 
 - last successful game root;
-- last successful active-mod root; and
-- selected material theme.
+- last successful active-mod root;
+- selected material theme;
+- preferred localisation language; and
+- whether English localisation fallback is enabled.
+
+Language settings are preferences rather than workspace facts. Opening a workspace
+that lacks the preferred language selects a deterministic effective language without
+overwriting the stored preference. Older schema-version-one files that omit these
+fields receive English and enabled-fallback defaults.
 
 Workspace source, installation data, semantic snapshots, and generated reports
 are never copied into settings.

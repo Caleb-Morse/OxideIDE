@@ -144,8 +144,9 @@ The implemented application is a read-only state explorer that can:
    English-fallback values without hiding duplicates;
 5. resolve state and country display names through one provenance-backed service;
 6. resolve state owner and core references against country-tag registrations;
-7. display source provenance and diagnostics; and
-8. navigate from a state to every known reference.
+7. switch among discovered languages without reloading the workspace;
+8. browse countries and navigate their owned or core state memberships; and
+9. display declaration and localisation provenance alongside diagnostics.
 
 This exercises all core boundaries. Editing and map rendering remain product
 direction rather than current application capabilities.

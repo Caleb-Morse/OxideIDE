@@ -21,6 +21,10 @@ public sealed record ResolvedLocalisation(
     public string Value => Declaration.Value.Value;
 
     public SourceProvenance Provenance => Declaration.Value.Provenance;
+
+    public LocalisationLanguage ResolvedLanguage => Declaration.Language;
+
+    public bool IsFallback => RequestedLanguage != ResolvedLanguage;
 }
 
 public sealed record MissingLocalisation(
