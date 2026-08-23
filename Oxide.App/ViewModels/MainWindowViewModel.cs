@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Immutable;
 using Oxide.App.Settings;
 using Oxide.Core;
 using Oxide.Core.Workspaces;
@@ -15,18 +16,25 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly bool ownsWorkspaceService;
     private readonly IApplicationSettingsStore? settingsStore;
     private readonly List<StateListItemViewModel> allStates = [];
+    private readonly List<CountryListItemViewModel> allCountries = [];
     private CancellationTokenSource? loadCancellation;
     private ApplicationScreen screen = ApplicationScreen.Welcome;
     private string gameRootPath = string.Empty;
     private string activeModRootPath = string.Empty;
     private string searchText = string.Empty;
+    private string countrySearchText = string.Empty;
+    private string preferredLanguage = "english";
+    private string selectedLanguage = "english";
+    private bool englishFallbackEnabled = true;
     private string loadingMessage = "Preparing workspace…";
     private double loadingProgress;
     private string? errorMessage;
     private StateListItemViewModel? selectedState;
+    private CountryListItemViewModel? selectedCountry;
     private ProblemListItemViewModel? selectedProblem;
     private WorkspaceSnapshot? snapshot;
     private OxideTheme theme = OxideTheme.IronRustDark;
+    private bool showingCountryDetails;
 
     public MainWindowViewModel()
         : this(new WorkspaceService(), new JsonApplicationSettingsStore(), ownsWorkspaceService: true)
@@ -49,6 +57,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public string ApplicationName { get; }
 
     public ObservableCollection<StateListItemViewModel> States { get; } = [];
+
+    public ObservableCollection<CountryListItemViewModel> Countries { get; } = [];
+
+    public ObservableCollection<LanguageOptionViewModel> AvailableLanguages { get; } = [];
 
     public ObservableCollection<ProblemListItemViewModel> Problems { get; } = [];
 
@@ -103,6 +115,66 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             }
         }
     }
+
+    public string CountrySearchText
+    {
+        get => countrySearchText;
+        set
+        {
+            if (SetProperty(ref countrySearchText, value))
+            {
+                ApplyCountryFilter();
+            }
+        }
+    }
+
+    public string SelectedLanguage
+    {
+        get => selectedLanguage;
+        private set
+        {
+            if (SetProperty(ref selectedLanguage, value))
+            {
+                OnPropertyChanged(nameof(LanguageSummary));
+                OnPropertyChanged(nameof(SelectedLanguageOption));
+            }
+        }
+    }
+
+    public string PreferredLanguage
+    {
+        get => preferredLanguage;
+        private set
+        {
+            if (SetProperty(ref preferredLanguage, value))
+            {
+                OnPropertyChanged(nameof(LanguageSummary));
+            }
+        }
+    }
+
+    public LanguageOptionViewModel? SelectedLanguageOption =>
+        AvailableLanguages.FirstOrDefault(language => language.Id == SelectedLanguage);
+
+    public bool HasAvailableLanguages => AvailableLanguages.Count > 0;
+
+    public bool EnglishFallbackEnabled
+    {
+        get => englishFallbackEnabled;
+        private set
+        {
+            if (SetProperty(ref englishFallbackEnabled, value))
+            {
+                OnPropertyChanged(nameof(LanguageSummary));
+            }
+        }
+    }
+
+    public string LanguageSummary => AvailableLanguages.Count == 0
+        ? "No localisation languages discovered"
+        : SelectedLanguage == PreferredLanguage
+            ? $"Displaying {SelectedLanguage}"
+            : $"Displaying {SelectedLanguage}; {PreferredLanguage} is unavailable";
 
     public string LoadingMessage
     {
@@ -172,6 +244,51 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool HasNoSelectedState => SelectedState is null;
 
+    public CountryListItemViewModel? SelectedCountry
+    {
+        get => selectedCountry;
+        set
+        {
+            if (SetProperty(ref selectedCountry, value))
+            {
+                OnPropertyChanged(nameof(HasSelectedCountry));
+                OnPropertyChanged(nameof(HasNoSelectedCountry));
+            }
+        }
+    }
+
+    public bool HasSelectedCountry => SelectedCountry is not null;
+
+    public bool HasNoSelectedCountry => SelectedCountry is null;
+
+    public bool IsStateDetailsVisible => !showingCountryDetails;
+
+    public bool IsCountryDetailsVisible => showingCountryDetails;
+
+    public void ShowStateDetails()
+    {
+        if (!showingCountryDetails)
+        {
+            return;
+        }
+
+        showingCountryDetails = false;
+        OnPropertyChanged(nameof(IsStateDetailsVisible));
+        OnPropertyChanged(nameof(IsCountryDetailsVisible));
+    }
+
+    public void ShowCountryDetails()
+    {
+        if (showingCountryDetails)
+        {
+            return;
+        }
+
+        showingCountryDetails = true;
+        OnPropertyChanged(nameof(IsStateDetailsVisible));
+        OnPropertyChanged(nameof(IsCountryDetailsVisible));
+    }
+
     public ProblemListItemViewModel? SelectedProblem
     {
         get => selectedProblem;
@@ -212,6 +329,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             GameRootPath = result.Settings.LastGameRoot ?? string.Empty;
             ActiveModRootPath = result.Settings.LastActiveModRoot ?? string.Empty;
             Theme = result.Settings.Theme;
+            PreferredLanguage = LanguageSelectionPolicy.NormalizePreference(result.Settings.PreferredLanguage);
+            EnglishFallbackEnabled = result.Settings.EnglishFallbackEnabled;
             ThemeChanged?.Invoke(Theme);
             if (result.Warning is not null)
             {
@@ -230,6 +349,41 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Theme = Theme is OxideTheme.IronRustDark
             ? OxideTheme.CopperVerdigrisLight
             : OxideTheme.IronRustDark;
+        await SaveSettingsAsync();
+    }
+
+    public async Task ChangeLanguageAsync(string? language)
+    {
+        if (snapshot is null || string.IsNullOrWhiteSpace(language))
+        {
+            return;
+        }
+
+        var normalized = LanguageSelectionPolicy.NormalizePreference(language);
+        if (AvailableLanguages.All(option => option.Id != normalized))
+        {
+            return;
+        }
+
+        PreferredLanguage = normalized;
+        if (SelectedLanguage != normalized)
+        {
+            SelectedLanguage = normalized;
+            RebuildPresentation();
+        }
+
+        await SaveSettingsAsync();
+    }
+
+    public async Task SetEnglishFallbackAsync(bool enabled)
+    {
+        if (EnglishFallbackEnabled == enabled)
+        {
+            return;
+        }
+
+        EnglishFallbackEnabled = enabled;
+        RebuildPresentation();
         await SaveSettingsAsync();
     }
 
@@ -335,7 +489,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             await settingsStore.SaveAsync(new ApplicationSettings(
                 LastGameRoot: string.IsNullOrWhiteSpace(GameRootPath) ? null : GameRootPath,
                 LastActiveModRoot: string.IsNullOrWhiteSpace(ActiveModRootPath) ? null : ActiveModRootPath,
-                Theme: Theme));
+                Theme: Theme,
+                PreferredLanguage: PreferredLanguage,
+                EnglishFallbackEnabled: EnglishFallbackEnabled));
         }
         catch (Exception exception)
         {
@@ -364,11 +520,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private void ApplySnapshot(WorkspaceSnapshot loadedSnapshot)
     {
         var previousStateId = SelectedState?.Id;
+        var previousCountryTag = SelectedCountry?.Tag;
         snapshot = loadedSnapshot;
-        allStates.Clear();
-        allStates.AddRange(loadedSnapshot.Semantics.States.Values
-            .OrderBy(state => int.Parse(state.Id.LocalKey, System.Globalization.CultureInfo.InvariantCulture))
-            .Select(state => new StateListItemViewModel(state, loadedSnapshot)));
+        AvailableLanguages.Clear();
+        foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)
+        {
+            AvailableLanguages.Add(LanguageOptionViewModel.Create(language.Value));
+        }
+
+        OnPropertyChanged(nameof(HasAvailableLanguages));
+        SelectedLanguage = LanguageSelectionPolicy.ChooseEffective(
+            PreferredLanguage,
+            AvailableLanguages.Select(language => language.Id).ToImmutableArray());
+        OnPropertyChanged(nameof(SelectedLanguageOption));
+        OnPropertyChanged(nameof(LanguageSummary));
+        RebuildPresentation();
 
         Problems.Clear();
         foreach (var problem in loadedSnapshot.Diagnostics.Select(ProblemListItemViewModel.FromWorkspace)
@@ -379,15 +545,62 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Problems.Add(problem);
         }
 
-        ApplyFilter();
         SelectedState = previousStateId is { } id
             ? States.FirstOrDefault(state => state.Id == id)
             : States.FirstOrDefault();
+        SelectedCountry = previousCountryTag is { } tag
+            ? Countries.FirstOrDefault(country => country.Tag == tag)
+            : Countries.FirstOrDefault();
         OnPropertyChanged(nameof(WorkspaceName));
         OnPropertyChanged(nameof(WorkspaceSummary));
         OnPropertyChanged(nameof(StatusSummary));
         OnPropertyChanged(nameof(ErrorCount));
         OnPropertyChanged(nameof(WarningCount));
+    }
+
+    private void RebuildPresentation()
+    {
+        if (snapshot is null)
+        {
+            return;
+        }
+
+        var stateId = SelectedState?.Id;
+        var countryTag = SelectedCountry?.Tag;
+        allStates.Clear();
+        allStates.AddRange(snapshot.Semantics.States.Values
+            .Select(state => new StateListItemViewModel(
+                state,
+                snapshot,
+                SelectedLanguage,
+                EnglishFallbackEnabled))
+            .OrderBy(state => state.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(state => state.Id));
+        allCountries.Clear();
+        allCountries.AddRange(snapshot.Semantics.Countries.Values
+            .Select(country => new CountryListItemViewModel(
+                country,
+                snapshot,
+                SelectedLanguage,
+                EnglishFallbackEnabled))
+            .OrderBy(country => country.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(country => country.Tag, StringComparer.Ordinal));
+        ApplyFilter();
+        ApplyCountryFilter();
+        if (stateId is not null && States.All(state => state.Id != stateId))
+        {
+            SearchText = string.Empty;
+        }
+
+        if (countryTag is not null && Countries.All(country => country.Tag != countryTag))
+        {
+            CountrySearchText = string.Empty;
+        }
+
+        SelectedState = stateId is null ? States.FirstOrDefault() : States.FirstOrDefault(state => state.Id == stateId);
+        SelectedCountry = countryTag is null
+            ? Countries.FirstOrDefault()
+            : Countries.FirstOrDefault(country => country.Tag == countryTag);
     }
 
     private void ApplyFilter()
@@ -425,4 +638,27 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         SelectedState = state;
     }
+
+    public void SelectStateFromCountry(int stateId) => SelectState(stateId);
+
+    private void ApplyCountryFilter()
+    {
+        var selectedTag = SelectedCountry?.Tag;
+        var query = CountrySearchText.Trim();
+        var matches = string.IsNullOrEmpty(query)
+            ? allCountries
+            : allCountries.Where(country => country.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase));
+
+        Countries.Clear();
+        foreach (var country in matches)
+        {
+            Countries.Add(country);
+        }
+
+        if (selectedTag is not null)
+        {
+            SelectedCountry = Countries.FirstOrDefault(country => country.Tag == selectedTag);
+        }
+    }
+
 }

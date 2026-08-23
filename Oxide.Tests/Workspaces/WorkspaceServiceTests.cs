@@ -3,6 +3,7 @@ using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Documents;
 using Oxide.Core.Workspaces.Loading;
 using Oxide.Syntax.Diagnostics;
+using Oxide.Syntax.Localisation;
 
 namespace Oxide.Tests.Workspaces;
 
@@ -14,6 +15,7 @@ public sealed class WorkspaceServiceTests
         using var fixture = new TemporaryWorkspace();
         fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 }");
         fixture.WriteGameFile("common/country_tags/00_countries.txt", "TST=\"countries/Test.txt\"");
+        fixture.WriteGameFile("localisation/english/states_l_english.yml", "l_english:\n STATE_1: \"Test\"");
         fixture.WriteGameFile("events/ignored.txt", "country_event={ id=test.1 }");
         fixture.WriteModFile("history/states/2-Mod.txt", "state={ id=2 }");
         using var service = new WorkspaceService();
@@ -25,13 +27,17 @@ public sealed class WorkspaceServiceTests
 
         Assert.Equal("Fixture", snapshot.Configuration.DisplayName);
         Assert.Equal(2, snapshot.Layers.Length);
-        Assert.Equal(3, snapshot.Documents.Length);
-        Assert.Equal(3, snapshot.LoadMetrics.DocumentCount);
-        Assert.Equal(3, snapshot.LoadMetrics.LoadedDocumentCount);
-        Assert.Equal(2, snapshot.Documents.Count(document => document.Layer.Kind is ContentLayerKind.BaseGame));
+        Assert.Equal(4, snapshot.Documents.Length);
+        Assert.Equal(4, snapshot.LoadMetrics.DocumentCount);
+        Assert.Equal(4, snapshot.LoadMetrics.LoadedDocumentCount);
+        Assert.Equal(3, snapshot.Documents.Count(document => document.Layer.Kind is ContentLayerKind.BaseGame));
         Assert.Single(snapshot.Documents, document => document.Layer.Kind is ContentLayerKind.ActiveMod);
         Assert.DoesNotContain(snapshot.Documents, document => document.VirtualPath.Value.StartsWith("events/", StringComparison.Ordinal));
         Assert.All(snapshot.Documents, document => Assert.True(document.IsLoaded));
+        var localisation = Assert.Single(snapshot.Documents, document =>
+            document.Kind is SourceDocumentKind.Localisation);
+        Assert.Null(localisation.SyntaxTree);
+        Assert.NotNull(localisation.LocalisationSyntaxTree);
     }
 
     [Fact]
@@ -83,6 +89,44 @@ public sealed class WorkspaceServiceTests
         Assert.Null(failed.SyntaxTree);
         Assert.Contains(failed.Diagnostics, diagnostic => diagnostic.Code == "OXIDE3003");
         Assert.Single(snapshot.Documents, document => document.IsLoaded);
+    }
+
+    [Fact]
+    public async Task Malformed_localisation_is_loaded_with_lossless_syntax_diagnostics()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string text = "l_english:\n STATE_1: \"unterminated\n";
+        fixture.WriteGameFile("localisation/english/broken_l_english.yml", text);
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+
+        var document = Assert.Single(snapshot.Documents);
+        Assert.True(document.IsLoaded);
+        Assert.Equal(SourceDocumentKind.Localisation, document.Kind);
+        Assert.Null(document.SyntaxTree);
+        var syntax = Assert.IsType<LocalisationSyntaxTree>(document.LocalisationSyntaxTree);
+        Assert.Equal(text, syntax.ToFullString());
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "OXIDE1203");
+        Assert.Contains(snapshot.Diagnostics, diagnostic => diagnostic.Code == "OXIDE1203");
+    }
+
+    [Fact]
+    public async Task Invalid_localisation_encoding_remains_a_failed_document()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameBytes("localisation/english/bad_l_english.yml", [0xC3, 0x28]);
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+
+        var document = Assert.Single(snapshot.Documents);
+        Assert.Equal(SourceDocumentKind.Localisation, document.Kind);
+        Assert.Equal(DocumentLoadStatus.Failed, document.LoadStatus);
+        Assert.Null(document.Text);
+        Assert.Null(document.SyntaxTree);
+        Assert.Null(document.LocalisationSyntaxTree);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "OXIDE3003");
     }
 
     [Fact]

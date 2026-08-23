@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using Oxide.Core.Semantics.Declarations;
 using Oxide.Core.Semantics.Diagnostics;
 using Oxide.Core.Semantics.Identity;
@@ -12,15 +13,20 @@ namespace Oxide.Core.Semantics.Building;
 
 internal static class SemanticBuilder
 {
-    public static SemanticSnapshot Build(ImmutableArray<SourceDocument> documents)
+    public static SemanticBuildResult Build(ImmutableArray<SourceDocument> documents)
     {
         var states = ImmutableArray.CreateBuilder<StateDeclaration>();
         var countries = ImmutableArray.CreateBuilder<CountryTagDeclaration>();
+        var localisations = ImmutableArray.CreateBuilder<LocalisationDeclaration>();
         var diagnostics = ImmutableArray.CreateBuilder<SemanticDiagnostic>();
 
         foreach (var document in documents.Where(document => document.IsLoaded))
         {
-            if (document.VirtualPath.Value.StartsWith("history/states/", StringComparison.OrdinalIgnoreCase))
+            if (document.LocalisationSyntaxTree is not null)
+            {
+                localisations.AddRange(LocalisationDeclarationExtractor.Extract(document));
+            }
+            else if (document.VirtualPath.Value.StartsWith("history/states/", StringComparison.OrdinalIgnoreCase))
             {
                 var result = StateDeclarationExtractor.Extract(document);
                 states.AddRange(result.Declarations);
@@ -36,14 +42,49 @@ internal static class SemanticBuilder
 
         var countryEntities = BuildCountries(countries.ToImmutable(), diagnostics);
         var stateEntities = BuildStates(states.ToImmutable(), countryEntities, diagnostics);
+        var localisationStart = Stopwatch.GetTimestamp();
+        var localisationEntries = BuildLocalisations(localisations.ToImmutable(), diagnostics);
+        var localisationElapsed = Stopwatch.GetElapsedTime(localisationStart);
         var allDiagnostics = diagnostics.ToImmutable();
 
-        return new SemanticSnapshot(
+        var snapshot = new SemanticSnapshot(
             states.ToImmutable(),
             countries.ToImmutable(),
+            localisations.ToImmutable(),
             stateEntities,
             countryEntities,
+            localisationEntries,
             allDiagnostics);
+        return new SemanticBuildResult(snapshot, localisationElapsed.TotalMilliseconds);
+    }
+
+    private static ImmutableDictionary<LocalisationIdentity, LocalisationEntry> BuildLocalisations(
+        ImmutableArray<LocalisationDeclaration> declarations,
+        ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
+    {
+        var entries = ImmutableDictionary.CreateBuilder<LocalisationIdentity, LocalisationEntry>();
+        foreach (var group in declarations.GroupBy(declaration => declaration.Identity))
+        {
+            var contributions = group
+                .OrderBy(declaration => declaration.Provenance.Layer.Position)
+                .ThenBy(declaration => declaration.Provenance.PhysicalPath, StringComparer.Ordinal)
+                .ThenBy(declaration => declaration.Provenance.Span.Start)
+                .ToImmutableArray();
+            entries.Add(group.Key, new LocalisationEntry(group.Key, contributions));
+
+            if (contributions.Length > 1)
+            {
+                diagnostics.Add(new SemanticDiagnostic(
+                    "OXIDE4009",
+                    DiagnosticSeverity.Warning,
+                    $"Localisation '{group.Key.Key}' for language '{group.Key.Language}' has multiple declarations; resolution is ambiguous.",
+                    null,
+                    contributions[0].Provenance,
+                    contributions.Skip(1).Select(declaration => declaration.Provenance).ToImmutableArray()));
+            }
+        }
+
+        return entries.ToImmutable();
     }
 
     private static ImmutableDictionary<string, CountryEntity> BuildCountries(

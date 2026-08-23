@@ -21,7 +21,9 @@ The goal of Oxide is to streamline and enhance the modding experience by making 
 This project is in early development. The first read-only vertical slice is
 working: Oxide can open a game installation and optional active mod, build an
 immutable semantic workspace, browse and search states, inspect provenance, and
-show workspace and semantic problems.
+show workspace and semantic problems. The workspace also discovers and
+losslessly parses multilingual localisation files; resolving those entries to
+human-readable entity names is the next semantic step.
 
 ---
 
@@ -45,7 +47,10 @@ verification command is:
 
 It restores the solution, builds Debug and Release, runs all normal tests,
 checks formatting and repository contents, and generates the synthetic corpus
-summary. To run the individual development commands manually:
+summary using Spanish with English fallback so exact and fallback paths are both
+exercised. The ignored JSON report is written to
+`artifacts/synthetic-corpus-summary.json`. To run the individual development
+commands manually:
 
 ```sh
 dotnet restore Oxide.sln
@@ -83,6 +88,9 @@ Tests requiring a local HOI4 installation are deliberately separate:
 ```sh
 ./scripts/verify-external-corpus.sh /path/to/hoi4 [optional-mod-root]
 ```
+
+The reporter can also be run directly with `--language <language>` and
+`--no-english-fallback` to compare deterministic name-resolution policies.
 
 ---
 

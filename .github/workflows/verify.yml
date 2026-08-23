@@ -25,8 +25,9 @@ jobs:
         run: bash scripts/verify.sh
 
       - name: Upload synthetic corpus summary
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: synthetic-corpus-summary
           path: artifacts/synthetic-corpus-summary.json
-          if-no-files-found: error
+          if-no-files-found: warn

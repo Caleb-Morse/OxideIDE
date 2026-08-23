@@ -11,6 +11,10 @@ while IFS= read -r tracked_path; do
             echo "Forbidden game-installation path is tracked: $tracked_path" >&2
             forbidden=1
             ;;
+        artifacts/*)
+            echo "Generated artifact is tracked: $tracked_path" >&2
+            forbidden=1
+            ;;
     esac
 done < <(git ls-files)
 

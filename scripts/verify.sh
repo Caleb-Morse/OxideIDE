@@ -17,6 +17,7 @@ dotnet run --project Oxide.CorpusSummary/Oxide.CorpusSummary.csproj \
     --game-root Oxide.Tests/Fixtures/Corpus/game \
     --mod-root Oxide.Tests/Fixtures/Corpus/mod \
     --name "Synthetic corpus" \
+    --language spanish \
     --output artifacts/synthetic-corpus-summary.json > /dev/null
 
 echo "Oxide verification passed."

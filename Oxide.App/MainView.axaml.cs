@@ -51,6 +51,42 @@ public partial class MainView : Window
     private async void ToggleTheme_Click(object? sender, RoutedEventArgs e) => await ViewModel.ToggleThemeAsync();
     private void DismissError_Click(object? sender, RoutedEventArgs e) => ViewModel.DismissError();
 
+    private async void Language_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: LanguageOptionViewModel language } &&
+            language.Id != ViewModel.SelectedLanguage)
+        {
+            await ViewModel.ChangeLanguageAsync(language.Id);
+        }
+    }
+
+    private async void EnglishFallback_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { IsChecked: { } enabled })
+        {
+            await ViewModel.SetEnglishFallbackAsync(enabled);
+        }
+    }
+
+    private void State_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (ViewModel.SelectedState is not null) ViewModel.ShowStateDetails();
+    }
+
+    private void Country_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (ViewModel.SelectedCountry is not null) ViewModel.ShowCountryDetails();
+    }
+
+    private void CountryState_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: int stateId })
+        {
+            ViewModel.SelectStateFromCountry(stateId);
+            ViewModel.ShowStateDetails();
+        }
+    }
+
     private static void ApplyTheme(OxideTheme theme)
     {
         if (Application.Current is not null)

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Oxide.App.ViewModels;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
@@ -66,6 +68,33 @@ public sealed class WorkspacePerformanceScenarioTests
         Assert.Single(snapshot.Documents);
     }
 
+    [Fact]
+    [Trait("Category", "ExternalCorpus")]
+    public async Task Extracted_corpus_language_switching_is_bounded_and_does_not_reload()
+    {
+        var root = Environment.GetEnvironmentVariable("OXIDE_HOI4_CORPUS_ROOT");
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return;
+        }
+
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = root };
+        await viewModel.OpenWorkspaceAsync();
+        var published = service.CurrentSnapshot;
+        var stopwatch = Stopwatch.StartNew();
+
+        foreach (var language in viewModel.AvailableLanguages)
+        {
+            await viewModel.ChangeLanguageAsync(language.Id);
+        }
+
+        stopwatch.Stop();
+        Assert.Same(published, service.CurrentSnapshot);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10),
+            $"Language projection took {stopwatch.Elapsed.TotalMilliseconds:N0} ms.");
+    }
+
     private static void AssertMetrics(WorkspaceLoadMetrics metrics, int expectedDocuments)
     {
         Assert.Equal(expectedDocuments, metrics.DocumentCount);
@@ -75,7 +104,10 @@ public sealed class WorkspacePerformanceScenarioTests
         Assert.Equal(0, metrics.SemanticDiagnosticCount);
         Assert.True(metrics.DiscoveryMilliseconds >= 0);
         Assert.True(metrics.DocumentLoadingMilliseconds > 0);
+        Assert.True(metrics.ClausewitzDocumentLoadingMilliseconds > 0);
+        Assert.True(metrics.LocalisationDocumentLoadingMilliseconds >= 0);
         Assert.True(metrics.SemanticBuildingMilliseconds >= 0);
+        Assert.True(metrics.LocalisationIndexingMilliseconds >= 0);
         Assert.True(metrics.TotalMilliseconds >= metrics.DocumentLoadingMilliseconds);
         Assert.True(metrics.DocumentsPerSecond > 0);
     }

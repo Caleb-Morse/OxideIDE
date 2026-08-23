@@ -54,6 +54,195 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Language_switch_reprojects_names_search_and_sort_without_reloading_the_workspace()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 name=STATE_ONE }");
+        fixture.WriteGameFile("history/states/2-Two.txt", "state={ id=2 name=STATE_TWO }");
+        fixture.WriteGameFile("localisation/english/names_l_english.yml", "l_english:\n STATE_ONE:0 \"Zulu\"\n STATE_TWO:0 \"Alpha\"\n");
+        fixture.WriteGameFile("localisation/russian/names_l_russian.yml", "l_russian:\n STATE_ONE:0 \"Альфа\"\n STATE_TWO:0 \"Янтарь\"\n");
+        var settings = new RecordingSettingsStore(new ApplicationSettingsLoadResult(new ApplicationSettings()));
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service, settings) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var published = service.CurrentSnapshot;
+        viewModel.SelectedState = viewModel.States.Single(state => state.Id == 1);
+        viewModel.SearchText = "Zulu";
+
+        await viewModel.ChangeLanguageAsync("russian");
+
+        Assert.Same(published, service.CurrentSnapshot);
+        Assert.Equal("russian", viewModel.SelectedLanguage);
+        Assert.Equal([1, 2], viewModel.States.Select(state => state.Id));
+        Assert.Equal("Альфа", viewModel.SelectedState?.DisplayName);
+        Assert.Equal(1, viewModel.SelectedState?.Id);
+        Assert.Equal(string.Empty, viewModel.SearchText);
+        Assert.Equal("russian", settings.Saved?.PreferredLanguage);
+        viewModel.SearchText = "STATE_TWO";
+        Assert.Equal(2, Assert.Single(viewModel.States).Id);
+    }
+
+    [Fact]
+    public async Task State_and_country_names_share_exact_and_english_fallback_presentation()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("common/country_tags/00_countries.txt", "TST=\"countries/Test.txt\"");
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 name=STATE_ONE history={ owner=TST } }");
+        fixture.WriteGameFile("localisation/english/names_l_english.yml", "l_english:\n STATE_ONE:0 \"English State\"\n TST:0 \"Test Country\"\n");
+        fixture.WriteGameFile("localisation/russian/names_l_russian.yml", "l_russian:\n STATE_ONE:0 \"Русский штат\"\n");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+
+        await viewModel.ChangeLanguageAsync("russian");
+
+        var state = Assert.Single(viewModel.States);
+        var country = Assert.Single(viewModel.Countries);
+        Assert.Equal("Русский штат", state.DisplayName);
+        Assert.Equal("Exact russian match", state.NameStatus);
+        Assert.Equal("Test Country", country.DisplayName);
+        Assert.Equal("English fallback for russian", country.NameStatus);
+        Assert.Equal("Test Country · TST", state.Owner);
+        Assert.EndsWith("names_l_english.yml", country.LocalisationSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Country_browser_searches_names_and_tags_and_links_owned_states()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("common/country_tags/00_countries.txt", "AAA=\"countries/A.txt\" BBB=\"countries/B.txt\"");
+        fixture.WriteGameFile("history/states/7-Seven.txt", "state={ id=7 history={ owner=BBB add_core_of=AAA } }");
+        fixture.WriteGameFile("localisation/english/names_l_english.yml", "l_english:\n AAA:0 \"Amber Republic\"\n BBB:0 \"Blue Kingdom\"\n");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+
+        viewModel.CountrySearchText = "Blue Kingdom";
+        var country = Assert.Single(viewModel.Countries);
+        Assert.Equal("BBB", country.Tag);
+        Assert.Equal([7], country.OwnedStateIds.ToArray());
+        Assert.Empty(country.CoreStateIds);
+
+        viewModel.CountrySearchText = "AAA";
+        Assert.Equal([7], Assert.Single(viewModel.Countries).CoreStateIds.ToArray());
+    }
+
+    [Fact]
+    public async Task Missing_and_ambiguous_names_keep_stable_identifiers_visible()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 name=MISSING }");
+        fixture.WriteGameFile("history/states/2-Two.txt", "state={ id=2 name=DUP }");
+        fixture.WriteGameFile("localisation/english/a_l_english.yml", "l_english:\n DUP:0 \"One\"\n");
+        fixture.WriteGameFile("localisation/english/b_l_english.yml", "l_english:\n DUP:0 \"Two\"\n");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.Equal("State 1", viewModel.States.Single(state => state.Id == 1).DisplayName);
+        Assert.Equal("Missing localisation", viewModel.States.Single(state => state.Id == 1).NameStatus);
+        Assert.Equal("State 2", viewModel.States.Single(state => state.Id == 2).DisplayName);
+        Assert.Equal("Ambiguous localisation", viewModel.States.Single(state => state.Id == 2).NameStatus);
+    }
+
+    [Fact]
+    public async Task Simplified_chinese_names_flow_through_the_application_projection()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 name=STATE_ONE }");
+        fixture.WriteGameFile("localisation/simp_chinese/names_l_simp_chinese.yml", "l_simp_chinese:\n STATE_ONE:0 \"钢铁海岸\"\n");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.Equal("simp_chinese", viewModel.SelectedLanguage);
+        Assert.Equal("钢铁海岸", Assert.Single(viewModel.States).DisplayName);
+        Assert.Equal("Exact simp_chinese match", Assert.Single(viewModel.States).NameStatus);
+    }
+
+    [Fact]
+    public async Task Unavailable_preference_is_preserved_and_reactivates_after_reload()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 name=STATE_ONE }");
+        fixture.WriteGameFile("localisation/english/names_l_english.yml", "l_english:\n STATE_ONE:0 \"English\"\n");
+        var settings = new RecordingSettingsStore(new ApplicationSettingsLoadResult(new ApplicationSettings(
+            PreferredLanguage: "russian")));
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service, settings);
+        await viewModel.InitializeAsync();
+        viewModel.GameRootPath = fixture.GameRoot;
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.Equal("russian", viewModel.PreferredLanguage);
+        Assert.Equal("english", viewModel.SelectedLanguage);
+        Assert.Equal("russian", settings.Saved?.PreferredLanguage);
+
+        fixture.WriteGameFile("localisation/russian/names_l_russian.yml", "l_russian:\n STATE_ONE:0 \"Русский\"\n");
+        await viewModel.ReloadAsync();
+
+        Assert.Equal("russian", viewModel.PreferredLanguage);
+        Assert.Equal("russian", viewModel.SelectedLanguage);
+        Assert.Equal("Русский", Assert.Single(viewModel.States).DisplayName);
+    }
+
+    [Fact]
+    public async Task Fallback_toggle_reprojects_without_reloading_and_is_persisted()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 name=STATE_ONE }");
+        fixture.WriteGameFile("localisation/english/names_l_english.yml", "l_english:\n STATE_ONE:0 \"English fallback\"\n");
+        fixture.WriteGameFile("localisation/russian/other_l_russian.yml", "l_russian:\n OTHER:0 \"Другое\"\n");
+        var settings = new RecordingSettingsStore(new ApplicationSettingsLoadResult(new ApplicationSettings()));
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service, settings) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        await viewModel.ChangeLanguageAsync("russian");
+        var published = service.CurrentSnapshot;
+        Assert.Equal("English fallback", Assert.Single(viewModel.States).DisplayName);
+
+        await viewModel.SetEnglishFallbackAsync(false);
+
+        Assert.Same(published, service.CurrentSnapshot);
+        Assert.Equal("State 1", Assert.Single(viewModel.States).DisplayName);
+        Assert.Equal("Missing localisation", Assert.Single(viewModel.States).NameStatus);
+        Assert.False(settings.Saved?.EnglishFallbackEnabled);
+    }
+
+    [Fact]
+    public async Task Readable_language_options_keep_canonical_identifiers()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("localisation/english/a_l_english.yml", "l_english:\n A:0 \"A\"\n");
+        fixture.WriteGameFile("localisation/spanish/a_l_spanish.yml", "l_spanish:\n A:0 \"A\"\n");
+        fixture.WriteGameFile("localisation/russian/a_l_russian.yml", "l_russian:\n A:0 \"A\"\n");
+        fixture.WriteGameFile("localisation/simp_chinese/a_l_simp_chinese.yml", "l_simp_chinese:\n A:0 \"A\"\n");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.Equal(
+            [("english", "English"), ("russian", "Русский"), ("simp_chinese", "简体中文"), ("spanish", "Español")],
+            viewModel.AvailableLanguages.Select(language => (language.Id, language.DisplayName)));
+    }
+
+    [Fact]
+    public async Task Workspace_without_localisation_remains_usable_with_no_selector_options()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 name=STATE_ONE }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.Empty(viewModel.AvailableLanguages);
+        Assert.False(viewModel.HasAvailableLanguages);
+        Assert.Equal("State 1", Assert.Single(viewModel.States).DisplayName);
+        Assert.Contains("No localisation", viewModel.LanguageSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Selecting_a_state_problem_reveals_that_state_and_clears_a_hiding_filter()
     {
         using var fixture = new TemporaryWorkspace();

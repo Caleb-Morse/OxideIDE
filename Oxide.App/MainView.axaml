@@ -54,7 +54,7 @@
 
     <Grid RowDefinitions="60,*,34">
         <Border Grid.Row="0" Background="{DynamicResource OxideSurface}" BorderBrush="{DynamicResource OxideBorder}" BorderThickness="0,0,0,1">
-            <Grid Margin="18,0" ColumnDefinitions="Auto,18,*,Auto,10,Auto,10,Auto">
+            <Grid Margin="18,0" ColumnDefinitions="Auto,18,*,Auto,10,170,10,Auto,10,Auto,10,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                     <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource OxideAccent}">
                         <TextBlock Text="O" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -67,9 +67,20 @@
                     <TextBlock Text="{Binding WorkspaceSummary}" Classes="muted" FontSize="11" />
                 </StackPanel>
                 <Button Grid.Column="3" Classes="quiet" Content="{Binding ThemeActionLabel}" Click="ToggleTheme_Click" />
-                <Button Grid.Column="5" Classes="quiet" Content="Change workspace"
+                <ComboBox Grid.Column="5" ItemsSource="{Binding AvailableLanguages}"
+                          SelectedItem="{Binding SelectedLanguageOption, Mode=OneWay}"
+                          DisplayMemberBinding="{Binding DisplayName}"
+                          VerticalAlignment="Center"
+                          IsEnabled="{Binding HasAvailableLanguages}"
+                          IsVisible="{Binding IsWorkspaceVisible}"
+                          SelectionChanged="Language_SelectionChanged" />
+                <CheckBox Grid.Column="7" Content="English fallback"
+                          IsChecked="{Binding EnglishFallbackEnabled, Mode=OneWay}"
+                          VerticalAlignment="Center" IsVisible="{Binding IsWorkspaceVisible}"
+                          Click="EnglishFallback_Click" />
+                <Button Grid.Column="9" Classes="quiet" Content="Change workspace"
                         IsVisible="{Binding IsWorkspaceVisible}" Click="ChangeWorkspace_Click" />
-                <Button Grid.Column="7" Classes="primary" Content="Reload"
+                <Button Grid.Column="11" Classes="primary" Content="Reload"
                         IsVisible="{Binding IsWorkspaceVisible}" Click="Reload_Click" />
             </Grid>
         </Border>
@@ -100,7 +111,7 @@
                         </StackPanel>
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
-                                       Text="Supported now: states and country tags" />
+                                       Text="Supported now: states, country tags and localisation syntax" />
                             <Button Grid.Column="1" Classes="primary" Content="Open workspace"
                                     IsEnabled="{Binding CanOpenWorkspace}" Click="OpenWorkspace_Click" />
                         </Grid>
@@ -128,7 +139,8 @@
                                          Watermark="Search ID, name, owner, category or file…" />
                                 <TextBlock Grid.Row="1" Margin="2,8" Classes="muted"
                                            Text="{Binding States.Count, StringFormat={}{0:N0} matching states}" />
-                                <ListBox Grid.Row="2" ItemsSource="{Binding States}" SelectedItem="{Binding SelectedState}">
+                                <ListBox Grid.Row="2" ItemsSource="{Binding States}" SelectedItem="{Binding SelectedState}"
+                                         SelectionChanged="State_SelectionChanged">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="vm:StateListItemViewModel">
                                             <Grid ColumnDefinitions="58,*" RowDefinitions="Auto,Auto">
@@ -140,6 +152,28 @@
                                                     <TextBlock Text="•" Classes="muted" FontSize="11" />
                                                     <TextBlock Text="{Binding ProvinceSummary}" Classes="muted" FontSize="11" />
                                                 </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </TabItem>
+                        <TabItem Header="Countries">
+                            <Grid Margin="0,10,0,0" RowDefinitions="Auto,Auto,*">
+                                <TextBox Grid.Row="0" Text="{Binding CountrySearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         Watermark="Search country name, tag or source…" />
+                                <TextBlock Grid.Row="1" Margin="2,8" Classes="muted"
+                                           Text="{Binding Countries.Count, StringFormat={}{0:N0} matching countries}" />
+                                <ListBox Grid.Row="2" ItemsSource="{Binding Countries}" SelectedItem="{Binding SelectedCountry}"
+                                         SelectionChanged="Country_SelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:CountryListItemViewModel">
+                                            <Grid ColumnDefinitions="58,*" RowDefinitions="Auto,Auto">
+                                                <TextBlock Grid.Column="0" Grid.RowSpan="2" Text="{Binding Tag}"
+                                                           Foreground="{DynamicResource OxideAccentSoft}" FontWeight="Bold" FontSize="14" />
+                                                <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding NameStatus}"
+                                                           Classes="muted" FontSize="11" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -171,6 +205,7 @@
 
                 <Border Grid.Column="2" Classes="card">
                     <Grid>
+                        <Grid IsVisible="{Binding IsStateDetailsVisible}">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
                                     IsVisible="{Binding HasNoSelectedState}">
                             <TextBlock Text="Select a state" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" />
@@ -227,11 +262,79 @@
                                                 <Border Grid.Column="0" Classes="card" Padding="18"><StackPanel Spacing="7"><TextBlock Classes="label" Text="CONTENT LAYER" /><TextBlock Text="{Binding SelectedState.SourceLayer}" /></StackPanel></Border>
                                                 <Border Grid.Column="1" Classes="card" Padding="18"><StackPanel Spacing="7"><TextBlock Classes="label" Text="ENTITY PROBLEMS" /><TextBlock Text="{Binding SelectedState.DiagnosticCount}" /></StackPanel></Border>
                                             </Grid>
+                                            <Border Classes="card" Padding="18">
+                                                <StackPanel Spacing="7">
+                                                    <TextBlock Classes="label" Text="HUMAN-READABLE NAME" />
+                                                    <TextBlock Text="{Binding SelectedState.NameStatus}" />
+                                                    <TextBlock Text="{Binding SelectedState.LocalisationSource}" TextWrapping="Wrap" FontFamily="Menlo,Consolas,monospace" />
+                                                    <TextBlock Text="{Binding SelectedState.LocalisationLocation}" Classes="muted" />
+                                                    <TextBlock Text="{Binding SelectedState.ResolvedLanguage, StringFormat=Language: {0}}" Classes="muted" />
+                                                </StackPanel>
+                                            </Border>
                                             <TextBlock Classes="muted" TextWrapping="Wrap" Text="Every value is derived from the source declaration above. Editing remains disabled in this first application slice." />
                                         </StackPanel>
                                     </ScrollViewer>
                                 </TabItem>
                             </TabControl>
+                        </Grid>
+                        </Grid>
+
+                        <Grid IsVisible="{Binding IsCountryDetailsVisible}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
+                                        IsVisible="{Binding HasNoSelectedCountry}">
+                                <TextBlock Text="Select a country" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Classes="muted" Text="Choose a country to inspect its name, states and provenance." />
+                            </StackPanel>
+                            <Grid IsVisible="{Binding HasSelectedCountry}" RowDefinitions="Auto,*">
+                                <Border Grid.Row="0" Padding="24,20" Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="10,10,0,0">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding SelectedCountry.DisplayName}" FontSize="26" FontWeight="Bold" />
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <TextBlock Text="{Binding SelectedCountry.Tag}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding SelectedCountry.NameStatus}" Classes="muted" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Background="{DynamicResource OxideSurface}" CornerRadius="12" Padding="10,5" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding SelectedCountry.Status}" FontWeight="SemiBold" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <ScrollViewer Grid.Row="1" Margin="22">
+                                    <StackPanel Spacing="14">
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                            <Border Classes="card" Padding="16"><StackPanel Spacing="6"><TextBlock Classes="label" Text="DEFINITION PATH" /><TextBlock Text="{Binding SelectedCountry.DefinitionPath}" TextWrapping="Wrap" /></StackPanel></Border>
+                                            <Border Grid.Column="1" Classes="card" Padding="16"><StackPanel Spacing="6"><TextBlock Classes="label" Text="DECLARATION SOURCE" /><TextBlock Text="{Binding SelectedCountry.DeclarationSummary}" TextWrapping="Wrap" /></StackPanel></Border>
+                                        </Grid>
+                                        <Border Classes="card" Padding="16">
+                                            <StackPanel Spacing="8">
+                                                <TextBlock Classes="label" Text="OWNED STATES" />
+                                                <ItemsControl ItemsSource="{Binding SelectedCountry.OwnedStateIds}">
+                                                    <ItemsControl.ItemTemplate><DataTemplate><Button Classes="quiet" Margin="0,0,6,6" Tag="{Binding}" Content="{Binding, StringFormat=State {0}}" Click="CountryState_Click" /></DataTemplate></ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Text="{Binding SelectedCountry.OwnedStates}" Classes="muted" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Classes="card" Padding="16">
+                                            <StackPanel Spacing="8">
+                                                <TextBlock Classes="label" Text="CORE STATES" />
+                                                <ItemsControl ItemsSource="{Binding SelectedCountry.CoreStateIds}">
+                                                    <ItemsControl.ItemTemplate><DataTemplate><Button Classes="quiet" Margin="0,0,6,6" Tag="{Binding}" Content="{Binding, StringFormat=State {0}}" Click="CountryState_Click" /></DataTemplate></ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Text="{Binding SelectedCountry.CoreStates}" Classes="muted" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Classes="card" Padding="16">
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Classes="label" Text="LOCALISATION PROVENANCE" />
+                                                <TextBlock Text="{Binding SelectedCountry.LocalisationSource}" TextWrapping="Wrap" FontFamily="Menlo,Consolas,monospace" />
+                                                <TextBlock Text="{Binding SelectedCountry.LocalisationLocation}" Classes="muted" />
+                                                <TextBlock Text="{Binding SelectedCountry.ResolvedLanguage, StringFormat=Language: {0}}" Classes="muted" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
                         </Grid>
                     </Grid>
                 </Border>
