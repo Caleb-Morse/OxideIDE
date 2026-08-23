@@ -17,6 +17,8 @@ public sealed class SemanticSnapshot
         ImmutableDictionary<int, StateEntity> states,
         ImmutableDictionary<string, CountryEntity> countries,
         ImmutableDictionary<int, StrategicRegionEntity> strategicRegions,
+        ProvinceStrategicRegionIndex provinceStrategicRegionIndex,
+        ImmutableDictionary<int, StateStrategicRegionMembership> stateStrategicRegionMemberships,
         ImmutableDictionary<LocalisationIdentity, LocalisationEntry> localisations,
         ImmutableArray<SemanticDiagnostic> diagnostics)
     {
@@ -27,6 +29,8 @@ public sealed class SemanticSnapshot
         States = states;
         Countries = countries;
         StrategicRegions = strategicRegions;
+        ProvinceStrategicRegionIndex = provinceStrategicRegionIndex;
+        StateStrategicRegionMemberships = stateStrategicRegionMemberships;
         Localisations = localisations;
         LocalisationResolver = new LocalisationResolver(localisations);
         Diagnostics = diagnostics;
@@ -50,6 +54,10 @@ public sealed class SemanticSnapshot
 
     public ImmutableDictionary<int, StrategicRegionEntity> StrategicRegions { get; }
 
+    public ProvinceStrategicRegionIndex ProvinceStrategicRegionIndex { get; }
+
+    public ImmutableDictionary<int, StateStrategicRegionMembership> StateStrategicRegionMemberships { get; }
+
     public ImmutableDictionary<LocalisationIdentity, LocalisationEntry> Localisations { get; }
 
     public LocalisationResolver LocalisationResolver { get; }
@@ -61,5 +69,8 @@ public sealed class SemanticSnapshot
     public static SemanticSnapshot Empty { get; } = new([], [], [], [], ImmutableDictionary<int, StateEntity>.Empty,
         ImmutableDictionary<string, CountryEntity>.Empty,
         ImmutableDictionary<int, StrategicRegionEntity>.Empty,
+        new ProvinceStrategicRegionIndex(ImmutableDictionary<int, StrategicRegionEntity>.Empty,
+            ImmutableArray.CreateBuilder<SemanticDiagnostic>()),
+        ImmutableDictionary<int, StateStrategicRegionMembership>.Empty,
         ImmutableDictionary<LocalisationIdentity, LocalisationEntry>.Empty, []);
 }

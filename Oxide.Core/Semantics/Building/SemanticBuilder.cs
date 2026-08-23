@@ -50,6 +50,11 @@ internal static class SemanticBuilder
         var countryEntities = BuildCountries(countries.ToImmutable(), diagnostics);
         var stateEntities = BuildStates(states.ToImmutable(), countryEntities, diagnostics);
         var strategicRegionEntities = BuildStrategicRegions(strategicRegions.ToImmutable(), diagnostics);
+        var provinceStrategicRegionIndex = new ProvinceStrategicRegionIndex(strategicRegionEntities, diagnostics);
+        var stateStrategicRegionMemberships = BuildStateStrategicRegionMemberships(
+            stateEntities,
+            provinceStrategicRegionIndex,
+            diagnostics);
         var localisationStart = Stopwatch.GetTimestamp();
         var localisationEntries = BuildLocalisations(localisations.ToImmutable(), diagnostics);
         var localisationElapsed = Stopwatch.GetElapsedTime(localisationStart);
@@ -63,6 +68,8 @@ internal static class SemanticBuilder
             stateEntities,
             countryEntities,
             strategicRegionEntities,
+            provinceStrategicRegionIndex,
+            stateStrategicRegionMemberships,
             localisationEntries,
             allDiagnostics);
         return new SemanticBuildResult(snapshot, localisationElapsed.TotalMilliseconds);
@@ -255,6 +262,106 @@ internal static class SemanticBuilder
         }
 
         return entities.ToImmutable();
+    }
+
+    private static ImmutableDictionary<int, StateStrategicRegionMembership> BuildStateStrategicRegionMemberships(
+        ImmutableDictionary<int, StateEntity> states,
+        ProvinceStrategicRegionIndex index,
+        ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
+    {
+        var memberships = ImmutableDictionary.CreateBuilder<int, StateStrategicRegionMembership>();
+        foreach (var state in states.Values.OrderBy(state => state.Id.LocalKey, StringComparer.Ordinal))
+        {
+            var references = state.Provinces
+                .Select(province => new ProvinceStrategicRegionReference(province, index.Resolve(province.Value)))
+                .ToImmutableArray();
+            var regions = references
+                .Select(reference => reference.Resolution)
+                .OfType<ResolvedProvinceStrategicRegion>()
+                .Select(resolution => resolution.Region)
+                .DistinctBy(region => region.Id)
+                .OrderBy(region => region.Id.LocalKey, StringComparer.Ordinal)
+                .ToImmutableArray();
+            var status = ClassifyStateMembership(state, references, regions);
+            var membershipDiagnostics = BuildMembershipDiagnostics(state, status, references, index.IsEmpty);
+            diagnostics.AddRange(membershipDiagnostics);
+            memberships.Add(int.Parse(state.Id.LocalKey, System.Globalization.CultureInfo.InvariantCulture),
+                new StateStrategicRegionMembership(
+                    state.Id,
+                    status,
+                    references,
+                    regions,
+                    membershipDiagnostics));
+        }
+
+        return memberships.ToImmutable();
+    }
+
+    private static StateStrategicRegionMembershipStatus ClassifyStateMembership(
+        StateEntity state,
+        ImmutableArray<ProvinceStrategicRegionReference> references,
+        ImmutableArray<StrategicRegionEntity> regions)
+    {
+        if (state.Status is SemanticEntityStatus.Ambiguous
+            || references.Any(reference => reference.Resolution is AmbiguousProvinceStrategicRegion))
+        {
+            return StateStrategicRegionMembershipStatus.Ambiguous;
+        }
+
+        if (references.Length == 0)
+        {
+            return StateStrategicRegionMembershipStatus.NoProvinces;
+        }
+
+        if (regions.Length > 1)
+        {
+            return StateStrategicRegionMembershipStatus.Split;
+        }
+
+        var missing = references.Count(reference => reference.Resolution is MissingProvinceStrategicRegion);
+        if (regions.Length == 1 && missing > 0)
+        {
+            return StateStrategicRegionMembershipStatus.Partial;
+        }
+
+        return regions.Length == 1
+            ? StateStrategicRegionMembershipStatus.SingleRegion
+            : StateStrategicRegionMembershipStatus.Missing;
+    }
+
+    private static ImmutableArray<SemanticDiagnostic> BuildMembershipDiagnostics(
+        StateEntity state,
+        StateStrategicRegionMembershipStatus status,
+        ImmutableArray<ProvinceStrategicRegionReference> references,
+        bool indexIsEmpty)
+    {
+        if (status is StateStrategicRegionMembershipStatus.SingleRegion || indexIsEmpty)
+        {
+            return [];
+        }
+
+        var provenance = references.FirstOrDefault()?.StateProvince.Provenance
+            ?? state.Contributions.FirstOrDefault()?.Provenance;
+        var related = references
+            .SelectMany(reference => reference.Resolution is AmbiguousProvinceStrategicRegion ambiguous
+                ? ambiguous.Candidates.Select(candidate => candidate.Provenance)
+                : [])
+            .ToImmutableArray();
+        var (code, severity, message) = status switch
+        {
+            StateStrategicRegionMembershipStatus.Ambiguous =>
+                ("OXIDE4017", DiagnosticSeverity.Error, "State strategic-region membership is ambiguous."),
+            StateStrategicRegionMembershipStatus.Split =>
+                ("OXIDE4018", DiagnosticSeverity.Warning, "State provinces span several strategic regions."),
+            StateStrategicRegionMembershipStatus.Partial =>
+                ("OXIDE4019", DiagnosticSeverity.Warning, "Only some state provinces have strategic-region membership."),
+            StateStrategicRegionMembershipStatus.Missing =>
+                ("OXIDE4020", DiagnosticSeverity.Warning, "No state provinces have strategic-region membership."),
+            StateStrategicRegionMembershipStatus.NoProvinces =>
+                ("OXIDE4021", DiagnosticSeverity.Information, "State has no valid province candidates to resolve."),
+            _ => throw new InvalidOperationException($"Unexpected membership status '{status}'."),
+        };
+        return [new SemanticDiagnostic(code, severity, message, state.Id, provenance, related)];
     }
 
     private static ImmutableDictionary<string, EffectiveValue<decimal>> BuildEffectiveResources(
