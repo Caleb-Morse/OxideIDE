@@ -17,6 +17,7 @@ internal static class SemanticBuilder
     {
         var states = ImmutableArray.CreateBuilder<StateDeclaration>();
         var countries = ImmutableArray.CreateBuilder<CountryTagDeclaration>();
+        var strategicRegions = ImmutableArray.CreateBuilder<StrategicRegionDeclaration>();
         var localisations = ImmutableArray.CreateBuilder<LocalisationDeclaration>();
         var diagnostics = ImmutableArray.CreateBuilder<SemanticDiagnostic>();
 
@@ -38,6 +39,12 @@ internal static class SemanticBuilder
                 countries.AddRange(result.Declarations);
                 diagnostics.AddRange(result.Diagnostics);
             }
+            else if (document.VirtualPath.Value.StartsWith("map/strategicregions/", StringComparison.OrdinalIgnoreCase))
+            {
+                var result = StrategicRegionDeclarationExtractor.Extract(document);
+                strategicRegions.AddRange(result.Declarations);
+                diagnostics.AddRange(result.Diagnostics);
+            }
         }
 
         var countryEntities = BuildCountries(countries.ToImmutable(), diagnostics);
@@ -50,6 +57,7 @@ internal static class SemanticBuilder
         var snapshot = new SemanticSnapshot(
             states.ToImmutable(),
             countries.ToImmutable(),
+            strategicRegions.ToImmutable(),
             localisations.ToImmutable(),
             stateEntities,
             countryEntities,

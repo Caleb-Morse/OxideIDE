@@ -4,6 +4,9 @@ public readonly record struct EntityId(EntityKind Kind, string Namespace, string
 {
     public static EntityId State(int stateId) => new(EntityKind.State, "global", stateId.ToString());
 
+    public static EntityId StrategicRegion(int regionId) =>
+        new(EntityKind.StrategicRegion, "global", regionId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
     public static EntityId Country(string tag) => new(EntityKind.Country, "tag", NormalizeCountryTag(tag));
 
     public static string NormalizeCountryTag(string tag)
