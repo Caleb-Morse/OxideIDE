@@ -71,6 +71,23 @@ public sealed class LocalisationSemanticTests
     }
 
     [Fact]
+    public async Task Ambiguous_requested_language_never_falls_back_to_english()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("localisation/english/a_l_english.yml", "l_english:\n KEY:0 \"English\"\n");
+        fixture.WriteGameFile("localisation/russian/a_l_russian.yml", "l_russian:\n KEY:0 \"Один\"\n");
+        fixture.WriteGameFile("localisation/russian/b_l_russian.yml", "l_russian:\n KEY:0 \"Два\"\n");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+        var result = Assert.IsType<AmbiguousLocalisation>(
+            snapshot.Semantics.LocalisationResolver.Resolve("russian", "KEY", allowEnglishFallback: true));
+
+        Assert.Equal("russian", result.CandidateLanguage.Value);
+        Assert.Equal(2, result.Candidates.Length);
+    }
+
+    [Fact]
     public async Task States_and_countries_use_the_same_human_readable_name_resolver()
     {
         using var fixture = new TemporaryWorkspace();

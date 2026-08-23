@@ -17,7 +17,9 @@ public sealed class ApplicationSettingsTests : IDisposable
         var expected = new ApplicationSettings(
             LastGameRoot: "/game",
             LastActiveModRoot: "/mod",
-            Theme: OxideTheme.CopperVerdigrisLight);
+            Theme: OxideTheme.CopperVerdigrisLight,
+            PreferredLanguage: "russian",
+            EnglishFallbackEnabled: false);
 
         await store.SaveAsync(expected);
         var result = await store.LoadAsync();
@@ -25,6 +27,27 @@ public sealed class ApplicationSettingsTests : IDisposable
         Assert.Equal(expected, result.Settings);
         Assert.Null(result.Warning);
         Assert.False(File.Exists(path + ".tmp"));
+    }
+
+    [Fact]
+    public async Task Older_settings_receive_language_policy_defaults()
+    {
+        var path = Path.Combine(directory, "settings.json");
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(path, """
+            {
+              "SchemaVersion": 1,
+              "LastGameRoot": "/game",
+              "Theme": 0
+            }
+            """);
+        var store = new JsonApplicationSettingsStore(path);
+
+        var result = await store.LoadAsync();
+
+        Assert.Null(result.Warning);
+        Assert.Equal("english", result.Settings.PreferredLanguage);
+        Assert.True(result.Settings.EnglishFallbackEnabled);
     }
 
     [Fact]

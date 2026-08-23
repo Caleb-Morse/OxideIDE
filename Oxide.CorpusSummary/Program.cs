@@ -19,9 +19,13 @@ static async Task<int> RunAsync(string[] args)
             options.WorkspaceName));
         stopwatch.Stop();
 
-        var summary = CorpusSummaryBuilder.Build(snapshot, stopwatch.Elapsed);
+        var summary = CorpusSummaryBuilder.Build(
+            snapshot,
+            stopwatch.Elapsed,
+            new CorpusSummaryOptions(options.Language, options.EnglishFallbackEnabled));
         var json = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
         Console.WriteLine(json);
+        WriteHumanSummary(summary);
 
         if (options.OutputPath is not null)
         {
@@ -46,13 +50,36 @@ static async Task<int> RunAsync(string[] args)
     }
 }
 
+static void WriteHumanSummary(CorpusSummary summary)
+{
+    var localisation = summary.Localisation;
+    var slowestStage = new[]
+        {
+            ("discovery", summary.WorkspacePerformance.DiscoveryMilliseconds),
+            ("document loading and parsing", summary.WorkspacePerformance.DocumentLoadingMilliseconds),
+            ("semantic construction", summary.WorkspacePerformance.SemanticBuildingMilliseconds),
+            ("name projection", localisation.NameProjectionMilliseconds),
+        }
+        .OrderByDescending(stage => stage.Item2)
+        .First();
+    Console.Error.WriteLine($"{summary.WorkspaceName}: {summary.DocumentsLoaded:N0}/{summary.FilesDiscovered:N0} documents loaded; {summary.DocumentsFailed:N0} failed.");
+    Console.Error.WriteLine($"Languages: {(localisation.LanguagesDiscovered.Length == 0 ? "none" : string.Join(", ", localisation.LanguagesDiscovered))}.");
+    Console.Error.WriteLine($"Names ({localisation.EffectiveLanguage}, English fallback {(localisation.EnglishFallbackEnabled ? "on" : "off")}): " +
+        $"{localisation.StateNames.Exact + localisation.CountryNames.Exact:N0} exact, " +
+        $"{localisation.StateNames.EnglishFallback + localisation.CountryNames.EnglishFallback:N0} fallback, " +
+        $"{localisation.StateNames.Unresolved + localisation.CountryNames.Unresolved:N0} unresolved.");
+    Console.Error.WriteLine($"Diagnostics: {summary.SyntaxDiagnosticCount:N0} syntax, {summary.SemanticDiagnosticCount:N0} semantic. Slowest stage: {slowestStage.Item1} ({slowestStage.Item2:N0} ms).");
+}
+
 internal sealed record CommandLineOptions(
     string GameRoot,
     string? ModRoot,
     string? WorkspaceName,
-    string? OutputPath)
+    string? OutputPath,
+    string Language,
+    bool EnglishFallbackEnabled)
 {
-    public const string Usage = "Usage: dotnet run --project Oxide.CorpusSummary -- --game-root <path> [--mod-root <path>] [--name <name>] [--output <path>]";
+    public const string Usage = "Usage: dotnet run --project Oxide.CorpusSummary -- --game-root <path> [--mod-root <path>] [--name <name>] [--output <path>] [--language <language>] [--no-english-fallback]";
 
     public static CommandLineOptions Parse(string[] args)
     {
@@ -60,10 +87,18 @@ internal sealed record CommandLineOptions(
         string? modRoot = null;
         string? name = null;
         string? output = null;
+        var language = "english";
+        var englishFallbackEnabled = true;
 
         for (var index = 0; index < args.Length; index++)
         {
             var option = args[index];
+            if (option is "--no-english-fallback")
+            {
+                englishFallbackEnabled = false;
+                continue;
+            }
+
             if (index + 1 >= args.Length)
             {
                 throw new CommandLineException($"Option '{option}' requires a value.");
@@ -76,6 +111,7 @@ internal sealed record CommandLineOptions(
                 case "--mod-root": modRoot = value; break;
                 case "--name": name = value; break;
                 case "--output": output = value; break;
+                case "--language": language = value; break;
                 default: throw new CommandLineException($"Unknown option '{option}'.");
             }
         }
@@ -85,7 +121,7 @@ internal sealed record CommandLineOptions(
             throw new CommandLineException("--game-root is required.");
         }
 
-        return new CommandLineOptions(gameRoot, modRoot, name, output);
+        return new CommandLineOptions(gameRoot, modRoot, name, output, language, englishFallbackEnabled);
     }
 }
 

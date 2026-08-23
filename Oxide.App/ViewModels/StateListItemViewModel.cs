@@ -7,13 +7,26 @@ namespace Oxide.App.ViewModels;
 
 public sealed class StateListItemViewModel
 {
-    public StateListItemViewModel(StateEntity entity, WorkspaceSnapshot snapshot)
+    public StateListItemViewModel(
+        StateEntity entity,
+        WorkspaceSnapshot snapshot,
+        string language = "english",
+        bool allowEnglishFallback = true)
     {
         Entity = entity;
         Id = int.Parse(entity.Id.LocalKey, System.Globalization.CultureInfo.InvariantCulture);
-        DisplayName = entity.Name?.Value ?? $"State {Id}";
         LocalizationKey = entity.Name?.Value ?? "No name key";
-        Owner = DescribeCountry(entity.Owner);
+        var name = LocalisedNamePresentation.Create(
+            snapshot.Semantics.LocalisationResolver.ResolveName(entity, language, allowEnglishFallback),
+            LocalizationKey,
+            snapshot);
+        DisplayName = name.DisplayName;
+        NameStatus = name.ResolutionStatus;
+        LocalisationSource = name.SourcePath;
+        LocalisationLocation = name.SourceLocation;
+        LocalisationLayer = name.SourceLayer;
+        ResolvedLanguage = name.SourceLanguage;
+        Owner = DescribeCountry(entity.Owner, snapshot, language, allowEnglishFallback);
         Category = entity.StateCategory?.Value ?? "Unknown";
         Manpower = entity.Manpower?.Value.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) ?? "Unknown";
         Resources = entity.Resources.Count == 0
@@ -25,7 +38,11 @@ public sealed class StateListItemViewModel
         ProvinceSummary = $"{ProvinceIds.Length:N0} provinces";
         Cores = entity.Cores.Length == 0
             ? "None declared"
-            : string.Join(", ", entity.Cores.Select(core => $"{core.OriginalTag} ({DescribeResolution(core.Resolution)})"));
+            : string.Join(", ", entity.Cores.Select(core => DescribeCountry(
+                core,
+                snapshot,
+                language,
+                allowEnglishFallback)));
         Status = entity.Status.ToString();
         SourceSummary = entity.Contributions.Length == 1
             ? entity.Contributions[0].Provenance.PhysicalPath
@@ -42,6 +59,8 @@ public sealed class StateListItemViewModel
     public int Id { get; }
 
     public string DisplayName { get; }
+
+    public string NameStatus { get; }
 
     public string LocalizationKey { get; }
 
@@ -71,27 +90,46 @@ public sealed class StateListItemViewModel
 
     public int DiagnosticCount { get; }
 
+    public string LocalisationSource { get; }
+
+    public string LocalisationLocation { get; }
+
+    public string LocalisationLayer { get; }
+
+    public string ResolvedLanguage { get; }
+
     public string SearchText => $"{Id} {DisplayName} {LocalizationKey} {Owner} {Category} {SourceSummary}";
 
-    private static string DescribeCountry(CountryReference? reference) => reference is null
+    private static string DescribeCountry(
+        CountryReference? reference,
+        WorkspaceSnapshot snapshot,
+        string language,
+        bool allowEnglishFallback) => reference is null
         ? "Not declared"
         : reference.Resolution switch
         {
-            ResolvedCountry resolved => resolved.Target.Id.LocalKey,
+            ResolvedCountry resolved => DescribeResolvedCountry(
+                resolved.Target,
+                snapshot,
+                language,
+                allowEnglishFallback),
             MissingCountry missing => $"{missing.CandidateTag} (missing)",
             AmbiguousCountry ambiguous => $"{ambiguous.CandidateTag} (ambiguous)",
             InvalidCountry => $"{reference.OriginalTag} (invalid)",
             _ => reference.OriginalTag,
         };
 
-    private static string DescribeResolution(CountryResolution resolution) => resolution switch
+    private static string DescribeResolvedCountry(
+        CountryEntity country,
+        WorkspaceSnapshot snapshot,
+        string language,
+        bool allowEnglishFallback)
     {
-        ResolvedCountry => "resolved",
-        MissingCountry => "missing",
-        AmbiguousCountry => "ambiguous",
-        InvalidCountry => "invalid",
-        _ => "unknown",
-    };
+        var name = snapshot.Semantics.LocalisationResolver.ResolveName(country, language, allowEnglishFallback);
+        return name.DisplayText == country.Id.LocalKey
+            ? country.Id.LocalKey
+            : $"{name.DisplayText} · {country.Id.LocalKey}";
+    }
 
     private static string DescribeLocation(StateEntity entity, WorkspaceSnapshot snapshot)
     {

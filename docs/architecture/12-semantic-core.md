@@ -100,7 +100,7 @@ Codes introduced by this slice are:
 - `OXIDE4004`: invalid recognized property value;
 - `OXIDE4005`: duplicate recognized property with no selected value;
 - `OXIDE4006`: missing country reference;
-- `OXIDE4007`: ambiguous country reference; and
+- `OXIDE4007`: ambiguous country reference;
 - `OXIDE4008`: invalid country tag; and
 - `OXIDE4009`: duplicate language-qualified localisation identity.
 

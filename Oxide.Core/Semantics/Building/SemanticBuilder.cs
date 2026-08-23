@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using Oxide.Core.Semantics.Declarations;
 using Oxide.Core.Semantics.Diagnostics;
 using Oxide.Core.Semantics.Identity;
@@ -12,7 +13,7 @@ namespace Oxide.Core.Semantics.Building;
 
 internal static class SemanticBuilder
 {
-    public static SemanticSnapshot Build(ImmutableArray<SourceDocument> documents)
+    public static SemanticBuildResult Build(ImmutableArray<SourceDocument> documents)
     {
         var states = ImmutableArray.CreateBuilder<StateDeclaration>();
         var countries = ImmutableArray.CreateBuilder<CountryTagDeclaration>();
@@ -41,10 +42,12 @@ internal static class SemanticBuilder
 
         var countryEntities = BuildCountries(countries.ToImmutable(), diagnostics);
         var stateEntities = BuildStates(states.ToImmutable(), countryEntities, diagnostics);
+        var localisationStart = Stopwatch.GetTimestamp();
         var localisationEntries = BuildLocalisations(localisations.ToImmutable(), diagnostics);
+        var localisationElapsed = Stopwatch.GetElapsedTime(localisationStart);
         var allDiagnostics = diagnostics.ToImmutable();
 
-        return new SemanticSnapshot(
+        var snapshot = new SemanticSnapshot(
             states.ToImmutable(),
             countries.ToImmutable(),
             localisations.ToImmutable(),
@@ -52,6 +55,7 @@ internal static class SemanticBuilder
             countryEntities,
             localisationEntries,
             allDiagnostics);
+        return new SemanticBuildResult(snapshot, localisationElapsed.TotalMilliseconds);
     }
 
     private static ImmutableDictionary<LocalisationIdentity, LocalisationEntry> BuildLocalisations(

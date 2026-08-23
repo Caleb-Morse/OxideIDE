@@ -47,7 +47,10 @@ verification command is:
 
 It restores the solution, builds Debug and Release, runs all normal tests,
 checks formatting and repository contents, and generates the synthetic corpus
-summary. To run the individual development commands manually:
+summary using Spanish with English fallback so exact and fallback paths are both
+exercised. The ignored JSON report is written to
+`artifacts/synthetic-corpus-summary.json`. To run the individual development
+commands manually:
 
 ```sh
 dotnet restore Oxide.sln
@@ -85,6 +88,9 @@ Tests requiring a local HOI4 installation are deliberately separate:
 ```sh
 ./scripts/verify-external-corpus.sh /path/to/hoi4 [optional-mod-root]
 ```
+
+The reporter can also be run directly with `--language <language>` and
+`--no-english-fallback` to compare deterministic name-resolution policies.
 
 ---
 

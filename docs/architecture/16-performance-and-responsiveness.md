@@ -10,13 +10,21 @@ incremental parsing, caches, file watchers, or speculative optimization. A
 - workspace and semantic diagnostic counts;
 - discovery time;
 - document reading, decoding, lexing, and parsing time;
+- Clausewitz and localisation document-loading/parsing aggregates;
 - semantic construction time;
+- localisation indexing time within semantic construction;
 - total pre-publication load time; and
 - derived document throughput.
 
 The corpus-summary JSON includes these metrics alongside the independently
-measured end-to-end duration. This distinguishes internal stage cost from the
-observable command duration.
+measured end-to-end duration. It also measures state/country name projection,
+derived projection throughput, and managed memory observed at reporting time.
+The memory value is not labeled as peak memory; process-level peak resident
+memory is captured by the operating system during explicit external runs.
+
+Document-kind timings include reading and decoding as well as parsing. They are
+named loading/parsing aggregates rather than claiming precision the sequential
+loader cannot provide.
 
 ## Repeatable scenarios
 
@@ -25,6 +33,11 @@ opens and reloads the same workspace and verifies that both snapshots expose
 complete, internally consistent measurements. Correctness tests deliberately
 avoid wall-clock performance thresholds because shared development and CI
 machines are variable.
+
+The external category includes a bounded projection scenario that cycles every
+language discovered in the extracted corpus and asserts that the published
+snapshot object is unchanged. Its generous ceiling detects runaway work rather
+than serving as a performance target.
 
 For repeated measurements, run:
 

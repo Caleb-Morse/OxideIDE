@@ -1,0 +1,8 @@
+l_english:
+ SYNTHETIC_STATE_1:0 "Alpha State"
+ SYNTHETIC_STATE_2:1 "Beta State"
+ SYNTHETIC_STATE_3:0 "Gamma State"
+ AAA:0 "Alpha Republic"
+ BBB:0 "Beta Union"
+ BBB:1 "Ambiguous Beta Union"
+ SYNTHETIC_ESCAPED:0 "The \"Iron\" Coast"
