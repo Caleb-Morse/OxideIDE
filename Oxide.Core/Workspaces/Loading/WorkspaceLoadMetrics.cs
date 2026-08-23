@@ -8,7 +8,10 @@ public sealed record WorkspaceLoadMetrics(
     int SemanticDiagnosticCount,
     double DiscoveryMilliseconds,
     double DocumentLoadingMilliseconds,
+    double ClausewitzDocumentLoadingMilliseconds,
+    double LocalisationDocumentLoadingMilliseconds,
     double SemanticBuildingMilliseconds,
+    double LocalisationIndexingMilliseconds,
     double TotalMilliseconds)
 {
     public double DocumentsPerSecond => DocumentLoadingMilliseconds <= 0

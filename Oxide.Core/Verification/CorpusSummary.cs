@@ -19,5 +19,6 @@ public sealed record CorpusSummary(
     int SemanticDiagnosticCount,
     ImmutableSortedDictionary<string, int> SemanticDiagnosticsByCode,
     ReferenceResolutionCounts CountryReferences,
+    LocalisationCorpusSummary Localisation,
     WorkspaceLoadMetrics WorkspacePerformance,
     double TotalLoadMilliseconds);

@@ -104,7 +104,10 @@ public sealed class WorkspacePerformanceScenarioTests
         Assert.Equal(0, metrics.SemanticDiagnosticCount);
         Assert.True(metrics.DiscoveryMilliseconds >= 0);
         Assert.True(metrics.DocumentLoadingMilliseconds > 0);
+        Assert.True(metrics.ClausewitzDocumentLoadingMilliseconds > 0);
+        Assert.True(metrics.LocalisationDocumentLoadingMilliseconds >= 0);
         Assert.True(metrics.SemanticBuildingMilliseconds >= 0);
+        Assert.True(metrics.LocalisationIndexingMilliseconds >= 0);
         Assert.True(metrics.TotalMilliseconds >= metrics.DocumentLoadingMilliseconds);
         Assert.True(metrics.DocumentsPerSecond > 0);
     }

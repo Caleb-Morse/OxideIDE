@@ -54,6 +54,8 @@ internal sealed class WorkspaceLoader
             ElapsedMilliseconds: discoveryElapsed.TotalMilliseconds,
             DiagnosticCount: diagnostics.Count));
         var documents = ImmutableArray.CreateBuilder<SourceDocument>(candidates.Length);
+        var clausewitzDocumentLoadingMilliseconds = 0d;
+        var localisationDocumentLoadingMilliseconds = 0d;
 
         var documentLoadingStart = Stopwatch.GetTimestamp();
         for (var index = 0; index < candidates.Length; index++)
@@ -65,7 +67,17 @@ internal sealed class WorkspaceLoader
                 index,
                 candidates.Length,
                 candidate.PhysicalPath));
+            var documentStart = Stopwatch.GetTimestamp();
             documents.Add(LoadDocument(candidate));
+            var documentElapsed = Stopwatch.GetElapsedTime(documentStart).TotalMilliseconds;
+            if (candidate.Kind is SourceDocumentKind.Localisation)
+            {
+                localisationDocumentLoadingMilliseconds += documentElapsed;
+            }
+            else
+            {
+                clausewitzDocumentLoadingMilliseconds += documentElapsed;
+            }
         }
 
         var classifiedDocuments = ClassifyContributions(documents.ToImmutable());
@@ -87,7 +99,8 @@ internal sealed class WorkspaceLoader
             candidates.Length,
             candidates.Length));
         var semanticStart = Stopwatch.GetTimestamp();
-        var semantics = SemanticBuilder.Build(classifiedDocuments);
+        var semanticResult = SemanticBuilder.Build(classifiedDocuments);
+        var semantics = semanticResult.Snapshot;
         var semanticElapsed = Stopwatch.GetElapsedTime(semanticStart);
         var totalElapsed = Stopwatch.GetElapsedTime(totalStart);
         var metrics = new WorkspaceLoadMetrics(
@@ -98,7 +111,10 @@ internal sealed class WorkspaceLoader
             semantics.Diagnostics.Length,
             discoveryElapsed.TotalMilliseconds,
             documentLoadingElapsed.TotalMilliseconds,
+            clausewitzDocumentLoadingMilliseconds,
+            localisationDocumentLoadingMilliseconds,
             semanticElapsed.TotalMilliseconds,
+            semanticResult.LocalisationIndexingMilliseconds,
             totalElapsed.TotalMilliseconds);
         progress?.Report(new WorkspaceLoadProgress(
             WorkspaceLoadStage.BuildingSemantics,
