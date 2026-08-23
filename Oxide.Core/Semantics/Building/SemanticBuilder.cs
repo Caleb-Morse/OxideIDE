@@ -49,6 +49,7 @@ internal static class SemanticBuilder
 
         var countryEntities = BuildCountries(countries.ToImmutable(), diagnostics);
         var stateEntities = BuildStates(states.ToImmutable(), countryEntities, diagnostics);
+        var strategicRegionEntities = BuildStrategicRegions(strategicRegions.ToImmutable(), diagnostics);
         var localisationStart = Stopwatch.GetTimestamp();
         var localisationEntries = BuildLocalisations(localisations.ToImmutable(), diagnostics);
         var localisationElapsed = Stopwatch.GetElapsedTime(localisationStart);
@@ -61,6 +62,7 @@ internal static class SemanticBuilder
             localisations.ToImmutable(),
             stateEntities,
             countryEntities,
+            strategicRegionEntities,
             localisationEntries,
             allDiagnostics);
         return new SemanticBuildResult(snapshot, localisationElapsed.TotalMilliseconds);
@@ -199,6 +201,56 @@ internal static class SemanticBuilder
                 declaration.Provinces.Select(EffectiveValue<int>.FromSingle).ToImmutableArray(),
                 owner,
                 cores,
+                entityDiagnostics.ToImmutable()));
+        }
+
+        return entities.ToImmutable();
+    }
+
+    private static ImmutableDictionary<int, StrategicRegionEntity> BuildStrategicRegions(
+        ImmutableArray<StrategicRegionDeclaration> declarations,
+        ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
+    {
+        var entities = ImmutableDictionary.CreateBuilder<int, StrategicRegionEntity>();
+        foreach (var group in declarations
+            .Where(declaration => declaration.EntityId is not null)
+            .GroupBy(declaration => declaration.IdCandidates[0].Value))
+        {
+            var contributions = group
+                .OrderBy(declaration => declaration.Provenance.Layer.Position)
+                .ThenBy(declaration => declaration.Provenance.PhysicalPath, StringComparer.Ordinal)
+                .ThenBy(declaration => declaration.Provenance.Span.Start)
+                .ToImmutableArray();
+            var id = EntityId.StrategicRegion(group.Key);
+            var entityDiagnostics = diagnostics
+                .Where(diagnostic => diagnostic.EntityId == id)
+                .ToImmutableArray()
+                .ToBuilder();
+
+            if (contributions.Length > 1)
+            {
+                var duplicate = DuplicateIdentity(
+                    id,
+                    contributions.Select(declaration => declaration.Provenance).ToImmutableArray());
+                diagnostics.Add(duplicate);
+                entityDiagnostics.Add(duplicate);
+                entities.Add(group.Key, new StrategicRegionEntity(
+                    id,
+                    contributions,
+                    SemanticEntityStatus.Ambiguous,
+                    null,
+                    [],
+                    entityDiagnostics.ToImmutable()));
+                continue;
+            }
+
+            var declaration = contributions[0];
+            entities.Add(group.Key, new StrategicRegionEntity(
+                id,
+                contributions,
+                SemanticEntityStatus.Effective,
+                Single(declaration.NameCandidates),
+                declaration.Provinces.Select(EffectiveValue<int>.FromSingle).ToImmutableArray(),
                 entityDiagnostics.ToImmutable()));
         }
 
