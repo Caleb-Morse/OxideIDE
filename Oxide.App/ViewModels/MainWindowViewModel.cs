@@ -210,7 +210,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             if (SetProperty(ref theme, value))
             {
                 OnPropertyChanged(nameof(ThemeName));
-                OnPropertyChanged(nameof(ThemeActionLabel));
+                OnPropertyChanged(nameof(IsDarkMode));
                 ThemeChanged?.Invoke(value);
             }
         }
@@ -223,9 +223,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _ => "Oxide theme",
     };
 
-    public string ThemeActionLabel => Theme is OxideTheme.IronRustDark
-        ? "Use Copper Verdigris"
-        : "Use Iron Rust";
+    public bool IsDarkMode => Theme is OxideTheme.IronRustDark;
 
     public StateListItemViewModel? SelectedState
     {

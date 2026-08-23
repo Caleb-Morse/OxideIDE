@@ -54,7 +54,7 @@
 
     <Grid RowDefinitions="60,*,34">
         <Border Grid.Row="0" Background="{DynamicResource OxideSurface}" BorderBrush="{DynamicResource OxideBorder}" BorderThickness="0,0,0,1">
-            <Grid Margin="18,0" ColumnDefinitions="Auto,18,*,Auto,10,170,10,Auto,10,Auto,10,Auto">
+            <Grid Margin="18,0" ColumnDefinitions="Auto,18,*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                     <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource OxideAccent}">
                         <TextBlock Text="O" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -66,22 +66,51 @@
                     <TextBlock Text="{Binding WorkspaceName}" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding WorkspaceSummary}" Classes="muted" FontSize="11" />
                 </StackPanel>
-                <Button Grid.Column="3" Classes="quiet" Content="{Binding ThemeActionLabel}" Click="ToggleTheme_Click" />
-                <ComboBox Grid.Column="5" ItemsSource="{Binding AvailableLanguages}"
-                          SelectedItem="{Binding SelectedLanguageOption, Mode=OneWay}"
-                          DisplayMemberBinding="{Binding DisplayName}"
-                          VerticalAlignment="Center"
-                          IsEnabled="{Binding HasAvailableLanguages}"
-                          IsVisible="{Binding IsWorkspaceVisible}"
-                          SelectionChanged="Language_SelectionChanged" />
-                <CheckBox Grid.Column="7" Content="English fallback"
-                          IsChecked="{Binding EnglishFallbackEnabled, Mode=OneWay}"
-                          VerticalAlignment="Center" IsVisible="{Binding IsWorkspaceVisible}"
-                          Click="EnglishFallback_Click" />
-                <Button Grid.Column="9" Classes="quiet" Content="Change workspace"
-                        IsVisible="{Binding IsWorkspaceVisible}" Click="ChangeWorkspace_Click" />
-                <Button Grid.Column="11" Classes="primary" Content="Reload"
-                        IsVisible="{Binding IsWorkspaceVisible}" Click="Reload_Click" />
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                    <Button Classes="quiet" Content="⚙  Settings">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedRight">
+                                <Border Width="310" Padding="8">
+                                    <StackPanel Spacing="18">
+                                        <StackPanel Spacing="7" IsVisible="{Binding IsWorkspaceVisible}">
+                                            <TextBlock Text="Localisation language" FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding AvailableLanguages}"
+                                                      SelectedItem="{Binding SelectedLanguageOption, Mode=OneWay}"
+                                                      DisplayMemberBinding="{Binding DisplayName}"
+                                                      IsEnabled="{Binding HasAvailableLanguages}"
+                                                      HorizontalAlignment="Stretch"
+                                                      SelectionChanged="Language_SelectionChanged" />
+                                            <TextBlock Text="Choose which in-game translated names Oxide displays."
+                                                       Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Dark mode" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsDarkMode, Mode=OneWay}"
+                                                          VerticalAlignment="Center" Click="ToggleTheme_Click" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsWorkspaceVisible}"
+                                              ToolTip.Tip="When a name is missing in the selected language, show its English translation when one exists. The original localisation source remains inspectable.">
+                                            <StackPanel Grid.Column="0" Spacing="3" Margin="0,0,12,0">
+                                                <TextBlock Text="English fallback" FontWeight="SemiBold" />
+                                                <TextBlock Text="Use English for names missing in the selected language."
+                                                           Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1"
+                                                          IsChecked="{Binding EnglishFallbackEnabled, Mode=OneWay}"
+                                                          VerticalAlignment="Center" Click="EnglishFallback_Click" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <Button Classes="quiet" Content="Change workspace"
+                            IsVisible="{Binding IsWorkspaceVisible}" Click="ChangeWorkspace_Click" />
+                    <Button Classes="primary" Content="Reload"
+                            IsVisible="{Binding IsWorkspaceVisible}" Click="Reload_Click" />
+                </StackPanel>
             </Grid>
         </Border>
 

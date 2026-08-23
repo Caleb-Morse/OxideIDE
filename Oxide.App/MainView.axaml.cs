@@ -62,7 +62,7 @@ public partial class MainView : Window
 
     private async void EnglishFallback_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox { IsChecked: { } enabled })
+        if (sender is ToggleSwitch { IsChecked: { } enabled })
         {
             await ViewModel.SetEnglishFallbackAsync(enabled);
         }

@@ -222,8 +222,20 @@ public sealed class MainWindowViewModelTests
         await viewModel.OpenWorkspaceAsync();
 
         Assert.Equal(
-            [("english", "English"), ("russian", "Русский"), ("simp_chinese", "简体中文"), ("spanish", "Español")],
+            [("english", "🇬🇧  English"), ("russian", "🇷🇺  Русский"), ("simp_chinese", "🇨🇳  简体中文"), ("spanish", "🇪🇸  Español")],
             viewModel.AvailableLanguages.Select(language => (language.Id, language.DisplayName)));
+    }
+
+    [Theory]
+    [InlineData("braz_por", "🇧🇷  Português (Brasil)")]
+    [InlineData("french", "🇫🇷  Français")]
+    [InlineData("german", "🇩🇪  Deutsch")]
+    [InlineData("japanese", "🇯🇵  日本語")]
+    [InlineData("korean", "🇰🇷  한국어")]
+    [InlineData("polish", "🇵🇱  Polski")]
+    public void Hoi4_language_options_have_native_names_and_flags(string id, string displayName)
+    {
+        Assert.Equal(displayName, LanguageOptionViewModel.Create(id).DisplayName);
     }
 
     [Fact]
@@ -329,6 +341,7 @@ public sealed class MainWindowViewModelTests
         Assert.Equal(OxideTheme.CopperVerdigrisLight, viewModel.Theme);
         Assert.Equal(OxideTheme.CopperVerdigrisLight, appliedTheme);
         Assert.Equal("Copper Verdigris Light", viewModel.ThemeName);
+        Assert.False(viewModel.IsDarkMode);
     }
 
     [Fact]
@@ -348,6 +361,7 @@ public sealed class MainWindowViewModelTests
         Assert.Equal("/game", settings.Saved!.LastGameRoot);
         Assert.Equal("/mod", settings.Saved.LastActiveModRoot);
         Assert.Equal(OxideTheme.CopperVerdigrisLight, settings.Saved.Theme);
+        Assert.False(viewModel.IsDarkMode);
     }
 
     [Fact]
