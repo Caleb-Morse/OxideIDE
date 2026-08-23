@@ -1,0 +1,5 @@
+state = {
+    id = 6
+    name = "SYNTHETIC_STATE_6"
+    provinces = { 60 61 }
+}

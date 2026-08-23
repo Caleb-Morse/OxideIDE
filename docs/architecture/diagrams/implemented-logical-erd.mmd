@@ -5,12 +5,18 @@ erDiagram
     CONTENT_LAYER ||--o{ SOURCE_DOCUMENT : owns
     SOURCE_DOCUMENT ||--o{ STATE_DECLARATION : contains
     SOURCE_DOCUMENT ||--o{ COUNTRY_TAG_DECLARATION : contains
+    SOURCE_DOCUMENT ||--o{ STRATEGIC_REGION_DECLARATION : contains
     SOURCE_DOCUMENT ||--o{ LOCALISATION_DECLARATION : contains
     LOCALISATION_ENTRY ||--|{ LOCALISATION_DECLARATION : contributions
     STATE_ENTITY ||--|{ STATE_DECLARATION : contributions
     COUNTRY_ENTITY ||--|{ COUNTRY_TAG_DECLARATION : contributions
+    STRATEGIC_REGION_ENTITY ||--|{ STRATEGIC_REGION_DECLARATION : contributions
     STATE_ENTITY ||--o{ STATE_RESOURCE : has
     STATE_ENTITY ||--o{ STATE_PROVINCE : contains
+    STRATEGIC_REGION_ENTITY ||--o{ REGION_PROVINCE_CLAIM : contains
+    STATE_ENTITY ||--|| STATE_REGION_MEMBERSHIP : derives
+    STATE_REGION_MEMBERSHIP ||--o{ PROVINCE_REGION_REFERENCE : explains
+    PROVINCE_REGION_REFERENCE }o--o{ REGION_PROVINCE_CLAIM : resolves_against
     STATE_ENTITY ||--o| COUNTRY_REFERENCE : owner
     STATE_ENTITY ||--o{ COUNTRY_REFERENCE : core
     COUNTRY_REFERENCE }o--o| COUNTRY_ENTITY : resolves_to
@@ -67,6 +73,15 @@ erDiagram
         int span_start
         int span_length
     }
+    STRATEGIC_REGION_DECLARATION {
+        string declaration_id PK
+        string document_id FK
+        int strategic_region_id "nullable"
+        json name_candidates
+        json province_candidates
+        int span_start
+        int span_length
+    }
     LOCALISATION_DECLARATION {
         string declaration_id PK
         string document_id FK
@@ -98,6 +113,13 @@ erDiagram
         enum status
         string definition_path "nullable"
     }
+    STRATEGIC_REGION_ENTITY {
+        string entity_id PK
+        bigint snapshot_version FK
+        int strategic_region_id UK
+        enum status
+        string name "nullable"
+    }
     STATE_RESOURCE {
         string state_entity_id PK
         string resource_name PK
@@ -109,6 +131,26 @@ erDiagram
         int ordinal PK
         int province_id
         string provenance_id FK
+    }
+    REGION_PROVINCE_CLAIM {
+        string strategic_region_entity_id PK
+        int ordinal PK
+        int province_id
+        string provenance_id FK
+    }
+    STATE_REGION_MEMBERSHIP {
+        string state_entity_id PK
+        enum outcome
+        int resolved_count
+        int missing_count
+        int ambiguous_count
+    }
+    PROVINCE_REGION_REFERENCE {
+        string state_entity_id PK
+        int state_province_ordinal PK
+        int province_id
+        enum outcome
+        string state_provenance_id FK
     }
     COUNTRY_REFERENCE {
         string reference_id PK

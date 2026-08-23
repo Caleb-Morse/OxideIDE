@@ -49,12 +49,18 @@ erDiagram
     CONTENT_LAYER ||--o{ SOURCE_DOCUMENT : owns
     SOURCE_DOCUMENT ||--o{ STATE_DECLARATION : contains
     SOURCE_DOCUMENT ||--o{ COUNTRY_TAG_DECLARATION : contains
+    SOURCE_DOCUMENT ||--o{ STRATEGIC_REGION_DECLARATION : contains
     SOURCE_DOCUMENT ||--o{ LOCALISATION_DECLARATION : contains
     LOCALISATION_ENTRY ||--|{ LOCALISATION_DECLARATION : contributions
     STATE_ENTITY ||--|{ STATE_DECLARATION : contributions
     COUNTRY_ENTITY ||--|{ COUNTRY_TAG_DECLARATION : contributions
+    STRATEGIC_REGION_ENTITY ||--|{ STRATEGIC_REGION_DECLARATION : contributions
     STATE_ENTITY ||--o{ STATE_RESOURCE : has
     STATE_ENTITY ||--o{ STATE_PROVINCE : contains
+    STRATEGIC_REGION_ENTITY ||--o{ REGION_PROVINCE_CLAIM : contains
+    STATE_ENTITY ||--|| STATE_REGION_MEMBERSHIP : derives
+    STATE_REGION_MEMBERSHIP ||--o{ PROVINCE_REGION_REFERENCE : explains
+    PROVINCE_REGION_REFERENCE }o--o{ REGION_PROVINCE_CLAIM : resolves_against
     STATE_ENTITY ||--o| COUNTRY_REFERENCE : owner
     STATE_ENTITY ||--o{ COUNTRY_REFERENCE : core
     COUNTRY_REFERENCE }o--o| COUNTRY_ENTITY : resolves_to
@@ -111,6 +117,15 @@ erDiagram
         int span_start
         int span_length
     }
+    STRATEGIC_REGION_DECLARATION {
+        string declaration_id PK
+        string document_id FK
+        int strategic_region_id "nullable"
+        json name_candidates
+        json province_candidates
+        int span_start
+        int span_length
+    }
     LOCALISATION_DECLARATION {
         string declaration_id PK
         string document_id FK
@@ -142,6 +157,13 @@ erDiagram
         enum status
         string definition_path "nullable"
     }
+    STRATEGIC_REGION_ENTITY {
+        string entity_id PK
+        bigint snapshot_version FK
+        int strategic_region_id UK
+        enum status
+        string name "nullable"
+    }
     STATE_RESOURCE {
         string state_entity_id PK
         string resource_name PK
@@ -153,6 +175,26 @@ erDiagram
         int ordinal PK
         int province_id
         string provenance_id FK
+    }
+    REGION_PROVINCE_CLAIM {
+        string strategic_region_entity_id PK
+        int ordinal PK
+        int province_id
+        string provenance_id FK
+    }
+    STATE_REGION_MEMBERSHIP {
+        string state_entity_id PK
+        enum outcome
+        int resolved_count
+        int missing_count
+        int ambiguous_count
+    }
+    PROVINCE_REGION_REFERENCE {
+        string state_entity_id PK
+        int state_province_ordinal PK
+        int province_id
+        enum outcome
+        string state_provenance_id FK
     }
     COUNTRY_REFERENCE {
         string reference_id PK
@@ -207,12 +249,17 @@ Standalone chart source: [`diagrams/implemented-logical-erd.mmd`](diagrams/imple
 | `SourceDocument` | SHA-256 `document_id` from layer ID + virtual path | physical/virtual paths, load and contribution status, text, syntax tree | Layer has zero or many documents. Same virtual path may occur in many layers. |
 | `StateDeclaration` | no implemented standalone ID | document, complete provenance, ID/name/manpower/category/resource/province/owner/core candidates | Document has zero or many; entity has one or many contributions. A database projection should add `declaration_id`. |
 | `CountryTagDeclaration` | no implemented standalone ID | document, original and normalized tag, definition path, provenance | Same ID recommendation as above. |
+| `StrategicRegionDeclaration` | no implemented standalone ID | document, ID/name candidates, ordered sourced province claims, declaration provenance | Invalid declarations remain inspectable; valid IDs contribute to a typed region. |
 | `LocalisationDeclaration` | no implemented standalone ID | language, case-sensitive key, optional version, sourced value, declaration provenance | Every duplicate remains a contribution to its language-qualified entry. |
 | `LocalisationEntry` | `(language, localisation_key)` | immutable declaration contributions | One contribution resolves; multiple contributions are ambiguous. |
 | `LocalisationResolution` | requested language and key | resolved, missing, or ambiguous payload | English fallback is attempted only after an exact-language miss. Invalid raw requests have a distinct result. |
-| `EntityId` | `(kind, namespace, local_key)` | typed canonical identity | Current kinds: `State`, `Country`. State namespace is `global`; country namespace is `tag`. |
+| `EntityId` | `(kind, namespace, local_key)` | typed canonical identity | Current kinds: `State`, `Country`, `StrategicRegion`. Numeric identities use `global`; country uses `tag`. |
 | `StateEntity` | `EntityId` | status, effective name/manpower/category/resources/provinces, owner and core references | Derived per semantic snapshot. |
 | `CountryEntity` | `EntityId` | status, effective definition path | Derived per semantic snapshot. |
+| `StrategicRegionEntity` | `EntityId` | status, contributions, effective name, ordered effective province claims | Duplicate identities retain all contributions and expose no effective values. |
+| `ProvinceStrategicRegionIndex` | province ID | every `ProvinceStrategicRegionCandidate` | Immutable snapshot lookup; repeated same-region claims remain resolved, competing/ambiguous identities remain ambiguous. |
+| `StateStrategicRegionMembership` | state numeric ID | status, province references, resolved regions, diagnostics | Outcomes are single, split, partial, missing, ambiguous, or no-provinces. |
+| `ProvinceStrategicRegionReference` | state province occurrence | state-side effective value plus resolved/missing/ambiguous outcome | Resolved and ambiguous outcomes retain every region-side candidate provenance. |
 | `CountryReference` | no implemented standalone ID | original tag, provenance, resolution | Belongs to a state as either owner or core; add `reference_id` and `role` in a relational projection. |
 | `CountryResolution` | subtype of reference | resolved, missing, ambiguous, or invalid payload | Exactly one outcome per country reference. |
 | `SourceProvenance` | no implemented standalone ID | document, physical path, layer, text span | Repeated throughout sourced/effective values and diagnostics; add `provenance_id` if normalized. |

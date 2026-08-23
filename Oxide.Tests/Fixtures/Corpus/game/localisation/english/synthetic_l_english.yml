@@ -6,3 +6,6 @@ l_english:
  BBB:0 "Beta Union"
  BBB:1 "Ambiguous Beta Union"
  SYNTHETIC_ESCAPED:0 "The \"Iron\" Coast"
+ SYNTHETIC_REGION_1:0 "Synthetic Northern Region"
+ SYNTHETIC_REGION_2:0 "Synthetic Southern Region"
+ SYNTHETIC_REGION_3:0 "Synthetic Ambiguous Region"

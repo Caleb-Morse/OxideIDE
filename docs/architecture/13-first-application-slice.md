@@ -28,7 +28,7 @@ already-published workspace and never exposes a partial snapshot.
 
 ### Language-aware workspace
 
-The header exposes every language discovered in the immutable semantic snapshot
+The Settings menu exposes every language discovered in the immutable semantic snapshot
 with a readable native label and a canonical internal identifier. Preferred and
 effective language are separate: the persisted preference is used when available,
 English is the secondary choice, and the first discovered language is the final
@@ -52,6 +52,9 @@ The workspace provides:
 - synchronized state selection;
 - overview values for owner, category, manpower, cores, resources, and
   provinces;
+- a language-aware strategic-region result with single, split, partial, missing,
+  ambiguous, and no-province states kept distinct;
+- per-province state-side and region-side membership provenance;
 - semantic status and diagnostic count; and
 - effective declaration path, content layer, and line/column provenance; and
 - selected localisation source, language, resolution reason, and line/column.
@@ -88,8 +91,9 @@ lifetime, native folder selection, and event forwarding. View models consume
 
 `StateListItemViewModel` and `CountryListItemViewModel` are display projections
 over semantic entities; they do not parse or reinterpret game source. Both use the
-shared `LocalisationResolver`. Provenance is resolved through the published
-snapshot's document index.
+shared `LocalisationResolver`. State region display is projected from the
+snapshot's immutable membership index; it performs no file access or parsing.
+Provenance is resolved through the published snapshot's document index.
 
 ## Current limitations
 

@@ -21,9 +21,10 @@ The goal of Oxide is to streamline and enhance the modding experience by making 
 This project is in early development. The first read-only vertical slice is
 working: Oxide can open a game installation and optional active mod, build an
 immutable semantic workspace, browse and search states, inspect provenance, and
-show workspace and semantic problems. The workspace also discovers and
-losslessly parses multilingual localisation files; resolving those entries to
-human-readable entity names is the next semantic step.
+show workspace and semantic problems. It resolves multilingual names for states,
+countries, and strategic regions, derives every state's province-backed region
+membership, and keeps split, partial, missing, and ambiguous outcomes inspectable
+with provenance from both source files.
 
 ---
 

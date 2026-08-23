@@ -1,0 +1,5 @@
+strategic_region = {
+    id = 2
+    name = "SYNTHETIC_REGION_2"
+    provinces = { 50 61 90 }
+}

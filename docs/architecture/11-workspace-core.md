@@ -9,6 +9,7 @@ and publishes an immutable `WorkspaceSnapshot`.
 The discovery profile includes:
 
 - `history/states/*.txt`;
+- `map/strategicregions/*.txt`;
 - `common/country_tags/*.txt`; and
 - `localisation/**/*.yml`.
 
@@ -76,5 +77,5 @@ physical path, and source span.
 
 The current implementation uses explicit reload rather than file watching,
 supports only base game plus one active mod, and does not resolve DLC,
-dependency mods, launcher playsets, localisation semantics, or effective
+dependency mods, launcher playsets, a complete province registry, or effective
 base/mod precedence.

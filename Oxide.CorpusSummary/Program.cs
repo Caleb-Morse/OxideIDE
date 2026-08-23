@@ -65,9 +65,16 @@ static void WriteHumanSummary(CorpusSummary summary)
     Console.Error.WriteLine($"{summary.WorkspaceName}: {summary.DocumentsLoaded:N0}/{summary.FilesDiscovered:N0} documents loaded; {summary.DocumentsFailed:N0} failed.");
     Console.Error.WriteLine($"Languages: {(localisation.LanguagesDiscovered.Length == 0 ? "none" : string.Join(", ", localisation.LanguagesDiscovered))}.");
     Console.Error.WriteLine($"Names ({localisation.EffectiveLanguage}, English fallback {(localisation.EnglishFallbackEnabled ? "on" : "off")}): " +
-        $"{localisation.StateNames.Exact + localisation.CountryNames.Exact:N0} exact, " +
-        $"{localisation.StateNames.EnglishFallback + localisation.CountryNames.EnglishFallback:N0} fallback, " +
-        $"{localisation.StateNames.Unresolved + localisation.CountryNames.Unresolved:N0} unresolved.");
+        $"{localisation.StateNames.Exact + localisation.CountryNames.Exact + localisation.StrategicRegionNames.Exact:N0} exact, " +
+        $"{localisation.StateNames.EnglishFallback + localisation.CountryNames.EnglishFallback + localisation.StrategicRegionNames.EnglishFallback:N0} fallback, " +
+        $"{localisation.StateNames.Unresolved + localisation.CountryNames.Unresolved + localisation.StrategicRegionNames.Unresolved:N0} unresolved.");
+    var regions = summary.StrategicRegions;
+    Console.Error.WriteLine($"Strategic regions: {regions.EntityCount:N0} entities from {regions.DeclarationCount:N0} declarations; " +
+        $"{regions.ProvinceCandidateCount:N0} province claims, {regions.AmbiguousProvinceCount:N0} ambiguous province memberships.");
+    Console.Error.WriteLine($"State memberships: {regions.StateMemberships.SingleRegion:N0} single, " +
+        $"{regions.StateMemberships.Split:N0} split, {regions.StateMemberships.Partial:N0} partial, " +
+        $"{regions.StateMemberships.Missing:N0} missing, {regions.StateMemberships.Ambiguous:N0} ambiguous, " +
+        $"{regions.StateMemberships.NoProvinces:N0} without provinces.");
     Console.Error.WriteLine($"Diagnostics: {summary.SyntaxDiagnosticCount:N0} syntax, {summary.SemanticDiagnosticCount:N0} semantic. Slowest stage: {slowestStage.Item1} ({slowestStage.Item2:N0} ms).");
 }
 

@@ -24,31 +24,40 @@ public sealed class SyntheticCorpusTests
             TimeSpan.FromMilliseconds(123),
             new CorpusSummaryOptions("spanish", EnglishFallbackEnabled: true));
 
-        Assert.Equal(14, summary.FilesDiscovered);
-        Assert.Equal(14, summary.DocumentsLoaded);
+        Assert.Equal(24, summary.FilesDiscovered);
+        Assert.Equal(24, summary.DocumentsLoaded);
         Assert.Equal(0, summary.DocumentsFailed);
         Assert.Equal(2, summary.SyntaxDiagnosticCount);
         Assert.Equal(1, summary.SyntaxDiagnosticsByCode["OXIDE1204"]);
         Assert.Equal(1, summary.SyntaxDiagnosticsByCode["OXIDE2003"]);
-        Assert.Equal(6, summary.StateDeclarationCount);
-        Assert.Equal(4, summary.StateEntityCount);
+        Assert.Equal(11, summary.StateDeclarationCount);
+        Assert.Equal(9, summary.StateEntityCount);
         Assert.Equal(3, summary.CountryDeclarationCount);
         Assert.Equal(2, summary.CountryEntityCount);
-        Assert.Equal(9, summary.SemanticDiagnosticCount);
+        Assert.Equal(23, summary.SemanticDiagnosticCount);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4002"]);
-        Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4003"]);
+        Assert.Equal(3, summary.SemanticDiagnosticsByCode["OXIDE4003"]);
         Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4004"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4006"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4007"]);
         Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4009"]);
+        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4011"]);
+        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4014"]);
+        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4015"]);
+        Assert.Equal(3, summary.SemanticDiagnosticsByCode["OXIDE4016"]);
+        Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4017"]);
+        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4018"]);
+        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4019"]);
+        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4020"]);
+        Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4021"]);
         Assert.Equal(2, summary.CountryReferences.Total);
         Assert.Equal(0, summary.CountryReferences.Resolved);
         Assert.Equal(1, summary.CountryReferences.Missing);
         Assert.Equal(1, summary.CountryReferences.Ambiguous);
         Assert.Equal(0, summary.CountryReferences.Invalid);
         Assert.Equal(2, summary.CountryReferences.Unresolved);
-        Assert.Equal(14, summary.WorkspacePerformance.DocumentCount);
-        Assert.Equal(14, summary.WorkspacePerformance.LoadedDocumentCount);
+        Assert.Equal(24, summary.WorkspacePerformance.DocumentCount);
+        Assert.Equal(24, summary.WorkspacePerformance.LoadedDocumentCount);
         Assert.Equal(0, summary.WorkspacePerformance.FailedDocumentCount);
         Assert.True(summary.WorkspacePerformance.TotalMilliseconds >= 0);
         Assert.Equal(123, summary.TotalLoadMilliseconds);
@@ -60,15 +69,15 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(6, localisation.DocumentsLoaded);
         Assert.Equal(0, localisation.DocumentsFailed);
         Assert.Equal(["english", "russian", "simp_chinese", "spanish"], localisation.LanguagesDiscovered.ToArray());
-        Assert.Equal(8, localisation.DeclarationsByLanguage["english"]);
+        Assert.Equal(11, localisation.DeclarationsByLanguage["english"]);
         Assert.Equal(1, localisation.DeclarationsByLanguage["russian"]);
         Assert.Equal(1, localisation.DeclarationsByLanguage["simp_chinese"]);
-        Assert.Equal(2, localisation.DeclarationsByLanguage["spanish"]);
-        Assert.Equal(12, localisation.DeclarationCount);
-        Assert.Equal(10, localisation.UniqueIdentityCount);
+        Assert.Equal(3, localisation.DeclarationsByLanguage["spanish"]);
+        Assert.Equal(16, localisation.DeclarationCount);
+        Assert.Equal(14, localisation.UniqueIdentityCount);
         Assert.Equal(2, localisation.DuplicateIdentityCount);
         Assert.Equal(2, localisation.AmbiguousEntryCount);
-        Assert.Equal(12, localisation.DeclarationsWithValidProvenance);
+        Assert.Equal(16, localisation.DeclarationsWithValidProvenance);
         Assert.Equal(1, localisation.SyntaxDiagnosticCount);
         Assert.Equal(1, localisation.SyntaxDiagnosticsByCode["OXIDE1204"]);
         Assert.Equal(2, localisation.SemanticDiagnosticCount);
@@ -76,8 +85,25 @@ public sealed class SyntheticCorpusTests
         Assert.Equal("spanish", localisation.RequestedLanguage);
         Assert.Equal("spanish", localisation.EffectiveLanguage);
         Assert.True(localisation.EnglishFallbackEnabled);
-        Assert.Equal(new LocalisationResolutionCounts(4, 1, 1, 1, 0, 0, 1), localisation.StateNames);
+        Assert.Equal(new LocalisationResolutionCounts(9, 1, 1, 6, 0, 0, 1), localisation.StateNames);
         Assert.Equal(new LocalisationResolutionCounts(2, 1, 0, 0, 1, 0, 0), localisation.CountryNames);
+        Assert.Equal(new LocalisationResolutionCounts(3, 1, 1, 0, 0, 0, 1), localisation.StrategicRegionNames);
+        var strategicRegions = summary.StrategicRegions;
+        Assert.Equal(5, strategicRegions.FilesDiscovered);
+        Assert.Equal(5, strategicRegions.DocumentsLoaded);
+        Assert.Equal(0, strategicRegions.DocumentsFailed);
+        Assert.Equal(5, strategicRegions.DeclarationCount);
+        Assert.Equal(3, strategicRegions.EntityCount);
+        Assert.Equal(2, strategicRegions.EffectiveEntityCount);
+        Assert.Equal(1, strategicRegions.AmbiguousEntityCount);
+        Assert.Equal(11, strategicRegions.ProvinceCandidateCount);
+        Assert.Equal(1, strategicRegions.RepeatedProvinceCandidateCount);
+        Assert.Equal(9, strategicRegions.IndexedProvinceCount);
+        Assert.Equal(3, strategicRegions.AmbiguousProvinceCount);
+        Assert.Equal(5, strategicRegions.DeclarationsWithValidProvenance);
+        Assert.Equal(11, strategicRegions.ProvinceCandidatesWithValidProvenance);
+        Assert.Equal(new StrategicRegionMembershipCounts(9, 2, 1, 1, 1, 2, 2),
+            strategicRegions.StateMemberships);
         Assert.True(localisation.NameProjectionMilliseconds >= 0);
         Assert.True(localisation.NameProjectionsPerSecond >= 0);
         Assert.True(localisation.ManagedMemoryBytesAtReport > 0);
@@ -123,13 +149,36 @@ public sealed class SyntheticCorpusTests
             Assert.Equal(resolution.Declaration.Value.OriginalText,
                 document.Text!.GetText(resolution.Provenance.Span));
         });
+        Assert.All(snapshot.Semantics.StateStrategicRegionMemberships.Values
+            .SelectMany(membership => membership.Provinces), reference =>
+        {
+            var stateDocument = snapshot.DocumentsById[reference.StateProvince.Provenance.DocumentId];
+            Assert.NotNull(stateDocument.Text);
+            Assert.Equal(reference.StateProvince.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                stateDocument.Text!.GetText(reference.StateProvince.Provenance.Span));
+            var candidates = reference.Resolution switch
+            {
+                ResolvedProvinceStrategicRegion resolved => resolved.Candidates,
+                AmbiguousProvinceStrategicRegion ambiguous => ambiguous.Candidates,
+                _ => [],
+            };
+            Assert.All(candidates, candidate =>
+            {
+                var regionDocument = snapshot.DocumentsById[candidate.Provenance.DocumentId];
+                Assert.NotNull(regionDocument.Text);
+                Assert.Equal(candidate.ProvinceId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    regionDocument.Text!.GetText(candidate.Provenance.Span));
+            });
+        });
 
         var withoutFallback = CorpusSummaryBuilder.Build(
             snapshot,
             TimeSpan.Zero,
             new CorpusSummaryOptions("spanish", EnglishFallbackEnabled: false));
         Assert.Equal(0, withoutFallback.Localisation.StateNames.EnglishFallback);
-        Assert.Equal(2, withoutFallback.Localisation.StateNames.Missing);
+        Assert.Equal(7, withoutFallback.Localisation.StateNames.Missing);
+        Assert.Equal(0, withoutFallback.Localisation.StrategicRegionNames.EnglishFallback);
+        Assert.Equal(1, withoutFallback.Localisation.StrategicRegionNames.Missing);
 
         var unavailableLanguage = CorpusSummaryBuilder.Build(
             snapshot,
