@@ -43,6 +43,12 @@ wrong value shapes, duplicate properties, and invalid or unresolved country
 references. It retains valid declarations and structured diagnostics without
 manufacturing effective values from ambiguous or malformed candidates.
 
+Strategic-region extraction applies the same boundary to invalid IDs, names,
+province blocks, and province entries. Duplicate region identities and competing
+province claims remain explicit. Membership is recomputed inside the unpublished
+snapshot, so a failed or cancelled reload cannot partially replace the prior
+province index or state-membership projection.
+
 ## Verification ladder
 
 Robustness changes are checked in increasing scope: compile the affected

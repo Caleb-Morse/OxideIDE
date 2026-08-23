@@ -17,7 +17,7 @@ incremental parsing, caches, file watchers, or speculative optimization. A
 - derived document throughput.
 
 The corpus-summary JSON includes these metrics alongside the independently
-measured end-to-end duration. It also measures state/country name projection,
+measured end-to-end duration. It also measures state/country/strategic-region name projection,
 derived projection throughput, and managed memory observed at reporting time.
 The memory value is not labeled as peak memory; process-level peak resident
 memory is captured by the operating system during explicit external runs.
@@ -63,6 +63,12 @@ The Avalonia view model awaits workspace tasks and only applies the completed
 immutable snapshot to observable UI state. Progress now includes the semantic
 construction stage, elapsed stage time, and diagnostic count, allowing the UI
 to remain informative without performing source work itself.
+
+The current extracted-corpus baseline loads 2,214 documents, builds 304 region
+entities and 13,413 province claims, and derived 1,081 complete state memberships.
+Two complete verification runs took about 17–23 seconds, peaked between
+approximately 898 MiB and 1.34 GiB resident memory, and recorded zero swap.
+These values remain observations, not budgets.
 
 ## Baseline policy
 

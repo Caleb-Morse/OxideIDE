@@ -3,9 +3,9 @@
 ## Scope
 
 Every published workspace snapshot now contains a derived `SemanticSnapshot`.
-The semantic profile recognizes state declarations, country-tag registrations,
-and language-qualified localisation declarations and turns them into immutable,
-provenance-backed indexes.
+The semantic profile recognizes state declarations, strategic-region declarations,
+country-tag registrations, and language-qualified localisation declarations and
+turns them into immutable, provenance-backed indexes.
 
 The source documents and syntax trees remain authoritative. Semantic data is an
 immutable, reproducible index and is never serialized back into source.
@@ -16,7 +16,8 @@ An `EntityId` contains an `EntityKind`, namespace, and local key. The first
 identity rules are:
 
 - state: `(State, global, numeric ID)`; and
-- country: `(Country, tag, normalized uppercase tag)`.
+- country: `(Country, tag, normalized uppercase tag)`; and
+- strategic region: `(StrategicRegion, global, numeric ID)`.
 
 Country declarations retain their original tag spelling even though lookup is
 normalized. Numeric state identity is never interchangeable with another
@@ -38,6 +39,11 @@ candidates for:
 
 A `CountryTagDeclaration` records the original and normalized tag, definition
 path, declaration span, document, and content layer.
+
+A `StrategicRegionDeclaration` records the complete declaration span, ID and
+name candidates, and every ordered province-membership candidate. Invalid IDs,
+malformed province entries, repeated province candidates, and duplicate blocks
+remain diagnostic and source-backed.
 
 A `LocalisationDeclaration` is identified by `LocalisationLanguage` plus the
 case-sensitive `LocalisationKey`. It records the decoded value, optional version,
@@ -61,22 +67,31 @@ not yet verified.
 
 ## Entities and indexes
 
-`StateEntity` and `CountryEntity` implement `ISemanticEntity`. The semantic
-snapshot indexes states by numeric ID, countries by normalized tag, and all
-entities by typed `EntityId`. Entity status is `Effective`, `Ambiguous`, or
-`Invalid`.
+`StateEntity`, `CountryEntity`, and `StrategicRegionEntity` implement
+`ISemanticEntity`. The semantic snapshot indexes states and regions by numeric
+ID, countries by normalized tag, and all entities by typed `EntityId`. Entity
+status is `Effective`, `Ambiguous`, or `Invalid`.
 
 State entities expose effective scalar properties, resources and provinces,
 plus resolved owner and core references. Country entities expose their
-effective definition path when unambiguous.
+effective definition path when unambiguous. Strategic-region entities expose an
+effective name key and ordered province candidates when their identity is unique.
+
+`ProvinceStrategicRegionIndex` retains every region-side claim for each province.
+It returns resolved, missing, or ambiguous outcomes; repeated claims by the same
+effective region remain resolved with all provenance, while competing region IDs
+or an ambiguous region identity remain ambiguous. Derived state memberships are
+classified as single-region, split, partial, missing, ambiguous, or no-provinces.
+Every province reference retains the state-side value provenance and every
+region-side candidate provenance.
 
 The localisation index is keyed by `(language, key)`. `LocalisationResolver`
 returns explicit resolved, missing, ambiguous, or invalid outcomes. It first tries
 the requested language and may fall back to English only when the exact key is
 missing. It never selects from duplicate candidates. Resolved outcomes carry the
 selected declaration and exact value provenance. `ResolveName` applies this same
-policy to state name keys and country tags, returning a deterministic identifier
-fallback when no human-readable value can be selected.
+policy to state name keys, country tags, and strategic-region name keys, returning
+a deterministic identifier fallback when no human-readable value can be selected.
 
 ## Reference outcomes
 
@@ -103,6 +118,11 @@ Codes introduced by this slice are:
 - `OXIDE4007`: ambiguous country reference;
 - `OXIDE4008`: invalid country tag; and
 - `OXIDE4009`: duplicate language-qualified localisation identity.
+- `OXIDE4010`–`OXIDE4015`: invalid strategic-region declaration shapes,
+  identities, names, province blocks, and repeated province candidates;
+- `OXIDE4016`: ambiguous province-to-region claims; and
+- `OXIDE4017`–`OXIDE4021`: ambiguous, split, partial, missing, or no-province
+  state membership.
 
 Diagnostics can identify an entity and carry primary and related source
 provenance. Syntax, workspace, and semantic diagnostics remain distinct layers.
@@ -111,6 +131,7 @@ provenance. Syntax, workspace, and semantic diagnostics remain distinct layers.
 
 This slice does not load country history files, infer ideology-specific country
 name conventions, simulate dated history, select among duplicate declarations,
-infer mod precedence, or model states beyond the listed properties. Owner and core
+infer mod precedence, model a complete province registry, type strategic-region
+weather, or model states beyond the listed properties. Owner and core
 extraction is limited to immediate properties of the state's initial `history`
 block; dated or scripted changes are not presented as initial ownership.

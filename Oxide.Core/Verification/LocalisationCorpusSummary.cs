@@ -22,6 +22,7 @@ public sealed record LocalisationCorpusSummary(
     bool EnglishFallbackEnabled,
     LocalisationResolutionCounts StateNames,
     LocalisationResolutionCounts CountryNames,
+    LocalisationResolutionCounts StrategicRegionNames,
     double NameProjectionMilliseconds,
     double NameProjectionsPerSecond,
     long ManagedMemoryBytesAtReport);

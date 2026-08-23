@@ -43,6 +43,15 @@ public sealed class StateListItemViewModel
                 snapshot,
                 language,
                 allowEnglishFallback)));
+        var regionMembership = StrategicRegionMembershipPresentation.Create(
+            snapshot.Semantics.StateStrategicRegionMemberships[Id],
+            snapshot,
+            language,
+            allowEnglishFallback);
+        StrategicRegion = regionMembership.DisplayName;
+        StrategicRegionStatus = regionMembership.Status;
+        StrategicRegionSummary = regionMembership.Summary;
+        StrategicRegionEvidence = regionMembership.Evidence;
         Status = entity.Status.ToString();
         SourceSummary = entity.Contributions.Length == 1
             ? entity.Contributions[0].Provenance.PhysicalPath
@@ -51,7 +60,7 @@ public sealed class StateListItemViewModel
             ? entity.Contributions[0].Provenance.Layer.Kind.ToString()
             : "Ambiguous";
         SourceLocation = DescribeLocation(entity, snapshot);
-        DiagnosticCount = entity.Diagnostics.Length;
+        DiagnosticCount = entity.Diagnostics.Length + regionMembership.DiagnosticCount;
     }
 
     public StateEntity Entity { get; }
@@ -80,6 +89,14 @@ public sealed class StateListItemViewModel
 
     public string Cores { get; }
 
+    public string StrategicRegion { get; }
+
+    public string StrategicRegionStatus { get; }
+
+    public string StrategicRegionSummary { get; }
+
+    public ImmutableArray<ProvinceRegionEvidenceViewModel> StrategicRegionEvidence { get; }
+
     public string Status { get; }
 
     public string SourceSummary { get; }
@@ -98,7 +115,8 @@ public sealed class StateListItemViewModel
 
     public string ResolvedLanguage { get; }
 
-    public string SearchText => $"{Id} {DisplayName} {LocalizationKey} {Owner} {Category} {SourceSummary}";
+    public string SearchText =>
+        $"{Id} {DisplayName} {LocalizationKey} {Owner} {Category} {StrategicRegion} {StrategicRegionStatus} {SourceSummary}";
 
     private static string DescribeCountry(
         CountryReference? reference,

@@ -61,6 +61,7 @@ public sealed class LocalisationResolver
         {
             StateEntity state => (state.Name?.Value, $"State {state.Id.LocalKey}"),
             CountryEntity country => (country.Id.LocalKey, country.Id.LocalKey),
+            StrategicRegionEntity region => (region.Name?.Value, $"Strategic region {region.Id.LocalKey}"),
             _ => (null, entity.Id.LocalKey),
         };
 

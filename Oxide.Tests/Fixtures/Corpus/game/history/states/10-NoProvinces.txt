@@ -1,0 +1,4 @@
+state = {
+    id = 10
+    name = "SYNTHETIC_STATE_10"
+}

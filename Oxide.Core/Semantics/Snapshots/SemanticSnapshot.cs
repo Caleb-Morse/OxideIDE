@@ -12,22 +12,31 @@ public sealed class SemanticSnapshot
     internal SemanticSnapshot(
         ImmutableArray<StateDeclaration> stateDeclarations,
         ImmutableArray<CountryTagDeclaration> countryDeclarations,
+        ImmutableArray<StrategicRegionDeclaration> strategicRegionDeclarations,
         ImmutableArray<LocalisationDeclaration> localisationDeclarations,
         ImmutableDictionary<int, StateEntity> states,
         ImmutableDictionary<string, CountryEntity> countries,
+        ImmutableDictionary<int, StrategicRegionEntity> strategicRegions,
+        ProvinceStrategicRegionIndex provinceStrategicRegionIndex,
+        ImmutableDictionary<int, StateStrategicRegionMembership> stateStrategicRegionMemberships,
         ImmutableDictionary<LocalisationIdentity, LocalisationEntry> localisations,
         ImmutableArray<SemanticDiagnostic> diagnostics)
     {
         StateDeclarations = stateDeclarations;
         CountryDeclarations = countryDeclarations;
+        StrategicRegionDeclarations = strategicRegionDeclarations;
         LocalisationDeclarations = localisationDeclarations;
         States = states;
         Countries = countries;
+        StrategicRegions = strategicRegions;
+        ProvinceStrategicRegionIndex = provinceStrategicRegionIndex;
+        StateStrategicRegionMemberships = stateStrategicRegionMemberships;
         Localisations = localisations;
         LocalisationResolver = new LocalisationResolver(localisations);
         Diagnostics = diagnostics;
         Entities = states.Values.Cast<ISemanticEntity>()
             .Concat(countries.Values)
+            .Concat(strategicRegions.Values)
             .ToImmutableDictionary(entity => entity.Id);
     }
 
@@ -35,11 +44,19 @@ public sealed class SemanticSnapshot
 
     public ImmutableArray<CountryTagDeclaration> CountryDeclarations { get; }
 
+    public ImmutableArray<StrategicRegionDeclaration> StrategicRegionDeclarations { get; }
+
     public ImmutableArray<LocalisationDeclaration> LocalisationDeclarations { get; }
 
     public ImmutableDictionary<int, StateEntity> States { get; }
 
     public ImmutableDictionary<string, CountryEntity> Countries { get; }
+
+    public ImmutableDictionary<int, StrategicRegionEntity> StrategicRegions { get; }
+
+    public ProvinceStrategicRegionIndex ProvinceStrategicRegionIndex { get; }
+
+    public ImmutableDictionary<int, StateStrategicRegionMembership> StateStrategicRegionMemberships { get; }
 
     public ImmutableDictionary<LocalisationIdentity, LocalisationEntry> Localisations { get; }
 
@@ -49,7 +66,11 @@ public sealed class SemanticSnapshot
 
     public ImmutableArray<SemanticDiagnostic> Diagnostics { get; }
 
-    public static SemanticSnapshot Empty { get; } = new([], [], [], ImmutableDictionary<int, StateEntity>.Empty,
+    public static SemanticSnapshot Empty { get; } = new([], [], [], [], ImmutableDictionary<int, StateEntity>.Empty,
         ImmutableDictionary<string, CountryEntity>.Empty,
+        ImmutableDictionary<int, StrategicRegionEntity>.Empty,
+        new ProvinceStrategicRegionIndex(ImmutableDictionary<int, StrategicRegionEntity>.Empty,
+            ImmutableArray.CreateBuilder<SemanticDiagnostic>()),
+        ImmutableDictionary<int, StateStrategicRegionMembership>.Empty,
         ImmutableDictionary<LocalisationIdentity, LocalisationEntry>.Empty, []);
 }

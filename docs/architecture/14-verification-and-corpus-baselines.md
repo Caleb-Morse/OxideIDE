@@ -42,13 +42,17 @@ content. It is copied into test output and runs in normal automation under
 - invalid resource and province values;
 - a missing country reference;
 - ambiguous state and country identities;
-- an ambiguous country reference; and
+- an ambiguous country reference;
 - a base/mod virtual-path collision;
 - English, Spanish, Russian, and Simplified Chinese localisation;
 - exact, English-fallback, missing, no-key, and ambiguous name outcomes;
 - duplicate localisation identities within one file and across layers;
 - versions, escaped quotes, and malformed localisation; and
-- source-backed values whose spans are checked against their documents.
+- source-backed values whose spans are checked against their documents;
+- valid, malformed, repeated, and duplicate strategic-region declarations;
+- resolved, split, partial, missing, ambiguous, and no-province state-region
+  memberships; and
+- state-side and region-side membership provenance.
 
 Invalid byte sequences remain covered by focused workspace tests because a
 reviewable text fixture cannot itself contain invalid UTF-8.
@@ -70,18 +74,26 @@ reporter.
 
 The current extracted-installation baseline is:
 
-- 1,910 discovered and loaded documents;
+- 2,214 discovered and loaded documents;
 - zero failed documents;
 - zero syntax diagnostics;
 - 1,081 state declarations and entities;
 - 439 country declarations and entities;
-- four semantic `OXIDE4005` diagnostics; and
+- 304 strategic-region declarations and effective entities;
+- 13,413 unique province claims, with no repeated or ambiguous claims;
+- all 1,081 states resolving completely to one strategic region;
+- four semantic `OXIDE4005` diagnostics;
 - 2,612 resolved country references with zero unresolved references;
 - 827 localisation documents and four discovered languages;
 - 535,329 language-qualified declarations and identities, all with valid
   provenance in the extract;
-- 1,081 exact English state names; and
-- 325 exact English country names with 114 direct-tag names missing.
+- 1,081 exact English state names;
+- 325 exact English country names with 114 direct-tag names missing; and
+- 303 exact English strategic-region names with one missing key.
+
+Two full extracted-corpus verification runs completed in about 17–23 seconds, with
+approximately 898 MiB–1.34 GiB maximum resident memory and zero swap. These
+resource figures are observations, not deterministic failure thresholds.
 
 Load duration is reported for observation but is not a deterministic baseline
 or CI failure threshold.
@@ -98,13 +110,16 @@ It reports:
 - workspace diagnostic counts by code;
 - state declaration and entity counts;
 - country declaration and entity counts;
+- strategic-region file, declaration, entity, effective/ambiguous, province
+  candidate, repeated candidate, indexed province, ambiguity, and provenance counts;
+- single, split, partial, missing, ambiguous, and no-province state membership counts;
 - semantic diagnostic total and counts by code;
 - resolved, missing, ambiguous, invalid, and total unresolved country
-- references;
+  references;
 - localisation file, load, language, declaration, identity, duplicate,
   diagnostic, and provenance counts;
-- exact, English-fallback, missing, ambiguous, invalid, and no-key state and
-  country name outcomes;
+- exact, English-fallback, missing, ambiguous, invalid, and no-key state,
+  country, and strategic-region name outcomes;
 - requested and effective report language plus fallback policy;
 - name projection duration, throughput, and managed memory observed when the
   report is created; and

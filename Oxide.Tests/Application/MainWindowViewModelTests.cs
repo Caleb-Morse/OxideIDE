@@ -107,6 +107,60 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task State_region_presentation_is_language_aware_searchable_and_source_backed()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile(
+            "map/strategicregions/1-One.txt",
+            "strategic_region={ id=1 name=REGION_ONE provinces={ 10 11 30 } }");
+        fixture.WriteGameFile(
+            "map/strategicregions/2-Two.txt",
+            "strategic_region={ id=2 name=REGION_TWO provinces={ 20 30 } }");
+        fixture.WriteGameFile("history/states/1-Single.txt", "state={ id=1 provinces={ 10 11 } }");
+        fixture.WriteGameFile("history/states/2-Partial.txt", "state={ id=2 provinces={ 10 99 } }");
+        fixture.WriteGameFile("history/states/3-Split.txt", "state={ id=3 provinces={ 10 20 } }");
+        fixture.WriteGameFile("history/states/4-Missing.txt", "state={ id=4 provinces={ 99 } }");
+        fixture.WriteGameFile("history/states/5-Ambiguous.txt", "state={ id=5 provinces={ 30 } }");
+        fixture.WriteGameFile(
+            "localisation/english/regions_l_english.yml",
+            "l_english:\n REGION_ONE:0 \"Northern Reach\"\n REGION_TWO:0 \"Southern Reach\"\n");
+        fixture.WriteGameFile(
+            "localisation/russian/regions_l_russian.yml",
+            "l_russian:\n REGION_ONE:0 \"Северный край\"\n");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var published = service.CurrentSnapshot;
+
+        var single = viewModel.States.Single(state => state.Id == 1);
+        Assert.Equal("Northern Reach · Region 1", single.StrategicRegion);
+        Assert.Equal("Single region", single.StrategicRegionStatus);
+        Assert.Equal(2, single.StrategicRegionEvidence.Length);
+        Assert.All(single.StrategicRegionEvidence, evidence =>
+        {
+            Assert.Contains("history/states", evidence.StateSource, StringComparison.Ordinal);
+            Assert.Contains("map/strategicregions", evidence.RegionSources, StringComparison.Ordinal);
+            Assert.Contains("line", evidence.StateSource, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("line", evidence.RegionSources, StringComparison.OrdinalIgnoreCase);
+        });
+        Assert.Equal("Partial coverage", viewModel.States.Single(state => state.Id == 2).StrategicRegionStatus);
+        Assert.Equal("Split across regions", viewModel.States.Single(state => state.Id == 3).StrategicRegionStatus);
+        Assert.Equal("Missing membership", viewModel.States.Single(state => state.Id == 4).StrategicRegionStatus);
+        Assert.Equal("Ambiguous membership", viewModel.States.Single(state => state.Id == 5).StrategicRegionStatus);
+
+        viewModel.SearchText = "Northern Reach";
+        Assert.Equal([1, 2, 3], viewModel.States.Select(state => state.Id).Order());
+        viewModel.SearchText = string.Empty;
+
+        await viewModel.ChangeLanguageAsync("russian");
+
+        Assert.Same(published, service.CurrentSnapshot);
+        Assert.Equal("Северный край · Region 1", viewModel.States.Single(state => state.Id == 1).StrategicRegion);
+        Assert.Contains("Southern Reach · Region 2", viewModel.States.Single(state => state.Id == 3).StrategicRegion,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Country_browser_searches_names_and_tags_and_links_owned_states()
     {
         using var fixture = new TemporaryWorkspace();

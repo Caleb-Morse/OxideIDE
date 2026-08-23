@@ -1,0 +1,4 @@
+strategic_region = {
+    id = not_an_integer
+    provinces = { not_a_province }
+}

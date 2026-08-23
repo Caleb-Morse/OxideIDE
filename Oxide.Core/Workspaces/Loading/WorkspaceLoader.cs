@@ -18,6 +18,7 @@ internal sealed class WorkspaceLoader
     private static readonly ImmutableArray<DiscoveryRule> DiscoveryRules =
     [
         new("history/states", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
+        new("map/strategicregions", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
         new("common/country_tags", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
         new("localisation", "*.yml", SearchOption.AllDirectories, SourceDocumentKind.Localisation),
     ];

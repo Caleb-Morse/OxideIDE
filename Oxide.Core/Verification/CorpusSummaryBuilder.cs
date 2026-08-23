@@ -45,6 +45,7 @@ public static class CorpusSummaryBuilder
             snapshot.Semantics.States.Count,
             snapshot.Semantics.CountryDeclarations.Length,
             snapshot.Semantics.Countries.Count,
+            BuildStrategicRegionSummary(snapshot),
             snapshot.Semantics.Diagnostics.Length,
             CountByCode(snapshot.Semantics.Diagnostics.Select(diagnostic => diagnostic.Code)),
             new ReferenceResolutionCounts(
@@ -89,8 +90,13 @@ public static class CorpusSummaryBuilder
                 entity,
                 effectiveLanguage,
                 options.EnglishFallbackEnabled)));
+        var strategicRegionNames = CountNames(snapshot.Semantics.StrategicRegions.Values.Select(entity =>
+            snapshot.Semantics.LocalisationResolver.ResolveName(
+                entity,
+                effectiveLanguage,
+                options.EnglishFallbackEnabled)));
         var projectionElapsed = Stopwatch.GetElapsedTime(projectionStart);
-        var projectionCount = stateNames.Total + countryNames.Total;
+        var projectionCount = stateNames.Total + countryNames.Total + strategicRegionNames.Total;
 
         return new LocalisationCorpusSummary(
             documents.Length,
@@ -118,11 +124,53 @@ public static class CorpusSummaryBuilder
             options.EnglishFallbackEnabled,
             stateNames,
             countryNames,
+            strategicRegionNames,
             projectionElapsed.TotalMilliseconds,
             projectionElapsed.TotalMilliseconds <= 0
                 ? 0
                 : projectionCount / projectionElapsed.TotalMilliseconds * 1_000,
             GC.GetTotalMemory(forceFullCollection: false));
+    }
+
+    private static StrategicRegionCorpusSummary BuildStrategicRegionSummary(WorkspaceSnapshot snapshot)
+    {
+        var documents = snapshot.Documents
+            .Where(document => document.VirtualPath.Value.StartsWith(
+                "map/strategicregions/",
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var declarations = snapshot.Semantics.StrategicRegionDeclarations;
+        var entities = snapshot.Semantics.StrategicRegions.Values.ToArray();
+        var index = snapshot.Semantics.ProvinceStrategicRegionIndex;
+        var memberships = snapshot.Semantics.StateStrategicRegionMemberships.Values.ToArray();
+        var provinceCandidates = declarations.SelectMany(declaration => declaration.Provinces).ToArray();
+        var repeatedProvinceCandidates = declarations.Sum(declaration => declaration.Provinces
+            .GroupBy(province => province.Value)
+            .Sum(group => Math.Max(0, group.Count() - 1)));
+
+        return new StrategicRegionCorpusSummary(
+            documents.Length,
+            documents.Count(document => document.IsLoaded),
+            documents.Count(document => !document.IsLoaded),
+            declarations.Length,
+            entities.Length,
+            entities.Count(entity => entity.Status is Oxide.Core.Semantics.Model.SemanticEntityStatus.Effective),
+            entities.Count(entity => entity.Status is Oxide.Core.Semantics.Model.SemanticEntityStatus.Ambiguous),
+            provinceCandidates.Length,
+            repeatedProvinceCandidates,
+            index.CandidatesByProvince.Count,
+            index.CandidatesByProvince.Keys.Count(provinceId =>
+                index.Resolve(provinceId) is AmbiguousProvinceStrategicRegion),
+            declarations.Count(declaration => HasValidProvenance(snapshot, declaration.Provenance)),
+            provinceCandidates.Count(candidate => HasValidProvenance(snapshot, candidate.Provenance)),
+            new StrategicRegionMembershipCounts(
+                memberships.Length,
+                memberships.Count(membership => membership.Status is StateStrategicRegionMembershipStatus.SingleRegion),
+                memberships.Count(membership => membership.Status is StateStrategicRegionMembershipStatus.Split),
+                memberships.Count(membership => membership.Status is StateStrategicRegionMembershipStatus.Partial),
+                memberships.Count(membership => membership.Status is StateStrategicRegionMembershipStatus.Missing),
+                memberships.Count(membership => membership.Status is StateStrategicRegionMembershipStatus.Ambiguous),
+                memberships.Count(membership => membership.Status is StateStrategicRegionMembershipStatus.NoProvinces)));
     }
 
     private static LocalisationResolutionCounts CountNames(IEnumerable<HumanReadableName> names)
