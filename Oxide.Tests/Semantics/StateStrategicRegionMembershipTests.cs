@@ -28,7 +28,7 @@ public sealed class StateStrategicRegionMembershipTests
         fixture.WriteGameFile("history/states/3-Missing.txt", "state={ id=3 provinces={ 99 } }");
         fixture.WriteGameFile("history/states/4-Split.txt", "state={ id=4 provinces={ 10 20 } }");
         fixture.WriteGameFile("history/states/5-Conflict.txt", "state={ id=5 provinces={ 50 } }");
-        fixture.WriteGameFile("history/states/6-AmbiguousRegion.txt", "state={ id=6 provinces={ 60 } }");
+        fixture.WriteGameFile("history/states/6-OverriddenRegion.txt", "state={ id=6 provinces={ 61 } }");
         fixture.WriteGameFile("history/states/7-None.txt", "state={ id=7 }");
         fixture.WriteGameFile("history/states/8-Repeated.txt", "state={ id=8 provinces={ 70 } }");
         using var service = new WorkspaceService();
@@ -45,7 +45,8 @@ public sealed class StateStrategicRegionMembershipTests
         Assert.Equal(StateStrategicRegionMembershipStatus.Split, memberships[4].Status);
         Assert.Equal([1, 2], memberships[4].Regions.Select(region => int.Parse(region.Id.LocalKey)));
         Assert.Equal(StateStrategicRegionMembershipStatus.Ambiguous, memberships[5].Status);
-        Assert.Equal(StateStrategicRegionMembershipStatus.Ambiguous, memberships[6].Status);
+        Assert.Equal(StateStrategicRegionMembershipStatus.SingleRegion, memberships[6].Status);
+        Assert.Equal([3], memberships[6].Regions.Select(region => int.Parse(region.Id.LocalKey)));
         Assert.Equal(StateStrategicRegionMembershipStatus.NoProvinces, memberships[7].Status);
         Assert.Equal(StateStrategicRegionMembershipStatus.SingleRegion, memberships[8].Status);
 

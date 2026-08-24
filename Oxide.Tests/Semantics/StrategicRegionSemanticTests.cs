@@ -1,4 +1,5 @@
 using Oxide.Core.Semantics.Identity;
+using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Semantics.Model;
 using Oxide.Core.Semantics.Resolution;
 using Oxide.Core.Workspaces;
@@ -33,7 +34,7 @@ public sealed class StrategicRegionSemanticTests
     }
 
     [Fact]
-    public async Task Duplicate_identity_is_ambiguous_without_selecting_effective_values()
+    public async Task Higher_layer_region_is_effective_and_retains_the_shadowed_declaration()
     {
         using var fixture = new TemporaryWorkspace();
         fixture.WriteGameFile(
@@ -45,6 +46,33 @@ public sealed class StrategicRegionSemanticTests
         using var service = new WorkspaceService();
 
         var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var region = snapshot.Semantics.StrategicRegions[1];
+
+        Assert.Equal(SemanticEntityStatus.Effective, region.Status);
+        Assert.Equal(2, region.Contributions.Length);
+        Assert.Equal("MOD", region.Name?.Value);
+        Assert.Equal([2], region.Provinces.Select(province => province.Value));
+        Assert.Equal(ContributionResolutionKind.Effective, region.ContributionResolution.Kind);
+        Assert.Equal(
+            ContributionDisposition.Shadowed,
+            Assert.Single(region.ContributionResolution.ShadowedContributions).Disposition);
+        Assert.IsType<MissingProvinceStrategicRegion>(snapshot.Semantics.ProvinceStrategicRegionIndex.Resolve(1));
+        Assert.IsType<ResolvedProvinceStrategicRegion>(snapshot.Semantics.ProvinceStrategicRegionIndex.Resolve(2));
+    }
+
+    [Fact]
+    public async Task Same_layer_duplicate_region_identity_remains_ambiguous()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile(
+            "map/strategicregions/1-First.txt",
+            "strategic_region={ id=1 name=FIRST provinces={ 1 } }");
+        fixture.WriteGameFile(
+            "map/strategicregions/1-Second.txt",
+            "strategic_region={ id=1 name=SECOND provinces={ 2 } }");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
         var region = snapshot.Semantics.StrategicRegions[1];
 
         Assert.Equal(SemanticEntityStatus.Ambiguous, region.Status);

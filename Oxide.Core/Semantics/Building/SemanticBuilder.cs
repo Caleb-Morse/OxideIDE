@@ -88,7 +88,7 @@ internal static class SemanticBuilder
 
         var countryEntities = BuildCountries(declarationInventory.Countries, diagnostics);
         var stateEntities = BuildStates(declarationInventory.States, countryEntities, diagnostics);
-        var strategicRegionEntities = BuildStrategicRegions(strategicRegions.ToImmutable(), diagnostics);
+        var strategicRegionEntities = BuildStrategicRegions(declarationInventory.StrategicRegions, diagnostics);
         var provinceStrategicRegionIndex = new ProvinceStrategicRegionIndex(strategicRegionEntities, diagnostics);
         var stateStrategicRegionMemberships = BuildStateStrategicRegionMemberships(
             stateEntities,
@@ -295,49 +295,61 @@ internal static class SemanticBuilder
     }
 
     private static ImmutableDictionary<int, StrategicRegionEntity> BuildStrategicRegions(
-        ImmutableArray<StrategicRegionDeclaration> declarations,
+        ImmutableArray<DeclarationInventoryItem<StrategicRegionDeclaration>> declarations,
         ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
     {
         var entities = ImmutableDictionary.CreateBuilder<int, StrategicRegionEntity>();
         foreach (var group in declarations
-            .Where(declaration => declaration.EntityId is not null)
-            .GroupBy(declaration => declaration.IdCandidates[0].Value))
+            .Where(item => item.Declaration.EntityId is not null)
+            .GroupBy(item => item.Declaration.IdCandidates[0].Value))
         {
-            var contributions = group
-                .OrderBy(declaration => declaration.Provenance.Layer.Position)
-                .ThenBy(declaration => declaration.Provenance.PhysicalPath, StringComparer.Ordinal)
-                .ThenBy(declaration => declaration.Provenance.Span.Start)
-                .ToImmutableArray();
             var id = EntityId.StrategicRegion(group.Key);
+            var set = new ContributionSet<EntityId, StrategicRegionDeclaration>(
+                id,
+                group.Select(item => Contribution<EntityId, StrategicRegionDeclaration>.FromInventory(
+                    id,
+                    item,
+                    item.Declaration.Provenance)));
+            var resolution = ContributionResolver.Resolve(set, ContributionResolutionPolicy.LayeredOverride);
+            if (resolution.Kind is ContributionResolutionKind.Missing)
+            {
+                continue;
+            }
+
             var entityDiagnostics = diagnostics
                 .Where(diagnostic => diagnostic.EntityId == id)
                 .ToImmutableArray()
                 .ToBuilder();
 
-            if (contributions.Length > 1)
+            if (resolution.EffectiveContribution is not { } effective)
             {
-                var duplicate = DuplicateIdentity(
-                    id,
-                    contributions.Select(declaration => declaration.Provenance).ToImmutableArray());
-                diagnostics.Add(duplicate);
-                entityDiagnostics.Add(duplicate);
+                if (resolution.Kind is ContributionResolutionKind.DuplicateWithinLayer
+                    or ContributionResolutionKind.Ambiguous)
+                {
+                    var duplicate = DuplicateIdentity(id, AmbiguousProvenance(resolution));
+                    diagnostics.Add(duplicate);
+                    entityDiagnostics.Add(duplicate);
+                }
+
                 entities.Add(group.Key, new StrategicRegionEntity(
                     id,
-                    contributions,
-                    SemanticEntityStatus.Ambiguous,
+                    resolution,
+                    EntityStatus(resolution.Kind),
                     null,
                     [],
                     entityDiagnostics.ToImmutable()));
                 continue;
             }
 
-            var declaration = contributions[0];
+            var declaration = effective.Declaration;
             entities.Add(group.Key, new StrategicRegionEntity(
                 id,
-                contributions,
+                resolution,
                 SemanticEntityStatus.Effective,
-                Single(declaration.NameCandidates),
-                declaration.Provinces.Select(EffectiveValue<int>.FromSingle).ToImmutableArray(),
+                Single(declaration.NameCandidates, resolution),
+                declaration.Provinces
+                    .Select(province => EffectiveValue<int>.FromContribution(province, resolution))
+                    .ToImmutableArray(),
                 entityDiagnostics.ToImmutable()));
         }
 
