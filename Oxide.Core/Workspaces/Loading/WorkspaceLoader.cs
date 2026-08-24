@@ -42,7 +42,9 @@ internal sealed class WorkspaceLoader
     {
         var totalStart = Stopwatch.GetTimestamp();
         var diagnostics = ImmutableArray.CreateBuilder<WorkspaceDiagnostic>();
-        var layers = CreateLayers(configuration);
+        var layers = configuration.Layers
+            .Where(layer => layer.IsEnabled)
+            .ToImmutableArray();
         progress?.Report(new WorkspaceLoadProgress(WorkspaceLoadStage.Discovering, 0, 0));
 
         var discoveryStart = Stopwatch.GetTimestamp();
@@ -131,18 +133,6 @@ internal sealed class WorkspaceLoader
             diagnostics.ToImmutable(),
             semantics,
             metrics);
-    }
-
-    private static ImmutableArray<ContentLayer> CreateLayers(WorkspaceConfiguration configuration)
-    {
-        var layers = ImmutableArray.CreateBuilder<ContentLayer>();
-        layers.Add(ContentLayer.BaseGame(configuration.GameRoot));
-        if (configuration.ActiveModRoot is not null)
-        {
-            layers.Add(ContentLayer.ActiveMod(configuration.ActiveModRoot));
-        }
-
-        return layers.ToImmutable();
     }
 
     private static ImmutableArray<DocumentCandidate> DiscoverFiles(
@@ -285,7 +275,7 @@ internal sealed class WorkspaceLoader
     private static string DescribeLayer(ContentLayer layer) => layer.Kind switch
     {
         ContentLayerKind.BaseGame => "base-game",
-        ContentLayerKind.ActiveMod => "active-mod",
+        ContentLayerKind.Mod => "mod",
         _ => "content-layer",
     };
 

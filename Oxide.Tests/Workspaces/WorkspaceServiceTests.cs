@@ -41,6 +41,98 @@ public sealed class WorkspaceServiceTests
     }
 
     [Fact]
+    public async Task Ordered_configuration_supports_multiple_named_mod_layers()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var firstModRoot = Path.Combine(fixture.Root, "first-mod");
+        var secondModRoot = Path.Combine(fixture.Root, "second-mod");
+        Directory.CreateDirectory(firstModRoot);
+        Directory.CreateDirectory(secondModRoot);
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        WriteLayerFile(firstModRoot, "history/states/2-First.txt", "state={ id=2 }");
+        WriteLayerFile(secondModRoot, "history/states/3-Second.txt", "state={ id=3 }");
+        var configuration = new WorkspaceConfiguration(
+        [
+            ContentLayer.Mod("second-mod", "Second mod", secondModRoot, 20),
+            ContentLayer.BaseGame(fixture.GameRoot),
+            ContentLayer.Mod("first-mod", "First mod", firstModRoot, 10),
+        ], "Layered fixture");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(configuration);
+
+        Assert.Equal(["base-game", "first-mod", "second-mod"],
+            snapshot.Layers.Select(layer => layer.Id.Value));
+        Assert.Equal(["Base game", "First mod", "Second mod"],
+            snapshot.Layers.Select(layer => layer.DisplayName));
+        Assert.Equal([0, 10, 20], snapshot.Layers.Select(layer => layer.Position));
+        Assert.Equal(["base-game", "first-mod", "second-mod"],
+            snapshot.Documents.Select(document => document.Layer.Id.Value));
+    }
+
+    [Fact]
+    public async Task Disabled_layer_is_preserved_in_configuration_but_not_loaded()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        var disabledRoot = Path.Combine(fixture.Root, "missing-disabled-mod");
+        var configuration = new WorkspaceConfiguration(
+        [
+            ContentLayer.BaseGame(fixture.GameRoot),
+            ContentLayer.Mod("disabled-mod", "Disabled mod", disabledRoot, 1, isEnabled: false),
+        ]);
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(configuration);
+
+        Assert.Equal(2, snapshot.Configuration.Layers.Length);
+        Assert.Single(snapshot.Layers);
+        Assert.Single(snapshot.Documents);
+        Assert.DoesNotContain(snapshot.Diagnostics, diagnostic => diagnostic.Code == "OXIDE3001");
+    }
+
+    [Fact]
+    public async Task Source_identity_includes_layer_path_and_stable_document_identity()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string virtualPath = "history/states/1-Test.txt";
+        var physicalPath = fixture.WriteGameFile(virtualPath, "state={ id=1 }");
+        using var service = new WorkspaceService();
+
+        var first = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+        var second = await service.ReloadAsync();
+        var firstIdentity = Assert.Single(first.Documents).SourceIdentity;
+        var secondIdentity = Assert.Single(second.Documents).SourceIdentity;
+
+        Assert.Equal(firstIdentity, secondIdentity);
+        Assert.Equal("base-game", firstIdentity.LayerId.Value);
+        Assert.Equal(virtualPath, firstIdentity.VirtualPath.Value);
+        Assert.Equal(Path.GetFullPath(physicalPath), firstIdentity.PhysicalPath);
+        Assert.Equal(first.Documents[0].Id, firstIdentity.DocumentId);
+    }
+
+    [Fact]
+    public void Configuration_rejects_duplicate_layer_ids_and_positions()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var otherRoot = Path.Combine(fixture.Root, "other");
+
+        var duplicateId = Assert.Throws<ArgumentException>(() => new WorkspaceConfiguration(
+        [
+            ContentLayer.BaseGame(fixture.GameRoot),
+            ContentLayer.Mod("base-game", "Duplicate", otherRoot, 1),
+        ]));
+        var duplicatePosition = Assert.Throws<ArgumentException>(() => new WorkspaceConfiguration(
+        [
+            ContentLayer.BaseGame(fixture.GameRoot),
+            ContentLayer.Mod("mod", "Same position", otherRoot, 0),
+        ]));
+
+        Assert.Contains("duplicated", duplicateId.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("duplicated", duplicatePosition.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Reload_publishes_a_new_version_with_stable_document_ids()
     {
         using var fixture = new TemporaryWorkspace();
@@ -294,4 +386,12 @@ public sealed class WorkspaceServiceTests
     }
 
     private sealed class ExpectedLoadFailureException : Exception;
+
+    private static string WriteLayerFile(string root, string virtualPath, string text)
+    {
+        var path = Path.Combine(root, virtualPath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, text);
+        return path;
+    }
 }

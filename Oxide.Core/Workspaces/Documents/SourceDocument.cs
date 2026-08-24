@@ -21,4 +21,6 @@ public sealed record SourceDocument(
     ImmutableArray<WorkspaceDiagnostic> Diagnostics)
 {
     public bool IsLoaded => LoadStatus is DocumentLoadStatus.Loaded;
+
+    public SourceIdentity SourceIdentity => new(Id, Layer.Id, VirtualPath, PhysicalPath);
 }
