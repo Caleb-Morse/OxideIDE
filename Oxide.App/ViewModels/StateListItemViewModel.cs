@@ -14,6 +14,7 @@ public sealed class StateListItemViewModel
         bool allowEnglishFallback = true)
     {
         Entity = entity;
+        Contribution = ContributionSetPresentation.Create(entity, snapshot);
         Id = int.Parse(entity.Id.LocalKey, System.Globalization.CultureInfo.InvariantCulture);
         LocalizationKey = entity.Name?.Value ?? "No name key";
         var name = LocalisedNamePresentation.Create(
@@ -64,6 +65,8 @@ public sealed class StateListItemViewModel
     }
 
     public StateEntity Entity { get; }
+
+    public ContributionSetPresentation Contribution { get; }
 
     public int Id { get; }
 

@@ -1,5 +1,6 @@
 using Oxide.App.ViewModels;
 using Oxide.App.Settings;
+using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
@@ -450,6 +451,36 @@ public sealed class MainWindowViewModelTests
         Assert.NotNull(viewModel.ErrorMessage);
         Assert.Contains("workspace paths", viewModel.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         Assert.Null(service.CurrentSnapshot);
+    }
+
+    [Fact]
+    public async Task State_and_country_concept_views_expose_shared_contribution_details()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        fixture.WriteModFile("history/states/1-Mod.txt", "state={ id=1 }");
+        fixture.WriteGameFile("common/country_tags/00_base.txt", "AAA=\"countries/Base.txt\"");
+        fixture.WriteModFile("common/country_tags/00_mod.txt", "AAA=\"countries/Mod.txt\"");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+
+        await viewModel.OpenWorkspaceAsync();
+
+        var state = Assert.Single(viewModel.States).Contribution;
+        var country = Assert.Single(viewModel.Countries).Contribution;
+        Assert.All(new[] { state, country }, contribution =>
+        {
+            Assert.Equal("Effective from Active mod", contribution.EffectiveLayerLabel);
+            Assert.Equal("2 contributions", contribution.ContributionCountLabel);
+            Assert.Contains(contribution.Contributions,
+                item => item.Disposition is ContributionDisposition.Effective);
+            Assert.Contains(contribution.Contributions,
+                item => item.Disposition is ContributionDisposition.Shadowed);
+        });
     }
 
     private sealed class CancellableWorkspaceService : IWorkspaceService

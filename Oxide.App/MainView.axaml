@@ -249,6 +249,7 @@
                                             <TextBlock Text="{Binding SelectedState.Id, StringFormat=State {0}}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="SemiBold" />
                                             <TextBlock Text="{Binding SelectedState.LocalizationKey}" Classes="muted" />
                                         </StackPanel>
+                                        <TextBlock Text="{Binding SelectedState.Contribution.EffectiveLayerLabel}" Classes="muted" FontSize="11" />
                                     </StackPanel>
                                     <Border Grid.Column="1" Background="{DynamicResource OxideSurface}" CornerRadius="12" Padding="10,5" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding SelectedState.Status}" FontWeight="SemiBold" />
@@ -293,12 +294,79 @@
                                 <TabItem Header="Source &amp; provenance">
                                     <ScrollViewer Margin="4,16,4,4">
                                         <StackPanel Spacing="16">
-                                            <Border Classes="card" Padding="18">
-                                                <StackPanel Spacing="10">
-                                                    <TextBlock Classes="label" Text="EFFECTIVE DECLARATION" />
-                                                    <TextBlock Text="{Binding SelectedState.SourceSummary}" TextWrapping="Wrap" FontFamily="Menlo,Consolas,monospace" />
-                                                    <TextBlock Text="{Binding SelectedState.SourceLocation}" Classes="muted" />
-                                                </StackPanel>
+                                            <Border Classes="card" Padding="12">
+                                                <Expander AutomationProperties.Name="State contribution details"
+                                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                          Background="Transparent" BorderThickness="0">
+                                                    <Expander.Header>
+                                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="3">
+                                                            <TextBlock Grid.Row="0" Classes="label" Text="DECLARATION CONTRIBUTIONS" />
+                                                            <Grid Grid.Row="1" ColumnDefinitions="Auto,10,*">
+                                                                <TextBlock Grid.Column="0" Text="{Binding SelectedState.Contribution.EffectiveLayerLabel}" FontWeight="SemiBold" />
+                                                                <TextBlock Grid.Column="1" Text="·" Classes="muted" HorizontalAlignment="Center" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding SelectedState.Contribution.ResolutionReason}" Classes="muted"
+                                                                           FontSize="11" TextTrimming="CharacterEllipsis"
+                                                                           ToolTip.Tip="{Binding SelectedState.Contribution.ResolutionReason}" />
+                                                            </Grid>
+                                                            <Border Grid.Column="1" Grid.RowSpan="2" Background="{DynamicResource OxideSurfaceRaised}"
+                                                                    CornerRadius="12" Padding="11,5" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding SelectedState.Contribution.ContributionCountLabel}" FontWeight="SemiBold" />
+                                                            </Border>
+                                                        </Grid>
+                                                    </Expander.Header>
+                                                    <StackPanel Margin="0,14,0,0" Spacing="10">
+                                                    <ItemsControl ItemsSource="{Binding SelectedState.Contribution.Contributions}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:ContributionItemPresentation">
+                                                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="12" Margin="0,0,0,8">
+                                                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                                                        <StackPanel Grid.Column="0" Spacing="5">
+                                                                            <TextBlock Text="{Binding DispositionLabel}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="Bold" />
+                                                                            <Border IsVisible="{Binding IsEffective}" Background="{DynamicResource OxideAccent}" CornerRadius="8" Padding="7,2">
+                                                                                <TextBlock Text="Selected" Foreground="White" FontSize="10" FontWeight="Bold" />
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="1" Spacing="4">
+                                                                            <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBlock Text="{Binding Explanation}" Classes="muted" TextWrapping="Wrap" />
+                                                                            <TextBlock Text="{Binding Source.LayerName, StringFormat=Layer: {0}}" Classes="muted" />
+                                                                            <TextBlock Text="{Binding Source.VirtualPath}" FontFamily="Menlo,Consolas,monospace" FontSize="10" TextWrapping="Wrap" />
+                                                                            <TextBlock Text="{Binding Source.Location}" Classes="muted" FontSize="10" />
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <ItemsControl IsVisible="{Binding SelectedState.Contribution.HasComparisons}"
+                                                                  ItemsSource="{Binding SelectedState.Contribution.Comparisons}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:ContributionComparisonPresentation">
+                                                                <Expander Margin="0,2,0,6" AutomationProperties.Name="Compare effective and shadowed declarations">
+                                                                    <Expander.Header>
+                                                                        <StackPanel Spacing="3">
+                                                                            <TextBlock Text="{Binding ShadowedSummary, StringFormat=Compare with {0}}" FontWeight="SemiBold" />
+                                                                            <TextBlock Text="{Binding Summary}" Classes="muted" FontSize="11" />
+                                                                        </StackPanel>
+                                                                    </Expander.Header>
+                                                                    <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Fields}">
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate x:DataType="vm:ContributionFieldComparisonPresentation">
+                                                                                <Grid ColumnDefinitions="120,*,*,110" ColumnSpacing="10" Margin="0,0,0,7">
+                                                                                    <TextBlock Grid.Column="0" Text="{Binding FieldName}" FontWeight="SemiBold" />
+                                                                                    <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" TextWrapping="Wrap" />
+                                                                                    <TextBlock Grid.Column="2" Text="{Binding ShadowedValue}" Classes="muted" TextWrapping="Wrap" />
+                                                                                    <TextBlock Grid.Column="3" Text="{Binding DifferenceLabel}" Foreground="{DynamicResource OxideAccentSoft}" />
+                                                                                </Grid>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </Expander>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    </StackPanel>
+                                                </Expander>
                                             </Border>
                                             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                                                 <Border Grid.Column="0" Classes="card" Padding="18"><StackPanel Spacing="7"><TextBlock Classes="label" Text="CONTENT LAYER" /><TextBlock Text="{Binding SelectedState.SourceLayer}" /></StackPanel></Border>
@@ -360,6 +428,7 @@
                                                 <TextBlock Text="{Binding SelectedCountry.Tag}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="SemiBold" />
                                                 <TextBlock Text="{Binding SelectedCountry.NameStatus}" Classes="muted" />
                                             </StackPanel>
+                                            <TextBlock Text="{Binding SelectedCountry.Contribution.EffectiveLayerLabel}" Classes="muted" FontSize="11" />
                                         </StackPanel>
                                         <Border Grid.Column="1" Background="{DynamicResource OxideSurface}" CornerRadius="12" Padding="10,5" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding SelectedCountry.Status}" FontWeight="SemiBold" />
@@ -372,6 +441,80 @@
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="6"><TextBlock Classes="label" Text="DEFINITION PATH" /><TextBlock Text="{Binding SelectedCountry.DefinitionPath}" TextWrapping="Wrap" /></StackPanel></Border>
                                             <Border Grid.Column="1" Classes="card" Padding="16"><StackPanel Spacing="6"><TextBlock Classes="label" Text="DECLARATION SOURCE" /><TextBlock Text="{Binding SelectedCountry.DeclarationSummary}" TextWrapping="Wrap" /></StackPanel></Border>
                                         </Grid>
+                                        <Border Classes="card" Padding="12">
+                                            <Expander AutomationProperties.Name="Country contribution details"
+                                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                      Background="Transparent" BorderThickness="0">
+                                                <Expander.Header>
+                                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="3">
+                                                        <TextBlock Grid.Row="0" Classes="label" Text="DECLARATION CONTRIBUTIONS" />
+                                                        <Grid Grid.Row="1" ColumnDefinitions="Auto,10,*">
+                                                            <TextBlock Grid.Column="0" Text="{Binding SelectedCountry.Contribution.EffectiveLayerLabel}" FontWeight="SemiBold" />
+                                                            <TextBlock Grid.Column="1" Text="·" Classes="muted" HorizontalAlignment="Center" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding SelectedCountry.Contribution.ResolutionReason}" Classes="muted"
+                                                                       FontSize="11" TextTrimming="CharacterEllipsis"
+                                                                       ToolTip.Tip="{Binding SelectedCountry.Contribution.ResolutionReason}" />
+                                                        </Grid>
+                                                        <Border Grid.Column="1" Grid.RowSpan="2" Background="{DynamicResource OxideSurfaceRaised}"
+                                                                CornerRadius="12" Padding="11,5" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding SelectedCountry.Contribution.ContributionCountLabel}" FontWeight="SemiBold" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Expander.Header>
+                                                <StackPanel Margin="0,14,0,0" Spacing="10">
+                                                <ItemsControl ItemsSource="{Binding SelectedCountry.Contribution.Contributions}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:ContributionItemPresentation">
+                                                            <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="12" Margin="0,0,0,8">
+                                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                                                    <StackPanel Grid.Column="0" Spacing="5">
+                                                                        <TextBlock Text="{Binding DispositionLabel}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="Bold" />
+                                                                        <Border IsVisible="{Binding IsEffective}" Background="{DynamicResource OxideAccent}" CornerRadius="8" Padding="7,2">
+                                                                            <TextBlock Text="Selected" Foreground="White" FontSize="10" FontWeight="Bold" />
+                                                                        </Border>
+                                                                    </StackPanel>
+                                                                    <StackPanel Grid.Column="1" Spacing="4">
+                                                                        <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                        <TextBlock Text="{Binding Explanation}" Classes="muted" TextWrapping="Wrap" />
+                                                                        <TextBlock Text="{Binding Source.LayerName, StringFormat=Layer: {0}}" Classes="muted" />
+                                                                        <TextBlock Text="{Binding Source.VirtualPath}" FontFamily="Menlo,Consolas,monospace" FontSize="10" TextWrapping="Wrap" />
+                                                                        <TextBlock Text="{Binding Source.Location}" Classes="muted" FontSize="10" />
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <ItemsControl IsVisible="{Binding SelectedCountry.Contribution.HasComparisons}"
+                                                              ItemsSource="{Binding SelectedCountry.Contribution.Comparisons}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:ContributionComparisonPresentation">
+                                                            <Expander Margin="0,2,0,6" AutomationProperties.Name="Compare effective and shadowed declarations">
+                                                                <Expander.Header>
+                                                                    <StackPanel Spacing="3">
+                                                                        <TextBlock Text="{Binding ShadowedSummary, StringFormat=Compare with {0}}" FontWeight="SemiBold" />
+                                                                        <TextBlock Text="{Binding Summary}" Classes="muted" FontSize="11" />
+                                                                    </StackPanel>
+                                                                </Expander.Header>
+                                                                <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Fields}">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate x:DataType="vm:ContributionFieldComparisonPresentation">
+                                                                            <Grid ColumnDefinitions="120,*,*,110" ColumnSpacing="10" Margin="0,0,0,7">
+                                                                                <TextBlock Grid.Column="0" Text="{Binding FieldName}" FontWeight="SemiBold" />
+                                                                                <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" TextWrapping="Wrap" />
+                                                                                <TextBlock Grid.Column="2" Text="{Binding ShadowedValue}" Classes="muted" TextWrapping="Wrap" />
+                                                                                <TextBlock Grid.Column="3" Text="{Binding DifferenceLabel}" Foreground="{DynamicResource OxideAccentSoft}" />
+                                                                            </Grid>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </Expander>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                </StackPanel>
+                                            </Expander>
+                                        </Border>
                                         <Border Classes="card" Padding="16">
                                             <StackPanel Spacing="8">
                                                 <TextBlock Classes="label" Text="OWNED STATES" />
