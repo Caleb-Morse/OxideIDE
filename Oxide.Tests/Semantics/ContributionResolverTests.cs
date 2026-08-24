@@ -126,6 +126,48 @@ public sealed class ContributionResolverTests
     }
 
     [Fact]
+    public void Excluded_contributions_are_preserved_but_never_compete()
+    {
+        var excluded = Contribution<string, string>.Excluded(
+            "STATE:1",
+            "base",
+            Provenance(BaseLayer, "history/states/base.txt", 1),
+            "The source file is shadowed by an exact mod path.");
+        var eligible = Valid("STATE:1", "mod", FirstModLayer, "history/states/mod.txt", 2);
+
+        var resolution = ContributionResolver.Resolve(
+            new ContributionSet<string, string>("STATE:1", [eligible, excluded]),
+            ContributionResolutionPolicy.LayeredOverride);
+
+        Assert.Equal(ContributionResolutionKind.Effective, resolution.Kind);
+        Assert.Equal(ContributionResolutionReasonKind.SingleCandidate, resolution.Reason.Kind);
+        Assert.Same(eligible, resolution.EffectiveContribution);
+        var excludedResult = Assert.Single(resolution.ExcludedContributions);
+        Assert.Same(excluded, excludedResult.Contribution);
+        Assert.Contains("shadowed", excludedResult.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(resolution.ShadowedContributions);
+    }
+
+    [Fact]
+    public void Only_excluded_contributions_produce_no_eligible_candidate()
+    {
+        var excluded = Contribution<string, string>.Excluded(
+            "STATE:1",
+            "base",
+            Provenance(BaseLayer, "history/states/base.txt", 1),
+            "A higher mod replaces history/states.");
+
+        var resolution = ContributionResolver.Resolve(
+            new ContributionSet<string, string>("STATE:1", [excluded]),
+            ContributionResolutionPolicy.LayeredOverride);
+
+        Assert.Equal(ContributionResolutionKind.Missing, resolution.Kind);
+        Assert.Equal(ContributionResolutionReasonKind.NoEligibleCandidates, resolution.Reason.Kind);
+        Assert.Null(resolution.EffectiveContribution);
+        Assert.Single(resolution.ExcludedContributions);
+    }
+
+    [Fact]
     public void Contribution_identity_and_order_are_stable_across_input_order()
     {
         var first = Valid("STATE:1", "first", FirstModLayer, "history/states/z.txt", 20);

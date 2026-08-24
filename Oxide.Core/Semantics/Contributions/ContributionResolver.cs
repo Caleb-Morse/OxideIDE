@@ -21,11 +21,24 @@ public static class ContributionResolver
                 "No contributions were supplied for this semantic identity.");
         }
 
-        var highestPosition = set.Contributions.Max(contribution => contribution.Provenance.Layer.Position);
-        var highest = set.Contributions
+        var eligible = set.Contributions
+            .Where(contribution => contribution.Eligibility is ContributionEligibility.Eligible)
+            .ToImmutableArray();
+        if (eligible.IsEmpty)
+        {
+            return Result(
+                ContributionResolutionKind.Missing,
+                null,
+                ResolveExcluded(set.Contributions),
+                ContributionResolutionReasonKind.NoEligibleCandidates,
+                "Contributions exist, but their source documents do not participate.");
+        }
+
+        var highestPosition = eligible.Max(contribution => contribution.Provenance.Layer.Position);
+        var highest = eligible
             .Where(contribution => contribution.Provenance.Layer.Position == highestPosition)
             .ToImmutableArray();
-        var lower = set.Contributions
+        var lower = eligible
             .Where(contribution => contribution.Provenance.Layer.Position < highestPosition)
             .ToImmutableArray();
 
@@ -33,12 +46,16 @@ public static class ContributionResolver
         {
             var resolved = set.Contributions.Select(contribution => new ResolvedContribution<TIdentity, TDeclaration>(
                 contribution,
-                contribution.Validity is ContributionValidity.Invalid
+                contribution.Eligibility is not ContributionEligibility.Eligible
+                    ? ContributionDisposition.Excluded
+                    : contribution.Validity is ContributionValidity.Invalid
                     ? ContributionDisposition.Invalid
                     : contribution.Provenance.Layer.Position == highestPosition
                         ? ContributionDisposition.Ambiguous
                         : ContributionDisposition.Shadowed,
-                contribution.Validity is ContributionValidity.Invalid
+                contribution.Eligibility is not ContributionEligibility.Eligible
+                    ? contribution.IneligibilityReason ?? "The source document does not participate."
+                    : contribution.Validity is ContributionValidity.Invalid
                     ? contribution.InvalidReason ?? "The contribution is invalid."
                     : contribution.Provenance.Layer.Position == highestPosition
                         ? "Another contribution in the same highest-precedence layer has this identity."
@@ -68,10 +85,14 @@ public static class ContributionResolver
         {
             var resolved = set.Contributions.Select(contribution => new ResolvedContribution<TIdentity, TDeclaration>(
                 contribution,
-                contribution.Validity is ContributionValidity.Invalid
+                contribution.Eligibility is not ContributionEligibility.Eligible
+                    ? ContributionDisposition.Excluded
+                    : contribution.Validity is ContributionValidity.Invalid
                     ? ContributionDisposition.Invalid
                     : ContributionDisposition.Ambiguous,
-                contribution.Validity is ContributionValidity.Invalid
+                contribution.Eligibility is not ContributionEligibility.Eligible
+                    ? contribution.IneligibilityReason ?? "The source document does not participate."
+                    : contribution.Validity is ContributionValidity.Invalid
                     ? contribution.InvalidReason ?? "The contribution is invalid."
                     : $"Policy '{policy.Name}' does not select between contributing layers."))
                 .ToImmutableArray();
@@ -111,6 +132,14 @@ public static class ContributionResolver
         where TIdentity : notnull =>
         contributions.Select(contribution =>
         {
+            if (contribution.Eligibility is not ContributionEligibility.Eligible)
+            {
+                return new ResolvedContribution<TIdentity, TDeclaration>(
+                    contribution,
+                    ContributionDisposition.Excluded,
+                    contribution.IneligibilityReason ?? "The source document does not participate.");
+            }
+
             if (contribution.Id == winner.Id)
             {
                 return new ResolvedContribution<TIdentity, TDeclaration>(
@@ -134,4 +163,13 @@ public static class ContributionResolver
                 ContributionDisposition.Shadowed,
                 "A valid contribution from a higher-precedence layer was selected.");
         }).ToImmutableArray();
+
+    private static ImmutableArray<ResolvedContribution<TIdentity, TDeclaration>> ResolveExcluded<TIdentity, TDeclaration>(
+        ImmutableArray<Contribution<TIdentity, TDeclaration>> contributions)
+        where TIdentity : notnull =>
+        contributions.Select(contribution => new ResolvedContribution<TIdentity, TDeclaration>(
+            contribution,
+            ContributionDisposition.Excluded,
+            contribution.IneligibilityReason ?? "The source document does not participate."))
+            .ToImmutableArray();
 }

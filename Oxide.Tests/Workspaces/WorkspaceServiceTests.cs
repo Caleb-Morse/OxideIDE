@@ -1,3 +1,4 @@
+using Oxide.Core.Semantics.Model;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Documents;
@@ -243,6 +244,12 @@ public sealed class WorkspaceServiceTests
         Assert.NotEqual(candidates[0].Id, candidates[1].Id);
         var stateDeclaration = Assert.Single(snapshot.Semantics.StateDeclarations);
         Assert.Equal("BBB", Assert.Single(stateDeclaration.OwnerCandidates).Value);
+        var inventory = snapshot.Semantics.DeclarationInventory.States;
+        Assert.Equal(2, inventory.Length);
+        Assert.False(inventory[0].IsEligible);
+        Assert.True(inventory[1].IsEligible);
+        Assert.Equal(baseDocument.SourceIdentity, inventory[0].Source);
+        Assert.Equal(modDocument.SourceIdentity, inventory[1].Source);
     }
 
     [Fact]
@@ -272,6 +279,11 @@ public sealed class WorkspaceServiceTests
             document.Participation.Category is ContentCategory.CountryTags);
         Assert.True(baseCountryTags.Participates);
         Assert.True(snapshot.Semantics.Countries.ContainsKey("AAA"));
+        var stateInventory = snapshot.Semantics.DeclarationInventory.States;
+        Assert.Equal(2, stateInventory.Length);
+        Assert.Contains(stateInventory, item =>
+            !item.IsEligible
+            && item.Participation.Kind is DocumentParticipationKind.ExcludedByReplacementPath);
     }
 
     [Fact]
@@ -385,6 +397,27 @@ public sealed class WorkspaceServiceTests
         Assert.Equal(DocumentLoadStatus.Failed, candidates[1].LoadStatus);
         Assert.Contains(candidates[1].Diagnostics, diagnostic => diagnostic.Code == "OXIDE3003");
         Assert.Empty(snapshot.Semantics.StateDeclarations);
+    }
+
+    [Fact]
+    public async Task Excluded_unidentifiable_declaration_keeps_inventory_diagnostic_without_affecting_active_model()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string virtualPath = "history/states/1-State.txt";
+        fixture.WriteGameFile(virtualPath, "not_a_state={ value=broken }");
+        fixture.WriteModFile(virtualPath, "state={ id=1 }");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+
+        Assert.Single(snapshot.Semantics.StateDeclarations);
+        Assert.Single(snapshot.Semantics.DeclarationInventory.States);
+        var diagnostic = Assert.Single(snapshot.Semantics.DeclarationInventory.Diagnostics, item =>
+            item.Diagnostic.Code == "OXIDE4001");
+        Assert.False(diagnostic.IsActive);
+        Assert.Equal(DocumentParticipationKind.ShadowedByHigherLayerPath, diagnostic.Participation.Kind);
+        Assert.DoesNotContain(snapshot.Semantics.Diagnostics, item => item.Code == "OXIDE4001");
+        Assert.Equal(SemanticEntityStatus.Effective, snapshot.Semantics.States[1].Status);
     }
 
     [Fact]

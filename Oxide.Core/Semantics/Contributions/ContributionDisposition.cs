@@ -6,4 +6,5 @@ public enum ContributionDisposition
     Shadowed,
     Invalid,
     Ambiguous,
+    Excluded,
 }

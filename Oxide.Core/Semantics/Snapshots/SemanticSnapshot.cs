@@ -14,6 +14,7 @@ public sealed class SemanticSnapshot
         ImmutableArray<CountryTagDeclaration> countryDeclarations,
         ImmutableArray<StrategicRegionDeclaration> strategicRegionDeclarations,
         ImmutableArray<LocalisationDeclaration> localisationDeclarations,
+        SemanticDeclarationInventory declarationInventory,
         ImmutableDictionary<int, StateEntity> states,
         ImmutableDictionary<string, CountryEntity> countries,
         ImmutableDictionary<int, StrategicRegionEntity> strategicRegions,
@@ -26,6 +27,7 @@ public sealed class SemanticSnapshot
         CountryDeclarations = countryDeclarations;
         StrategicRegionDeclarations = strategicRegionDeclarations;
         LocalisationDeclarations = localisationDeclarations;
+        DeclarationInventory = declarationInventory;
         States = states;
         Countries = countries;
         StrategicRegions = strategicRegions;
@@ -48,6 +50,8 @@ public sealed class SemanticSnapshot
 
     public ImmutableArray<LocalisationDeclaration> LocalisationDeclarations { get; }
 
+    public SemanticDeclarationInventory DeclarationInventory { get; }
+
     public ImmutableDictionary<int, StateEntity> States { get; }
 
     public ImmutableDictionary<string, CountryEntity> Countries { get; }
@@ -66,7 +70,8 @@ public sealed class SemanticSnapshot
 
     public ImmutableArray<SemanticDiagnostic> Diagnostics { get; }
 
-    public static SemanticSnapshot Empty { get; } = new([], [], [], [], ImmutableDictionary<int, StateEntity>.Empty,
+    public static SemanticSnapshot Empty { get; } = new([], [], [], [], SemanticDeclarationInventory.Empty,
+        ImmutableDictionary<int, StateEntity>.Empty,
         ImmutableDictionary<string, CountryEntity>.Empty,
         ImmutableDictionary<int, StrategicRegionEntity>.Empty,
         new ProvinceStrategicRegionIndex(ImmutableDictionary<int, StrategicRegionEntity>.Empty,

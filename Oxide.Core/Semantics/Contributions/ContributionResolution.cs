@@ -17,4 +17,8 @@ public sealed record ContributionResolution<TIdentity, TDeclaration>(
     public ImmutableArray<ResolvedContribution<TIdentity, TDeclaration>> InvalidContributions =>
         Contributions.Where(contribution => contribution.Disposition is ContributionDisposition.Invalid)
             .ToImmutableArray();
+
+    public ImmutableArray<ResolvedContribution<TIdentity, TDeclaration>> ExcludedContributions =>
+        Contributions.Where(contribution => contribution.Disposition is ContributionDisposition.Excluded)
+            .ToImmutableArray();
 }
