@@ -21,7 +21,7 @@ internal static class SemanticBuilder
         var localisations = ImmutableArray.CreateBuilder<LocalisationDeclaration>();
         var diagnostics = ImmutableArray.CreateBuilder<SemanticDiagnostic>();
 
-        foreach (var document in documents.Where(document => document.IsLoaded))
+        foreach (var document in documents.Where(document => document.IsLoaded && document.Participates))
         {
             if (document.LocalisationSyntaxTree is not null)
             {

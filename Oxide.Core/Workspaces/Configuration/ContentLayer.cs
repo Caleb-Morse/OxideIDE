@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using Oxide.Core.Workspaces.Documents;
+
 namespace Oxide.Core.Workspaces.Configuration;
 
 public sealed record ContentLayer(
@@ -7,7 +10,8 @@ public sealed record ContentLayer(
     string RootPath,
     int Position,
     bool IsWritable,
-    bool IsEnabled = true)
+    bool IsEnabled = true,
+    ImmutableArray<ContentLayerReplacementRule> ReplacementRules = default)
 {
     public static ContentLayer BaseGame(string rootPath) =>
         new(new ContentLayerId("base-game"), "Base game", ContentLayerKind.BaseGame, rootPath, 0, IsWritable: false);
@@ -21,6 +25,16 @@ public sealed record ContentLayer(
         string rootPath,
         int position,
         bool isWritable = true,
-        bool isEnabled = true) =>
-        new(new ContentLayerId(id), displayName, ContentLayerKind.Mod, rootPath, position, isWritable, isEnabled);
+        bool isEnabled = true,
+        IEnumerable<string>? replacePaths = null) =>
+        new(
+            new ContentLayerId(id),
+            displayName,
+            ContentLayerKind.Mod,
+            rootPath,
+            position,
+            isWritable,
+            isEnabled,
+            replacePaths?.Select(path => new ContentLayerReplacementRule(new VirtualPath(path))).ToImmutableArray()
+                ?? []);
 }

@@ -94,6 +94,7 @@ public sealed record WorkspaceConfiguration
         {
             DisplayName = layer.DisplayName.Trim(),
             RootPath = NormalizeRoot(layer.RootPath, nameof(layer.RootPath)),
+            ReplacementRules = layer.ReplacementRules.IsDefault ? [] : layer.ReplacementRules,
         };
     }
 

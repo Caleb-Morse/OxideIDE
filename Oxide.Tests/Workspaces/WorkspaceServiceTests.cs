@@ -222,21 +222,169 @@ public sealed class WorkspaceServiceTests
     }
 
     [Fact]
-    public async Task Same_virtual_path_in_multiple_layers_is_explicitly_unresolved()
+    public async Task Same_virtual_path_in_multiple_layers_selects_higher_path_without_discarding_base()
     {
         using var fixture = new TemporaryWorkspace();
         const string virtualPath = "history/states/1-Collision.txt";
-        fixture.WriteGameFile(virtualPath, "state={ id=1 owner=AAA }");
-        fixture.WriteModFile(virtualPath, "state={ id=1 owner=BBB }");
+        fixture.WriteGameFile(virtualPath, "state={ id=1 history={ owner=AAA } }");
+        fixture.WriteModFile(virtualPath, "state={ id=1 history={ owner=BBB } }");
         using var service = new WorkspaceService();
 
         var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
         var candidates = snapshot.DocumentsByVirtualPath[new VirtualPath(virtualPath)];
 
         Assert.Equal(2, candidates.Length);
-        Assert.All(candidates, document =>
-            Assert.Equal(DocumentContributionStatus.UnknownPrecedence, document.ContributionStatus));
+        var baseDocument = candidates[0];
+        var modDocument = candidates[1];
+        Assert.Equal(DocumentParticipationKind.ShadowedByHigherLayerPath, baseDocument.Participation.Kind);
+        Assert.Equal(modDocument.Id, baseDocument.Participation.ShadowingDocumentId);
+        Assert.Equal(modDocument.Layer.Id, baseDocument.Participation.CausedByLayerId);
+        Assert.Equal(DocumentParticipationKind.Participating, modDocument.Participation.Kind);
         Assert.NotEqual(candidates[0].Id, candidates[1].Id);
+        var stateDeclaration = Assert.Single(snapshot.Semantics.StateDeclarations);
+        Assert.Equal("BBB", Assert.Single(stateDeclaration.OwnerCandidates).Value);
+    }
+
+    [Fact]
+    public async Task Descriptor_replace_path_excludes_lower_directory_but_preserves_documents()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        fixture.WriteGameFile("common/country_tags/00_base.txt", "AAA=\"countries/A.txt\"");
+        fixture.WriteModFile("descriptor.mod", "name=\"Replacement\"\nreplace_path=\"history/states\"\n");
+        fixture.WriteModFile("history/states/2-Mod.txt", "state={ id=2 }");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+
+        var baseState = Assert.Single(snapshot.Documents, document =>
+            document.Layer.Kind is ContentLayerKind.BaseGame
+            && document.Participation.Category is ContentCategory.StateHistory);
+        Assert.Equal(DocumentParticipationKind.ExcludedByReplacementPath, baseState.Participation.Kind);
+        Assert.Equal("active-mod", baseState.Participation.CausedByLayerId?.Value);
+        Assert.Equal("history/states", baseState.Participation.ReplacementRule?.Path.Value);
+        Assert.EndsWith("descriptor.mod", baseState.Participation.ReplacementRule?.DescriptorPath, StringComparison.Ordinal);
+        Assert.NotNull(baseState.Text);
+        Assert.False(snapshot.Semantics.States.ContainsKey(1));
+        Assert.True(snapshot.Semantics.States.ContainsKey(2));
+
+        var baseCountryTags = Assert.Single(snapshot.Documents, document =>
+            document.Participation.Category is ContentCategory.CountryTags);
+        Assert.True(baseCountryTags.Participates);
+        Assert.True(snapshot.Semantics.Countries.ContainsKey("AAA"));
+    }
+
+    [Fact]
+    public async Task Replacement_paths_are_case_insensitive_game_paths()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        fixture.WriteModFile("descriptor.mod", "replace_path=\"HISTORY/STATES\"");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+
+        var document = Assert.Single(snapshot.Documents);
+        Assert.Equal(DocumentParticipationKind.ExcludedByReplacementPath, document.Participation.Kind);
+    }
+
+    [Fact]
+    public async Task Replacement_paths_respect_directory_segment_boundaries()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        var configuration = new WorkspaceConfiguration(
+        [
+            ContentLayer.BaseGame(fixture.GameRoot),
+            ContentLayer.Mod("mod", "Mod", fixture.ModRoot, 1, replacePaths: ["history/state"]),
+        ]);
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(configuration);
+
+        Assert.True(Assert.Single(snapshot.Documents).Participates);
+    }
+
+    [Fact]
+    public async Task Malformed_descriptor_is_diagnostic_and_does_not_hide_base_documents()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        fixture.WriteModFile("descriptor.mod", "replace_path={ history/states }");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+
+        Assert.True(Assert.Single(snapshot.Documents).Participates);
+        Assert.Contains(snapshot.Diagnostics, diagnostic => diagnostic.Code == "OXIDE3011");
+        Assert.True(snapshot.Semantics.States.ContainsKey(1));
+    }
+
+    [Fact]
+    public async Task Differently_named_files_remain_participating_semantic_candidates()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 name=BASE }");
+        fixture.WriteModFile("history/states/1-Mod.txt", "state={ id=1 name=MOD }");
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+
+        Assert.Equal(2, snapshot.Documents.Length);
+        Assert.All(snapshot.Documents, document => Assert.True(document.Participates));
+        Assert.Equal(2, snapshot.Semantics.StateDeclarations.Length);
+        Assert.Null(snapshot.Semantics.States[1].Name);
+    }
+
+    [Fact]
+    public async Task Highest_layer_replacement_is_the_decisive_participation_reason()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var firstModRoot = Path.Combine(fixture.Root, "first-mod");
+        var secondModRoot = Path.Combine(fixture.Root, "second-mod");
+        Directory.CreateDirectory(firstModRoot);
+        Directory.CreateDirectory(secondModRoot);
+        const string virtualPath = "history/states/1-State.txt";
+        fixture.WriteGameFile(virtualPath, "state={ id=1 }");
+        WriteLayerFile(firstModRoot, virtualPath, "state={ id=1 }");
+        var configuration = new WorkspaceConfiguration(
+        [
+            ContentLayer.BaseGame(fixture.GameRoot),
+            ContentLayer.Mod("first", "First", firstModRoot, 1),
+            ContentLayer.Mod("second", "Second", secondModRoot, 2, replacePaths: ["history/states"]),
+        ]);
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(configuration);
+
+        Assert.Equal(2, snapshot.Documents.Length);
+        Assert.All(snapshot.Documents, document =>
+        {
+            Assert.Equal(DocumentParticipationKind.ExcludedByReplacementPath, document.Participation.Kind);
+            Assert.Equal("second", document.Participation.CausedByLayerId?.Value);
+        });
+        Assert.Empty(snapshot.Semantics.StateDeclarations);
+    }
+
+    [Fact]
+    public async Task Failed_higher_path_still_shadows_lower_path_and_remains_inspectable()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string virtualPath = "history/states/1-State.txt";
+        fixture.WriteGameFile(virtualPath, "state={ id=1 }");
+        var modPath = Path.Combine(fixture.ModRoot, virtualPath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(modPath)!);
+        File.WriteAllBytes(modPath, [0xC3, 0x28]);
+        using var service = new WorkspaceService();
+
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var candidates = snapshot.DocumentsByVirtualPath[new VirtualPath(virtualPath)];
+
+        Assert.Equal(DocumentParticipationKind.ShadowedByHigherLayerPath, candidates[0].Participation.Kind);
+        Assert.True(candidates[1].Participates);
+        Assert.Equal(DocumentLoadStatus.Failed, candidates[1].LoadStatus);
+        Assert.Contains(candidates[1].Diagnostics, diagnostic => diagnostic.Code == "OXIDE3003");
+        Assert.Empty(snapshot.Semantics.StateDeclarations);
     }
 
     [Fact]

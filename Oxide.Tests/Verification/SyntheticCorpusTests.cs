@@ -3,6 +3,7 @@ using Oxide.Core.Semantics.Resolution;
 using Oxide.Core.Verification;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
+using Oxide.Core.Workspaces.Documents;
 
 namespace Oxide.Tests.Verification;
 
@@ -30,32 +31,32 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(2, summary.SyntaxDiagnosticCount);
         Assert.Equal(1, summary.SyntaxDiagnosticsByCode["OXIDE1204"]);
         Assert.Equal(1, summary.SyntaxDiagnosticsByCode["OXIDE2003"]);
-        Assert.Equal(11, summary.StateDeclarationCount);
+        Assert.Equal(10, summary.StateDeclarationCount);
         Assert.Equal(9, summary.StateEntityCount);
         Assert.Equal(3, summary.CountryDeclarationCount);
         Assert.Equal(2, summary.CountryEntityCount);
         Assert.Equal(23, summary.SemanticDiagnosticCount);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4002"]);
-        Assert.Equal(3, summary.SemanticDiagnosticsByCode["OXIDE4003"]);
+        Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4003"]);
         Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4004"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4006"]);
-        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4007"]);
+        Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4007"]);
         Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4009"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4011"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4014"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4015"]);
         Assert.Equal(3, summary.SemanticDiagnosticsByCode["OXIDE4016"]);
-        Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4017"]);
+        Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4017"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4018"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4019"]);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4020"]);
-        Assert.Equal(2, summary.SemanticDiagnosticsByCode["OXIDE4021"]);
-        Assert.Equal(2, summary.CountryReferences.Total);
+        Assert.Equal(3, summary.SemanticDiagnosticsByCode["OXIDE4021"]);
+        Assert.Equal(3, summary.CountryReferences.Total);
         Assert.Equal(0, summary.CountryReferences.Resolved);
         Assert.Equal(1, summary.CountryReferences.Missing);
-        Assert.Equal(1, summary.CountryReferences.Ambiguous);
+        Assert.Equal(2, summary.CountryReferences.Ambiguous);
         Assert.Equal(0, summary.CountryReferences.Invalid);
-        Assert.Equal(2, summary.CountryReferences.Unresolved);
+        Assert.Equal(3, summary.CountryReferences.Unresolved);
         Assert.Equal(24, summary.WorkspacePerformance.DocumentCount);
         Assert.Equal(24, summary.WorkspacePerformance.LoadedDocumentCount);
         Assert.Equal(0, summary.WorkspacePerformance.FailedDocumentCount);
@@ -85,7 +86,7 @@ public sealed class SyntheticCorpusTests
         Assert.Equal("spanish", localisation.RequestedLanguage);
         Assert.Equal("spanish", localisation.EffectiveLanguage);
         Assert.True(localisation.EnglishFallbackEnabled);
-        Assert.Equal(new LocalisationResolutionCounts(9, 1, 1, 6, 0, 0, 1), localisation.StateNames);
+        Assert.Equal(new LocalisationResolutionCounts(9, 1, 1, 7, 0, 0, 0), localisation.StateNames);
         Assert.Equal(new LocalisationResolutionCounts(2, 1, 0, 0, 1, 0, 0), localisation.CountryNames);
         Assert.Equal(new LocalisationResolutionCounts(3, 1, 1, 0, 0, 0, 1), localisation.StrategicRegionNames);
         var strategicRegions = summary.StrategicRegions;
@@ -102,8 +103,14 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(3, strategicRegions.AmbiguousProvinceCount);
         Assert.Equal(5, strategicRegions.DeclarationsWithValidProvenance);
         Assert.Equal(11, strategicRegions.ProvinceCandidatesWithValidProvenance);
-        Assert.Equal(new StrategicRegionMembershipCounts(9, 2, 1, 1, 1, 2, 2),
+        Assert.Equal(new StrategicRegionMembershipCounts(9, 2, 1, 1, 1, 1, 3),
             strategicRegions.StateMemberships);
+
+        var alphaPath = new VirtualPath("history/states/1-Alpha.txt");
+        var alphaDocuments = snapshot.DocumentsByVirtualPath[alphaPath];
+        Assert.Equal(2, alphaDocuments.Length);
+        Assert.Equal(DocumentParticipationKind.ShadowedByHigherLayerPath, alphaDocuments[0].Participation.Kind);
+        Assert.True(alphaDocuments[1].Participates);
         Assert.True(localisation.NameProjectionMilliseconds >= 0);
         Assert.True(localisation.NameProjectionsPerSecond >= 0);
         Assert.True(localisation.ManagedMemoryBytesAtReport > 0);
@@ -176,7 +183,7 @@ public sealed class SyntheticCorpusTests
             TimeSpan.Zero,
             new CorpusSummaryOptions("spanish", EnglishFallbackEnabled: false));
         Assert.Equal(0, withoutFallback.Localisation.StateNames.EnglishFallback);
-        Assert.Equal(7, withoutFallback.Localisation.StateNames.Missing);
+        Assert.Equal(8, withoutFallback.Localisation.StateNames.Missing);
         Assert.Equal(0, withoutFallback.Localisation.StrategicRegionNames.EnglishFallback);
         Assert.Equal(1, withoutFallback.Localisation.StrategicRegionNames.Missing);
 
