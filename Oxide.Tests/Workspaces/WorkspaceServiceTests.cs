@@ -244,6 +244,10 @@ public sealed class WorkspaceServiceTests
         Assert.NotEqual(candidates[0].Id, candidates[1].Id);
         var stateDeclaration = Assert.Single(snapshot.Semantics.StateDeclarations);
         Assert.Equal("BBB", Assert.Single(stateDeclaration.OwnerCandidates).Value);
+        var state = snapshot.Semantics.States[1];
+        Assert.Same(stateDeclaration, state.EffectiveDeclaration);
+        Assert.Single(state.ContributionResolution.ExcludedContributions);
+        Assert.Empty(state.ContributionResolution.ShadowedContributions);
         var inventory = snapshot.Semantics.DeclarationInventory.States;
         Assert.Equal(2, inventory.Length);
         Assert.False(inventory[0].IsEligible);
@@ -345,7 +349,8 @@ public sealed class WorkspaceServiceTests
         Assert.Equal(2, snapshot.Documents.Length);
         Assert.All(snapshot.Documents, document => Assert.True(document.Participates));
         Assert.Equal(2, snapshot.Semantics.StateDeclarations.Length);
-        Assert.Null(snapshot.Semantics.States[1].Name);
+        Assert.Equal("MOD", snapshot.Semantics.States[1].Name?.Value);
+        Assert.Single(snapshot.Semantics.States[1].ContributionResolution.ShadowedContributions);
     }
 
     [Fact]

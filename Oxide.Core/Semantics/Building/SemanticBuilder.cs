@@ -86,8 +86,8 @@ internal static class SemanticBuilder
             allLocalisations.ToImmutable(),
             allExtractionDiagnostics.ToImmutable());
 
-        var countryEntities = BuildCountries(countries.ToImmutable(), diagnostics);
-        var stateEntities = BuildStates(states.ToImmutable(), countryEntities, diagnostics);
+        var countryEntities = BuildCountries(declarationInventory.Countries, diagnostics);
+        var stateEntities = BuildStates(declarationInventory.States, countryEntities, diagnostics);
         var strategicRegionEntities = BuildStrategicRegions(strategicRegions.ToImmutable(), diagnostics);
         var provinceStrategicRegionIndex = new ProvinceStrategicRegionIndex(strategicRegionEntities, diagnostics);
         var stateStrategicRegionMemberships = BuildStateStrategicRegionMemberships(
@@ -162,39 +162,49 @@ internal static class SemanticBuilder
     }
 
     private static ImmutableDictionary<string, CountryEntity> BuildCountries(
-        ImmutableArray<CountryTagDeclaration> declarations,
+        ImmutableArray<DeclarationInventoryItem<CountryTagDeclaration>> declarations,
         ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
     {
         var entities = ImmutableDictionary.CreateBuilder<string, CountryEntity>(StringComparer.Ordinal);
-        foreach (var group in declarations.GroupBy(declaration => declaration.NormalizedTag, StringComparer.Ordinal))
+        foreach (var group in declarations.GroupBy(item => item.Declaration.NormalizedTag, StringComparer.Ordinal))
         {
-            var contributions = group
-                .OrderBy(declaration => declaration.Provenance.Layer.Position)
-                .ThenBy(declaration => declaration.Provenance.PhysicalPath, StringComparer.Ordinal)
-                .ToImmutableArray();
+            var id = EntityId.Country(group.Key);
+            var set = new ContributionSet<EntityId, CountryTagDeclaration>(
+                id,
+                group.Select(item => Contribution<EntityId, CountryTagDeclaration>.FromInventory(
+                    id,
+                    item,
+                    item.Declaration.Provenance)));
+            var resolution = ContributionResolver.Resolve(set, ContributionResolutionPolicy.LayeredOverride);
+            if (resolution.Kind is ContributionResolutionKind.Missing)
+            {
+                continue;
+            }
+
             var entityDiagnostics = ImmutableArray.CreateBuilder<SemanticDiagnostic>();
             EffectiveValue<string>? effectivePath = null;
-            SemanticEntityStatus status;
+            var status = EntityStatus(resolution.Kind);
 
-            if (contributions.Length == 1)
+            if (resolution.EffectiveContribution is { } effective)
             {
-                status = SemanticEntityStatus.Effective;
-                effectivePath = EffectiveValue<string>.FromSingle(contributions[0].DefinitionPath);
+                effectivePath = EffectiveValue<string>.FromContribution(
+                    effective.Declaration.DefinitionPath,
+                    resolution);
             }
-            else
+            else if (resolution.Kind is ContributionResolutionKind.DuplicateWithinLayer
+                or ContributionResolutionKind.Ambiguous)
             {
-                status = SemanticEntityStatus.Ambiguous;
+                var candidates = AmbiguousProvenance(resolution);
                 var diagnostic = DuplicateIdentity(
-                    contributions[0].EntityId,
-                    contributions.Select(declaration => declaration.Provenance).ToImmutableArray());
+                    id,
+                    candidates);
                 diagnostics.Add(diagnostic);
                 entityDiagnostics.Add(diagnostic);
             }
 
-            var id = EntityId.Country(group.Key);
             entities.Add(group.Key, new CountryEntity(
                 id,
-                contributions,
+                resolution,
                 status,
                 effectivePath,
                 entityDiagnostics.ToImmutable()));
@@ -204,36 +214,47 @@ internal static class SemanticBuilder
     }
 
     private static ImmutableDictionary<int, StateEntity> BuildStates(
-        ImmutableArray<StateDeclaration> declarations,
+        ImmutableArray<DeclarationInventoryItem<StateDeclaration>> declarations,
         ImmutableDictionary<string, CountryEntity> countries,
         ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
     {
         var entities = ImmutableDictionary.CreateBuilder<int, StateEntity>();
         foreach (var group in declarations
-            .Where(declaration => declaration.EntityId is not null)
-            .GroupBy(declaration => declaration.IdCandidates[0].Value))
+            .Where(item => item.Declaration.EntityId is not null)
+            .GroupBy(item => item.Declaration.IdCandidates[0].Value))
         {
-            var contributions = group
-                .OrderBy(declaration => declaration.Provenance.Layer.Position)
-                .ThenBy(declaration => declaration.Provenance.PhysicalPath, StringComparer.Ordinal)
-                .ToImmutableArray();
             var id = EntityId.State(group.Key);
+            var set = new ContributionSet<EntityId, StateDeclaration>(
+                id,
+                group.Select(item => Contribution<EntityId, StateDeclaration>.FromInventory(
+                    id,
+                    item,
+                    item.Declaration.Provenance)));
+            var resolution = ContributionResolver.Resolve(set, ContributionResolutionPolicy.LayeredOverride);
+            if (resolution.Kind is ContributionResolutionKind.Missing)
+            {
+                continue;
+            }
+
             var entityDiagnostics = diagnostics
                 .Where(diagnostic => diagnostic.EntityId == id)
                 .ToImmutableArray()
                 .ToBuilder();
 
-            if (contributions.Length > 1)
+            if (resolution.EffectiveContribution is not { } effective)
             {
-                var duplicate = DuplicateIdentity(
-                    id,
-                    contributions.Select(declaration => declaration.Provenance).ToImmutableArray());
-                diagnostics.Add(duplicate);
-                entityDiagnostics.Add(duplicate);
+                if (resolution.Kind is ContributionResolutionKind.DuplicateWithinLayer
+                    or ContributionResolutionKind.Ambiguous)
+                {
+                    var duplicate = DuplicateIdentity(id, AmbiguousProvenance(resolution));
+                    diagnostics.Add(duplicate);
+                    entityDiagnostics.Add(duplicate);
+                }
+
                 entities.Add(group.Key, new StateEntity(
                     id,
-                    contributions,
-                    SemanticEntityStatus.Ambiguous,
+                    resolution,
+                    EntityStatus(resolution.Kind),
                     null,
                     null,
                     null,
@@ -245,24 +266,26 @@ internal static class SemanticBuilder
                 continue;
             }
 
-            var declaration = contributions[0];
+            var declaration = effective.Declaration;
             var owner = declaration.OwnerCandidates.Length == 1
                 ? ResolveCountry(declaration.OwnerCandidates[0], countries, id, diagnostics, entityDiagnostics)
                 : null;
             var cores = declaration.CoreTags
                 .Select(core => ResolveCountry(core, countries, id, diagnostics, entityDiagnostics))
                 .ToImmutableArray();
-            var resources = BuildEffectiveResources(declaration, id, diagnostics, entityDiagnostics);
+            var resources = BuildEffectiveResources(declaration, resolution, id, diagnostics, entityDiagnostics);
 
             entities.Add(group.Key, new StateEntity(
                 id,
-                contributions,
+                resolution,
                 SemanticEntityStatus.Effective,
-                Single(declaration.NameCandidates),
-                Single(declaration.ManpowerCandidates),
-                Single(declaration.StateCategoryCandidates),
+                Single(declaration.NameCandidates, resolution),
+                Single(declaration.ManpowerCandidates, resolution),
+                Single(declaration.StateCategoryCandidates, resolution),
                 resources,
-                declaration.Provinces.Select(EffectiveValue<int>.FromSingle).ToImmutableArray(),
+                declaration.Provinces
+                    .Select(province => EffectiveValue<int>.FromContribution(province, resolution))
+                    .ToImmutableArray(),
                 owner,
                 cores,
                 entityDiagnostics.ToImmutable()));
@@ -423,6 +446,7 @@ internal static class SemanticBuilder
 
     private static ImmutableDictionary<string, EffectiveValue<decimal>> BuildEffectiveResources(
         StateDeclaration declaration,
+        ContributionResolution<EntityId, StateDeclaration> resolution,
         EntityId stateId,
         ImmutableArray<SemanticDiagnostic>.Builder diagnostics,
         ImmutableArray<SemanticDiagnostic>.Builder entityDiagnostics)
@@ -433,7 +457,7 @@ internal static class SemanticBuilder
             var candidates = group.ToImmutableArray();
             if (candidates.Length == 1)
             {
-                resources.Add(group.Key, EffectiveValue<decimal>.FromSingle(candidates[0].Value));
+                resources.Add(group.Key, EffectiveValue<decimal>.FromContribution(candidates[0].Value, resolution));
                 continue;
             }
 
@@ -475,17 +499,35 @@ internal static class SemanticBuilder
             }
             else if (country.Status is SemanticEntityStatus.Ambiguous)
             {
+                var candidates = country.ContributionResolution.Contributions
+                    .Where(contribution => contribution.Disposition is ContributionDisposition.Ambiguous)
+                    .Select(contribution => contribution.Contribution.Declaration)
+                    .ToImmutableArray();
                 resolution = new AmbiguousCountry(
                     normalized,
-                    country.Contributions,
-                    "Several country declarations have the same typed identity.");
+                    candidates,
+                    "Several country declarations in the effective layer have the same typed identity.");
                 diagnostic = new SemanticDiagnostic(
                     "OXIDE4007",
                     DiagnosticSeverity.Error,
                     $"Country tag '{candidate.Value}' resolves to several declarations.",
                     stateId,
                     candidate.Provenance,
-                    country.Contributions.Select(contribution => contribution.Provenance).ToImmutableArray());
+                    candidates.Select(contribution => contribution.Provenance).ToImmutableArray());
+            }
+            else if (country.Status is SemanticEntityStatus.Missing)
+            {
+                resolution = new MissingCountry(normalized);
+                diagnostic = ReferenceDiagnostic(
+                    "OXIDE4006",
+                    $"Country tag '{candidate.Value}' has no participating declaration.");
+            }
+            else if (country.Status is SemanticEntityStatus.Invalid)
+            {
+                resolution = new InvalidCountry("The effective country declaration is invalid.");
+                diagnostic = ReferenceDiagnostic(
+                    "OXIDE4008",
+                    $"Country tag '{candidate.Value}' resolves to an invalid declaration.");
             }
             else
             {
@@ -510,8 +552,29 @@ internal static class SemanticBuilder
             []);
     }
 
+    private static EffectiveValue<T>? Single<T, TDeclaration>(
+        ImmutableArray<SourcedValue<T>> candidates,
+        ContributionResolution<EntityId, TDeclaration> resolution) =>
+        candidates.Length == 1 ? EffectiveValue<T>.FromContribution(candidates[0], resolution) : null;
+
     private static EffectiveValue<T>? Single<T>(ImmutableArray<SourcedValue<T>> candidates) =>
         candidates.Length == 1 ? EffectiveValue<T>.FromSingle(candidates[0]) : null;
+
+    private static SemanticEntityStatus EntityStatus(ContributionResolutionKind kind) => kind switch
+    {
+        ContributionResolutionKind.Effective => SemanticEntityStatus.Effective,
+        ContributionResolutionKind.DuplicateWithinLayer or ContributionResolutionKind.Ambiguous =>
+            SemanticEntityStatus.Ambiguous,
+        ContributionResolutionKind.Missing => SemanticEntityStatus.Missing,
+        _ => SemanticEntityStatus.Invalid,
+    };
+
+    private static ImmutableArray<SourceProvenance> AmbiguousProvenance<TDeclaration>(
+        ContributionResolution<EntityId, TDeclaration> resolution) =>
+        resolution.Contributions
+            .Where(contribution => contribution.Disposition is ContributionDisposition.Ambiguous)
+            .Select(contribution => contribution.Contribution.Provenance)
+            .ToImmutableArray();
 
     private static bool IsCountryTag(string text) =>
         text.Length == 3 && text.All(char.IsAsciiLetterOrDigit);
