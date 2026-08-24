@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Semantics.Identity;
 using Oxide.Core.Semantics.Model;
 
@@ -15,6 +16,8 @@ public sealed class LocalisationResolver
     }
 
     public ImmutableArray<LocalisationLanguage> AvailableLanguages => _entries.Keys
+        .Where(identity => _entries[identity].Resolution.Contributions.Any(contribution =>
+            contribution.Contribution.Eligibility is ContributionEligibility.Eligible))
         .Select(identity => identity.Language)
         .Distinct()
         .OrderBy(language => language.Value, StringComparer.Ordinal)
@@ -40,15 +43,15 @@ public sealed class LocalisationResolver
         LocalisationKey key,
         bool allowEnglishFallback = true)
     {
-        var exact = ResolveCandidate(language, language, key, "Exact language match");
+        var exact = ResolveCandidate(language, language, key, "Exact language match", []);
         if (exact is not MissingLocalisation || !allowEnglishFallback || language == English)
         {
             return exact;
         }
 
-        var fallback = ResolveCandidate(language, English, key, "English fallback");
+        var fallback = ResolveCandidate(language, English, key, "English fallback", exact.Attempts);
         return fallback is MissingLocalisation
-            ? new MissingLocalisation(language, key, [language, English])
+            ? new MissingLocalisation(language, key, [language, English], fallback.Attempts)
             : fallback;
     }
 
@@ -80,15 +83,57 @@ public sealed class LocalisationResolver
         LocalisationLanguage requestedLanguage,
         LocalisationLanguage candidateLanguage,
         LocalisationKey key,
-        string reason)
+        string reason,
+        ImmutableArray<LocalisationResolutionAttempt> priorAttempts)
     {
         if (!_entries.TryGetValue(new LocalisationIdentity(candidateLanguage, key), out var entry))
         {
-            return new MissingLocalisation(requestedLanguage, key, [candidateLanguage]);
+            return new MissingLocalisation(
+                requestedLanguage,
+                key,
+                [candidateLanguage],
+                priorAttempts.Add(new LocalisationResolutionAttempt(candidateLanguage, null)));
         }
 
-        return entry.Contributions.Length == 1
-            ? new ResolvedLocalisation(requestedLanguage, key, entry.Contributions[0], reason)
-            : new AmbiguousLocalisation(requestedLanguage, key, candidateLanguage, entry.Contributions);
+        var attempts = priorAttempts.Add(new LocalisationResolutionAttempt(candidateLanguage, entry.Resolution));
+
+        return entry.Resolution.Kind switch
+        {
+            ContributionResolutionKind.Effective => new ResolvedLocalisation(
+                requestedLanguage,
+                key,
+                entry.Resolution.EffectiveContribution!.Declaration,
+                reason,
+                entry.Resolution,
+                attempts),
+            ContributionResolutionKind.DuplicateWithinLayer or ContributionResolutionKind.Ambiguous =>
+                new AmbiguousLocalisation(
+                    requestedLanguage,
+                    key,
+                    candidateLanguage,
+                    entry.Resolution.Contributions
+                        .Where(contribution => contribution.Disposition is ContributionDisposition.Ambiguous)
+                        .Select(contribution => contribution.Contribution.Declaration)
+                        .ToImmutableArray(),
+                    entry.Resolution,
+                    attempts),
+            ContributionResolutionKind.InvalidWinner => new InvalidLocalisationContribution(
+                requestedLanguage,
+                key,
+                candidateLanguage,
+                entry.Resolution,
+                attempts),
+            ContributionResolutionKind.Missing => new MissingLocalisation(
+                requestedLanguage,
+                key,
+                [candidateLanguage],
+                attempts),
+            _ => new InvalidLocalisationContribution(
+                requestedLanguage,
+                key,
+                candidateLanguage,
+                entry.Resolution,
+                attempts),
+        };
     }
 }

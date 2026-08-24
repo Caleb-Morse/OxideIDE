@@ -191,6 +191,7 @@ public static class CorpusSummaryBuilder
                 case ResolvedLocalisation: exact++; break;
                 case MissingLocalisation: missing++; break;
                 case AmbiguousLocalisation: ambiguous++; break;
+                case InvalidLocalisationContribution: invalid++; break;
                 case InvalidLocalisation: invalid++; break;
                 case null: noKey++; break;
             }

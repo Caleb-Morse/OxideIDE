@@ -23,6 +23,7 @@ internal sealed record LocalisedNamePresentation(
             var status = name.Resolution switch
             {
                 AmbiguousLocalisation => "Ambiguous localisation",
+                InvalidLocalisationContribution => "Invalid localisation contribution",
                 MissingLocalisation => "Missing localisation",
                 InvalidLocalisation => "Invalid localisation request",
                 _ => "No localisation key",

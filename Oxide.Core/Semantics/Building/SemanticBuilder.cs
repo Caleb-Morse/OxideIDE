@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
+using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Semantics.Declarations;
 using Oxide.Core.Semantics.Diagnostics;
 using Oxide.Core.Semantics.Identity;
@@ -94,7 +95,7 @@ internal static class SemanticBuilder
             provinceStrategicRegionIndex,
             diagnostics);
         var localisationStart = Stopwatch.GetTimestamp();
-        var localisationEntries = BuildLocalisations(localisations.ToImmutable(), diagnostics);
+        var localisationEntries = BuildLocalisations(declarationInventory.Localisations, diagnostics);
         var localisationElapsed = Stopwatch.GetElapsedTime(localisationStart);
         var allDiagnostics = diagnostics.ToImmutable();
 
@@ -125,28 +126,35 @@ internal static class SemanticBuilder
     }
 
     private static ImmutableDictionary<LocalisationIdentity, LocalisationEntry> BuildLocalisations(
-        ImmutableArray<LocalisationDeclaration> declarations,
+        ImmutableArray<DeclarationInventoryItem<LocalisationDeclaration>> declarations,
         ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
     {
         var entries = ImmutableDictionary.CreateBuilder<LocalisationIdentity, LocalisationEntry>();
-        foreach (var group in declarations.GroupBy(declaration => declaration.Identity))
+        foreach (var group in declarations.GroupBy(item => item.Declaration.Identity))
         {
-            var contributions = group
-                .OrderBy(declaration => declaration.Provenance.Layer.Position)
-                .ThenBy(declaration => declaration.Provenance.PhysicalPath, StringComparer.Ordinal)
-                .ThenBy(declaration => declaration.Provenance.Span.Start)
-                .ToImmutableArray();
-            entries.Add(group.Key, new LocalisationEntry(group.Key, contributions));
+            var set = new ContributionSet<LocalisationIdentity, LocalisationDeclaration>(
+                group.Key,
+                group.Select(item => Contribution<LocalisationIdentity, LocalisationDeclaration>.FromInventory(
+                    group.Key,
+                    item,
+                    item.Declaration.Provenance)));
+            var resolution = ContributionResolver.Resolve(set, ContributionResolutionPolicy.LayeredOverride);
+            entries.Add(group.Key, new LocalisationEntry(group.Key, resolution));
 
-            if (contributions.Length > 1)
+            if (resolution.Kind is ContributionResolutionKind.DuplicateWithinLayer
+                or ContributionResolutionKind.Ambiguous)
             {
+                var candidates = resolution.Contributions
+                    .Where(candidate => candidate.Disposition is ContributionDisposition.Ambiguous)
+                    .Select(candidate => candidate.Contribution.Provenance)
+                    .ToImmutableArray();
                 diagnostics.Add(new SemanticDiagnostic(
                     "OXIDE4009",
                     DiagnosticSeverity.Warning,
-                    $"Localisation '{group.Key.Key}' for language '{group.Key.Language}' has multiple declarations; resolution is ambiguous.",
+                    $"Localisation '{group.Key.Key}' for language '{group.Key.Language}' has duplicate declarations in the effective layer.",
                     null,
-                    contributions[0].Provenance,
-                    contributions.Skip(1).Select(declaration => declaration.Provenance).ToImmutableArray()));
+                    candidates[0],
+                    candidates[1..]));
             }
         }
 
