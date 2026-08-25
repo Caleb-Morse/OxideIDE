@@ -98,8 +98,25 @@ watcher cannot deliver events to a replacement workspace. Observer failures are
 reported without terminating the watcher worker.
 
 The watcher does not read, parse, build semantics, publish snapshots, or access
-the UI. Those responsibilities begin with the incremental loader and refresh
-coordinator in subsequent slices.
+the UI.
+
+## Incremental document refresh
+
+`WorkspaceService.RefreshAsync` accepts a request targeting one exact published
+snapshot. The loader revalidates every previous and current source identity
+against that snapshot's enabled layers and the shared supported-content profile.
+It removes deleted identities, loads and parses only created or changed sources,
+and reuses unchanged `SourceDocument` instances. Failed reads remain failed,
+diagnostic documents rather than disappearing.
+
+The complete candidate document set is reordered and its same-path and
+`replace_path` participation is recalculated before semantics are built. This
+slice intentionally rebuilds the complete semantic snapshot from the candidate
+documents; domain-level semantic reuse comes later. Requests involving uncertain
+state, descriptors, or configuration use the existing full discovery path.
+Cancellation, stale requests, invalid source identities, and failures cannot
+publish over the previous snapshot. Successful publication is one atomic swap
+and reports added, changed, removed, reused, and reparsed document counts.
 
 ## Diagnostics
 

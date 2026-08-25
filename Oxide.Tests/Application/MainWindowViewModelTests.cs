@@ -4,6 +4,7 @@ using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
+using Oxide.Core.Workspaces.Refresh;
 using Oxide.Core.Workspaces.Snapshots;
 using Oxide.Tests.Workspaces;
 
@@ -547,6 +548,12 @@ public sealed class MainWindowViewModelTests
         }
 
         public Task<WorkspaceSnapshot> ReloadAsync(
+            IProgress<WorkspaceLoadProgress>? progress = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<WorkspaceRefreshResult> RefreshAsync(
+            IncrementalRefreshRequest request,
             IProgress<WorkspaceLoadProgress>? progress = null,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
