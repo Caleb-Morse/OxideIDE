@@ -17,10 +17,10 @@ internal sealed class WorkspaceLoader
 {
     private static readonly ImmutableArray<DiscoveryRule> DiscoveryRules =
     [
-        new("history/states", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
-        new("map/strategicregions", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
-        new("common/country_tags", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz),
-        new("localisation", "*.yml", SearchOption.AllDirectories, SourceDocumentKind.Localisation),
+        new("history/states", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz, ContentCategory.StateHistory),
+        new("map/strategicregions", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz, ContentCategory.StrategicRegion),
+        new("common/country_tags", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz, ContentCategory.CountryTags),
+        new("localisation", "*.yml", SearchOption.AllDirectories, SourceDocumentKind.Localisation, ContentCategory.Localisation),
     ];
 
     public Task<WorkspaceSnapshot> LoadAsync(
@@ -42,7 +42,10 @@ internal sealed class WorkspaceLoader
     {
         var totalStart = Stopwatch.GetTimestamp();
         var diagnostics = ImmutableArray.CreateBuilder<WorkspaceDiagnostic>();
-        var layers = CreateLayers(configuration);
+        var layers = ContentLayerMetadataLoader.Load(
+            configuration.Layers.Where(layer => layer.IsEnabled),
+            diagnostics,
+            cancellationToken);
         progress?.Report(new WorkspaceLoadProgress(WorkspaceLoadStage.Discovering, 0, 0));
 
         var discoveryStart = Stopwatch.GetTimestamp();
@@ -81,7 +84,7 @@ internal sealed class WorkspaceLoader
             }
         }
 
-        var classifiedDocuments = ClassifyContributions(documents.ToImmutable());
+        var classifiedDocuments = ClassifyContributions(documents.ToImmutable(), layers);
         foreach (var document in classifiedDocuments)
         {
             diagnostics.AddRange(document.Diagnostics);
@@ -133,18 +136,6 @@ internal sealed class WorkspaceLoader
             metrics);
     }
 
-    private static ImmutableArray<ContentLayer> CreateLayers(WorkspaceConfiguration configuration)
-    {
-        var layers = ImmutableArray.CreateBuilder<ContentLayer>();
-        layers.Add(ContentLayer.BaseGame(configuration.GameRoot));
-        if (configuration.ActiveModRoot is not null)
-        {
-            layers.Add(ContentLayer.ActiveMod(configuration.ActiveModRoot));
-        }
-
-        return layers.ToImmutable();
-    }
-
     private static ImmutableArray<DocumentCandidate> DiscoverFiles(
         ImmutableArray<ContentLayer> layers,
         ImmutableArray<WorkspaceDiagnostic>.Builder diagnostics,
@@ -183,7 +174,8 @@ internal sealed class WorkspaceLoader
                             layer,
                             Path.GetFullPath(physicalPath),
                             new VirtualPath(relativePath),
-                            rule.Kind));
+                            rule.Kind,
+                            rule.Category));
                     }
                 }
                 catch (Exception exception) when (IsFileSystemException(exception))
@@ -236,7 +228,7 @@ internal sealed class WorkspaceLoader
                 candidate.VirtualPath,
                 candidate.Kind,
                 DocumentLoadStatus.Loaded,
-                DocumentContributionStatus.SoleCandidate,
+                DocumentParticipation.Participating(candidate.Category),
                 source,
                 syntaxTree,
                 localisationSyntaxTree,
@@ -258,7 +250,7 @@ internal sealed class WorkspaceLoader
                 candidate.VirtualPath,
                 candidate.Kind,
                 DocumentLoadStatus.Failed,
-                DocumentContributionStatus.SoleCandidate,
+                DocumentParticipation.Participating(candidate.Category),
                 null,
                 null,
                 null,
@@ -267,25 +259,74 @@ internal sealed class WorkspaceLoader
     }
 
     private static ImmutableArray<SourceDocument> ClassifyContributions(
-        ImmutableArray<SourceDocument> documents)
+        ImmutableArray<SourceDocument> documents,
+        ImmutableArray<ContentLayer> layers)
     {
-        var collisions = documents
-            .GroupBy(document => document.VirtualPath)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
-            .ToHashSet();
-
+        var highestDocumentByPath = documents
+            .GroupBy(document => document.VirtualPath, VirtualPathComparer.GamePath)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderByDescending(document => document.Layer.Position)
+                    .ThenBy(document => document.PhysicalPath, StringComparer.Ordinal)
+                    .First(),
+                VirtualPathComparer.GamePath);
         return documents
-            .Select(document => collisions.Contains(document.VirtualPath)
-                ? document with { ContributionStatus = DocumentContributionStatus.UnknownPrecedence }
-                : document)
+            .Select(document => document with
+            {
+                Participation = ClassifyParticipation(document, highestDocumentByPath, layers),
+            })
             .ToImmutableArray();
     }
+
+    private static DocumentParticipation ClassifyParticipation(
+        SourceDocument document,
+        IReadOnlyDictionary<VirtualPath, SourceDocument> highestDocumentByPath,
+        ImmutableArray<ContentLayer> layers)
+    {
+        var highestDocument = highestDocumentByPath[document.VirtualPath];
+        var shadowingDocument = highestDocument.Layer.Position > document.Layer.Position
+            ? highestDocument
+            : null;
+        var replacement = layers
+            .Where(layer => layer.Position > document.Layer.Position)
+            .SelectMany(layer => layer.ReplacementRules.Select(rule => (Layer: layer, Rule: rule)))
+            .Where(candidate => IsWithin(document.VirtualPath, candidate.Rule.Path))
+            .OrderByDescending(candidate => candidate.Layer.Position)
+            .ThenByDescending(candidate => candidate.Rule.Path.Value.Length)
+            .FirstOrDefault();
+        if (shadowingDocument is not null
+            && (replacement.Layer is null || shadowingDocument.Layer.Position >= replacement.Layer.Position))
+        {
+            return new DocumentParticipation(
+                DocumentParticipationKind.ShadowedByHigherLayerPath,
+                document.Participation.Category,
+                $"The same virtual path is supplied by higher layer '{shadowingDocument.Layer.DisplayName}'.",
+                shadowingDocument.Layer.Id,
+                shadowingDocument.Id);
+        }
+
+        if (replacement.Layer is not null)
+        {
+            return new DocumentParticipation(
+                DocumentParticipationKind.ExcludedByReplacementPath,
+                document.Participation.Category,
+                $"Higher layer '{replacement.Layer.DisplayName}' replaces '{replacement.Rule.Path}'.",
+                replacement.Layer.Id,
+                ReplacementRule: replacement.Rule);
+        }
+
+        return DocumentParticipation.Participating(document.Participation.Category);
+    }
+
+    private static bool IsWithin(VirtualPath path, VirtualPath directory) =>
+        path.Value.Equals(directory.Value, StringComparison.OrdinalIgnoreCase)
+        || path.Value.StartsWith($"{directory.Value}/", StringComparison.OrdinalIgnoreCase);
 
     private static string DescribeLayer(ContentLayer layer) => layer.Kind switch
     {
         ContentLayerKind.BaseGame => "base-game",
-        ContentLayerKind.ActiveMod => "active-mod",
+        ContentLayerKind.Mod => "mod",
         _ => "content-layer",
     };
 
@@ -298,11 +339,13 @@ internal sealed class WorkspaceLoader
         string VirtualDirectory,
         string Pattern,
         SearchOption SearchOption,
-        SourceDocumentKind Kind);
+        SourceDocumentKind Kind,
+        ContentCategory Category);
 
     private sealed record DocumentCandidate(
         ContentLayer Layer,
         string PhysicalPath,
         VirtualPath VirtualPath,
-        SourceDocumentKind Kind);
+        SourceDocumentKind Kind,
+        ContentCategory Category);
 }

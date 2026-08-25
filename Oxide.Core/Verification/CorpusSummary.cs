@@ -16,6 +16,7 @@ public sealed record CorpusSummary(
     int StateEntityCount,
     int CountryDeclarationCount,
     int CountryEntityCount,
+    ContributionCorpusSummary Contributions,
     StrategicRegionCorpusSummary StrategicRegions,
     int SemanticDiagnosticCount,
     ImmutableSortedDictionary<string, int> SemanticDiagnosticsByCode,

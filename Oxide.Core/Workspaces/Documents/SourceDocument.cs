@@ -14,11 +14,15 @@ public sealed record SourceDocument(
     VirtualPath VirtualPath,
     SourceDocumentKind Kind,
     DocumentLoadStatus LoadStatus,
-    DocumentContributionStatus ContributionStatus,
+    DocumentParticipation Participation,
     SourceText? Text,
     SyntaxTree? SyntaxTree,
     LocalisationSyntaxTree? LocalisationSyntaxTree,
     ImmutableArray<WorkspaceDiagnostic> Diagnostics)
 {
     public bool IsLoaded => LoadStatus is DocumentLoadStatus.Loaded;
+
+    public bool Participates => Participation.Participates;
+
+    public SourceIdentity SourceIdentity => new(Id, Layer.Id, VirtualPath, PhysicalPath);
 }

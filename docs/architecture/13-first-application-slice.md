@@ -68,7 +68,9 @@ The country browser provides translated names alongside stable tags, definition
 paths, declaration status, localisation provenance, and searchable source context.
 Owned and core state memberships are derived from the same published snapshot.
 Owned and core state buttons return to the corresponding state without discarding
-the workspace.
+the workspace. State and country detail views expose the effective declaration,
+all shadowed or competing contributions, field comparisons, and localisation
+resolution paths with exact provenance.
 
 ### Problems
 
@@ -102,4 +104,5 @@ watching, saved recent-workspace list, playset selection, DLC resolution, or
 dependency-mod ordering. Country naming currently recognizes the direct tag key;
 ideology-qualified naming remains future work. Provenance paths and exact source
 locations are visible, but navigation into an embedded source viewer awaits that
-viewer.
+viewer. Source actions already publish an exact `SourceNavigationRequest`, and
+the footer confirms its file and span; only embedded rendering remains deferred.

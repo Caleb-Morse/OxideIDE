@@ -11,6 +11,31 @@ public sealed class WorkspacePerformanceScenarioTests
 {
     [Fact]
     [Trait("Category", "PerformanceScenario")]
+    public async Task Contribution_details_project_from_the_published_snapshot_without_reloading()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 manpower=10 }");
+        fixture.WriteModFile("history/states/1-Mod.txt", "state={ id=1 manpower=20 }");
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var state = snapshot.Semantics.States[1];
+        var stopwatch = Stopwatch.StartNew();
+
+        for (var iteration = 0; iteration < 2_000; iteration++)
+        {
+            var presentation = ContributionSetPresentation.Create(state, snapshot);
+            Assert.Equal(2, presentation.ContributionCount);
+            Assert.Single(presentation.Comparisons);
+        }
+
+        stopwatch.Stop();
+        Assert.Same(snapshot, service.CurrentSnapshot);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10),
+            $"Contribution projection took {stopwatch.Elapsed.TotalMilliseconds:N0} ms.");
+    }
+
+    [Fact]
+    [Trait("Category", "PerformanceScenario")]
     public async Task Medium_synthetic_workspace_records_repeatable_stage_measurements()
     {
         using var fixture = new TemporaryWorkspace();

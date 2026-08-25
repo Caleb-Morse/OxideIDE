@@ -22,8 +22,7 @@ public sealed class RealWorkspaceSmokeTests
         Assert.NotEmpty(snapshot.Documents);
         Assert.All(snapshot.Documents, document => Assert.Equal(DocumentLoadStatus.Loaded, document.LoadStatus));
         Assert.Equal(snapshot.Documents.Length, snapshot.DocumentsById.Count);
-        Assert.All(snapshot.Documents, document =>
-            Assert.Equal(DocumentContributionStatus.SoleCandidate, document.ContributionStatus));
+        Assert.All(snapshot.Documents, document => Assert.True(document.Participates));
         var localisationDiagnostics = snapshot.Diagnostics
             .Where(diagnostic => diagnostic.Code.StartsWith("OXIDE12", StringComparison.Ordinal))
             .ToArray();

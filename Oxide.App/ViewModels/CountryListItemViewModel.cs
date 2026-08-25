@@ -14,6 +14,7 @@ public sealed class CountryListItemViewModel
         bool allowEnglishFallback = true)
     {
         Entity = entity;
+        Contribution = ContributionSetPresentation.Create(entity, snapshot);
         Tag = entity.Id.LocalKey;
         var presentation = LocalisedNamePresentation.Create(
             snapshot.Semantics.LocalisationResolver.ResolveName(entity, language, allowEnglishFallback),
@@ -25,6 +26,7 @@ public sealed class CountryListItemViewModel
         LocalisationLocation = presentation.SourceLocation;
         LocalisationLayer = presentation.SourceLayer;
         ResolvedLanguage = presentation.SourceLanguage;
+        LocalisationInspection = presentation.Inspection;
         DefinitionPath = entity.DefinitionPath?.Value ?? "No effective definition path";
         Status = entity.Status.ToString();
         DeclarationSummary = entity.Contributions.Length == 1
@@ -45,6 +47,7 @@ public sealed class CountryListItemViewModel
     }
 
     public CountryEntity Entity { get; }
+    public ContributionSetPresentation Contribution { get; }
     public string Tag { get; }
     public string DisplayName { get; }
     public string NameStatus { get; }
@@ -55,6 +58,7 @@ public sealed class CountryListItemViewModel
     public string LocalisationLocation { get; }
     public string LocalisationLayer { get; }
     public string ResolvedLanguage { get; }
+    public LocalisationInspectionPresentation LocalisationInspection { get; }
     public ImmutableArray<int> OwnedStateIds { get; }
     public ImmutableArray<int> CoreStateIds { get; }
     public string OwnedStates { get; }

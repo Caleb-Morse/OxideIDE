@@ -14,6 +14,7 @@ public sealed class StateListItemViewModel
         bool allowEnglishFallback = true)
     {
         Entity = entity;
+        Contribution = ContributionSetPresentation.Create(entity, snapshot);
         Id = int.Parse(entity.Id.LocalKey, System.Globalization.CultureInfo.InvariantCulture);
         LocalizationKey = entity.Name?.Value ?? "No name key";
         var name = LocalisedNamePresentation.Create(
@@ -26,6 +27,7 @@ public sealed class StateListItemViewModel
         LocalisationLocation = name.SourceLocation;
         LocalisationLayer = name.SourceLayer;
         ResolvedLanguage = name.SourceLanguage;
+        LocalisationInspection = name.Inspection;
         Owner = DescribeCountry(entity.Owner, snapshot, language, allowEnglishFallback);
         Category = entity.StateCategory?.Value ?? "Unknown";
         Manpower = entity.Manpower?.Value.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) ?? "Unknown";
@@ -64,6 +66,8 @@ public sealed class StateListItemViewModel
     }
 
     public StateEntity Entity { get; }
+
+    public ContributionSetPresentation Contribution { get; }
 
     public int Id { get; }
 
@@ -114,6 +118,8 @@ public sealed class StateListItemViewModel
     public string LocalisationLayer { get; }
 
     public string ResolvedLanguage { get; }
+
+    public LocalisationInspectionPresentation LocalisationInspection { get; }
 
     public string SearchText =>
         $"{Id} {DisplayName} {LocalizationKey} {Owner} {Category} {StrategicRegion} {StrategicRegionStatus} {SourceSummary}";

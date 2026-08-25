@@ -27,10 +27,11 @@ public sealed class WorkspaceSnapshot
         LoadedAt = DateTimeOffset.UtcNow;
         DocumentsById = documents.ToImmutableDictionary(document => document.Id);
         DocumentsByVirtualPath = documents
-            .GroupBy(document => document.VirtualPath)
+            .GroupBy(document => document.VirtualPath, VirtualPathComparer.GamePath)
             .ToImmutableDictionary(
                 group => group.Key,
-                group => group.OrderBy(document => document.Layer.Position).ToImmutableArray());
+                group => group.OrderBy(document => document.Layer.Position).ToImmutableArray(),
+                VirtualPathComparer.GamePath);
     }
 
     public long Version { get; }

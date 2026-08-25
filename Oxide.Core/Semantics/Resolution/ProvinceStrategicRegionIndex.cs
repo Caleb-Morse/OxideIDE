@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Semantics.Diagnostics;
 using Oxide.Core.Semantics.Model;
 using Oxide.Syntax.Diagnostics;
@@ -14,12 +15,15 @@ public sealed class ProvinceStrategicRegionIndex
         ImmutableArray<SemanticDiagnostic>.Builder diagnostics)
     {
         candidatesByProvince = regions.Values
-            .SelectMany(region => region.Contributions.SelectMany(declaration =>
-                declaration.Provinces.Select(province => new ProvinceStrategicRegionCandidate(
-                    province.Value,
-                    region,
-                    declaration,
-                    province.Provenance))))
+            .SelectMany(region => region.ContributionResolution.Contributions
+                .Where(contribution => contribution.Disposition is ContributionDisposition.Effective
+                    or ContributionDisposition.Ambiguous)
+                .SelectMany(contribution => contribution.Contribution.Declaration.Provinces.Select(province =>
+                    new ProvinceStrategicRegionCandidate(
+                        province.Value,
+                        region,
+                        contribution.Contribution.Declaration,
+                        province.Provenance))))
             .GroupBy(candidate => candidate.ProvinceId)
             .ToImmutableDictionary(
                 group => group.Key,

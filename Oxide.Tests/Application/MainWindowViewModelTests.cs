@@ -1,5 +1,6 @@
 using Oxide.App.ViewModels;
 using Oxide.App.Settings;
+using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
@@ -450,6 +451,80 @@ public sealed class MainWindowViewModelTests
         Assert.NotNull(viewModel.ErrorMessage);
         Assert.Contains("workspace paths", viewModel.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         Assert.Null(service.CurrentSnapshot);
+    }
+
+    [Fact]
+    public async Task State_and_country_concept_views_expose_shared_contribution_details()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 }");
+        fixture.WriteModFile("history/states/1-Mod.txt", "state={ id=1 }");
+        fixture.WriteGameFile("common/country_tags/00_base.txt", "AAA=\"countries/Base.txt\"");
+        fixture.WriteModFile("common/country_tags/00_mod.txt", "AAA=\"countries/Mod.txt\"");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+
+        await viewModel.OpenWorkspaceAsync();
+
+        var state = Assert.Single(viewModel.States).Contribution;
+        var country = Assert.Single(viewModel.Countries).Contribution;
+        Assert.All(new[] { state, country }, contribution =>
+        {
+            Assert.Equal("Effective from Active mod", contribution.EffectiveLayerLabel);
+            Assert.Equal("2 contributions", contribution.ContributionCountLabel);
+            Assert.Contains(contribution.Contributions,
+                item => item.Disposition is ContributionDisposition.Effective);
+            Assert.Contains(contribution.Contributions,
+                item => item.Disposition is ContributionDisposition.Shadowed);
+        });
+    }
+
+    [Fact]
+    public async Task Source_navigation_action_publishes_the_exact_navigation_request()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var request = Assert.Single(viewModel.States).Contribution.EffectiveNavigationRequest!;
+        SourceNavigationRequest? published = null;
+        viewModel.SourceNavigationRequested += value => published = value;
+
+        viewModel.RequestSourceNavigation(request);
+
+        Assert.Same(request, published);
+        Assert.Same(request, viewModel.LastSourceNavigationRequest);
+        Assert.True(viewModel.HasSourceNavigationRequest);
+        Assert.Contains(request.VirtualPath, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
+        Assert.Contains(request.Location, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reload_replaces_presentations_and_clears_stale_source_navigation()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 manpower=10 }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var oldState = Assert.Single(viewModel.States);
+        viewModel.RequestSourceNavigation(oldState.Contribution.EffectiveNavigationRequest!);
+        File.WriteAllText(path, "state={ id=1 manpower=20 }");
+
+        await viewModel.ReloadAsync();
+
+        var newState = Assert.Single(viewModel.States);
+        Assert.NotSame(oldState, newState);
+        Assert.Equal("10", oldState.Manpower);
+        Assert.Equal("20", newState.Manpower);
+        Assert.Null(viewModel.LastSourceNavigationRequest);
+        Assert.False(viewModel.HasSourceNavigationRequest);
+        Assert.Equal(string.Empty, viewModel.SourceNavigationSummary);
     }
 
     private sealed class CancellableWorkspaceService : IWorkspaceService
