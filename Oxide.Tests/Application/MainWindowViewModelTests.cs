@@ -504,6 +504,29 @@ public sealed class MainWindowViewModelTests
         Assert.Contains(request.Location, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Reload_replaces_presentations_and_clears_stale_source_navigation()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 manpower=10 }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var oldState = Assert.Single(viewModel.States);
+        viewModel.RequestSourceNavigation(oldState.Contribution.EffectiveNavigationRequest!);
+        File.WriteAllText(path, "state={ id=1 manpower=20 }");
+
+        await viewModel.ReloadAsync();
+
+        var newState = Assert.Single(viewModel.States);
+        Assert.NotSame(oldState, newState);
+        Assert.Equal("10", oldState.Manpower);
+        Assert.Equal("20", newState.Manpower);
+        Assert.Null(viewModel.LastSourceNavigationRequest);
+        Assert.False(viewModel.HasSourceNavigationRequest);
+        Assert.Equal(string.Empty, viewModel.SourceNavigationSummary);
+    }
+
     private sealed class CancellableWorkspaceService : IWorkspaceService
     {
         public WorkspaceSnapshot? CurrentSnapshot => null;

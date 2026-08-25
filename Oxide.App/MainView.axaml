@@ -318,7 +318,8 @@
                                                     <ItemsControl ItemsSource="{Binding SelectedState.Contribution.Contributions}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate x:DataType="vm:ContributionItemPresentation">
-                                                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="12" Margin="0,0,0,8">
+                                                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="12" Margin="0,0,0,8"
+                                                                        AutomationProperties.Name="{Binding AccessibleName}">
                                                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                                                                         <StackPanel Grid.Column="0" Spacing="5">
                                                                             <TextBlock Text="{Binding DispositionLabel}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="Bold" />
@@ -335,7 +336,7 @@
                                                                         </StackPanel>
                                                                         <Button Grid.Column="2" Classes="quiet" Content="Open source"
                                                                                 Tag="{Binding NavigationRequest}" Click="OpenSource_Click"
-                                                                                AutomationProperties.Name="Open contribution source" VerticalAlignment="Top" />
+                                                                                AutomationProperties.Name="{Binding OpenSourceAccessibleName}" VerticalAlignment="Top" />
                                                                     </Grid>
                                                                 </Border>
                                                             </DataTemplate>
@@ -345,7 +346,7 @@
                                                                   ItemsSource="{Binding SelectedState.Contribution.Comparisons}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate x:DataType="vm:ContributionComparisonPresentation">
-                                                                <Expander Margin="0,2,0,6" AutomationProperties.Name="Compare effective and shadowed declarations">
+                                                                <Expander Margin="0,2,0,6" AutomationProperties.Name="{Binding AccessibleName}">
                                                                     <Expander.Header>
                                                                         <StackPanel Spacing="3">
                                                                             <TextBlock Text="{Binding ShadowedSummary, StringFormat=Compare with {0}}" FontWeight="SemiBold" />
@@ -358,7 +359,8 @@
                                                                     <ItemsControl ItemsSource="{Binding Fields}">
                                                                         <ItemsControl.ItemTemplate>
                                                                             <DataTemplate x:DataType="vm:ContributionFieldComparisonPresentation">
-                                                                                <Grid ColumnDefinitions="120,*,*,110" ColumnSpacing="10" Margin="0,0,0,7">
+                                                                                <Grid ColumnDefinitions="120,*,*,110" ColumnSpacing="10" Margin="0,0,0,7"
+                                                                                      AutomationProperties.Name="{Binding AccessibleName}">
                                                                                     <TextBlock Grid.Column="0" Text="{Binding FieldName}" FontWeight="SemiBold" />
                                                                                     <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" TextWrapping="Wrap" />
                                                                                     <TextBlock Grid.Column="2" Text="{Binding ShadowedValue}" Classes="muted" TextWrapping="Wrap" />
@@ -413,7 +415,8 @@
                                                         <ItemsControl ItemsSource="{Binding SelectedState.LocalisationInspection.ReferenceChain}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate x:DataType="vm:LocalisationReferencePresentation">
-                                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,5">
+                                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,5"
+                                                                          AutomationProperties.Name="{Binding AccessibleName}">
                                                                         <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
                                                                         <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="muted" TextTrimming="CharacterEllipsis" />
                                                                         <TextBlock Grid.Column="2" Text="{Binding Contribution.EffectiveLayerLabel}" Classes="muted" FontSize="10" />
@@ -426,7 +429,8 @@
                                                         <ItemsControl ItemsSource="{Binding SelectedState.LocalisationInspection.Attempts}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate x:DataType="vm:LocalisationAttemptPresentation">
-                                                                    <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="11" Margin="0,0,0,7">
+                                                                    <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="11" Margin="0,0,0,7"
+                                                                            AutomationProperties.Name="{Binding AccessibleName}">
                                                                         <StackPanel Spacing="4">
                                                                             <Grid ColumnDefinitions="*,Auto">
                                                                                 <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
@@ -543,7 +547,8 @@
                                                 <ItemsControl ItemsSource="{Binding SelectedCountry.Contribution.Contributions}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="vm:ContributionItemPresentation">
-                                                            <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="12" Margin="0,0,0,8">
+                                                            <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="12" Margin="0,0,0,8"
+                                                                    AutomationProperties.Name="{Binding AccessibleName}">
                                                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                                                                     <StackPanel Grid.Column="0" Spacing="5">
                                                                         <TextBlock Text="{Binding DispositionLabel}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="Bold" />
@@ -560,7 +565,7 @@
                                                                     </StackPanel>
                                                                     <Button Grid.Column="2" Classes="quiet" Content="Open source"
                                                                             Tag="{Binding NavigationRequest}" Click="OpenSource_Click"
-                                                                            AutomationProperties.Name="Open contribution source" VerticalAlignment="Top" />
+                                                                            AutomationProperties.Name="{Binding OpenSourceAccessibleName}" VerticalAlignment="Top" />
                                                                 </Grid>
                                                             </Border>
                                                         </DataTemplate>
@@ -570,7 +575,7 @@
                                                               ItemsSource="{Binding SelectedCountry.Contribution.Comparisons}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="vm:ContributionComparisonPresentation">
-                                                            <Expander Margin="0,2,0,6" AutomationProperties.Name="Compare effective and shadowed declarations">
+                                                            <Expander Margin="0,2,0,6" AutomationProperties.Name="{Binding AccessibleName}">
                                                                 <Expander.Header>
                                                                     <StackPanel Spacing="3">
                                                                         <TextBlock Text="{Binding ShadowedSummary, StringFormat=Compare with {0}}" FontWeight="SemiBold" />
@@ -583,7 +588,8 @@
                                                                 <ItemsControl ItemsSource="{Binding Fields}">
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate x:DataType="vm:ContributionFieldComparisonPresentation">
-                                                                            <Grid ColumnDefinitions="120,*,*,110" ColumnSpacing="10" Margin="0,0,0,7">
+                                                                            <Grid ColumnDefinitions="120,*,*,110" ColumnSpacing="10" Margin="0,0,0,7"
+                                                                                  AutomationProperties.Name="{Binding AccessibleName}">
                                                                                 <TextBlock Grid.Column="0" Text="{Binding FieldName}" FontWeight="SemiBold" />
                                                                                 <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" TextWrapping="Wrap" />
                                                                                 <TextBlock Grid.Column="2" Text="{Binding ShadowedValue}" Classes="muted" TextWrapping="Wrap" />
@@ -651,7 +657,8 @@
                                                     <ItemsControl ItemsSource="{Binding SelectedCountry.LocalisationInspection.ReferenceChain}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate x:DataType="vm:LocalisationReferencePresentation">
-                                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,5">
+                                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,5"
+                                                                      AutomationProperties.Name="{Binding AccessibleName}">
                                                                     <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
                                                                     <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="muted" TextTrimming="CharacterEllipsis" />
                                                                     <TextBlock Grid.Column="2" Text="{Binding Contribution.EffectiveLayerLabel}" Classes="muted" FontSize="10" />
@@ -664,7 +671,8 @@
                                                     <ItemsControl ItemsSource="{Binding SelectedCountry.LocalisationInspection.Attempts}">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate x:DataType="vm:LocalisationAttemptPresentation">
-                                                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="11" Margin="0,0,0,7">
+                                                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="11" Margin="0,0,0,7"
+                                                                        AutomationProperties.Name="{Binding AccessibleName}">
                                                                     <StackPanel Spacing="4">
                                                                         <Grid ColumnDefinitions="*,Auto">
                                                                             <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
@@ -710,7 +718,8 @@
             <Grid Margin="14,0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="14">
                 <TextBlock Grid.Column="0" Text="{Binding StatusSummary}" VerticalAlignment="Center" FontSize="11" Classes="muted" />
                 <TextBlock Grid.Column="1" Text="{Binding SourceNavigationSummary}" IsVisible="{Binding HasSourceNavigationRequest}"
-                           VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource OxideAccentSoft}" />
+                           VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource OxideAccentSoft}"
+                           MaxWidth="520" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceNavigationSummary}" />
                 <TextBlock Grid.Column="2" Text="Read-only semantic workspace" VerticalAlignment="Center" FontSize="11" Classes="muted" />
             </Grid>
         </Border>

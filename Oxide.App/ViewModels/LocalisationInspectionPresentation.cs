@@ -17,6 +17,8 @@ public sealed record LocalisationAttemptPresentation(
     public string StepLabel => $"Step {Order}: {Language}";
 
     public bool HasContribution => Contribution is not null;
+
+    public string AccessibleName => $"{StepLabel}; {Outcome}; {ResolutionReason}";
 }
 
 public sealed record LocalisationReferencePresentation(
@@ -26,6 +28,8 @@ public sealed record LocalisationReferencePresentation(
     ContributionSetPresentation Contribution)
 {
     public string StepLabel => $"Reference {Order}: {Key}";
+
+    public string AccessibleName => $"{StepLabel}; value {Value}; {Contribution.EffectiveLayerLabel}";
 }
 
 public sealed record LocalisationInspectionPresentation(

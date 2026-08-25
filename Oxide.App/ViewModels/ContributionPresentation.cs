@@ -39,6 +39,11 @@ public sealed record ContributionItemPresentation(
     SourceNavigationRequest NavigationRequest)
 {
     public bool IsEffective => Disposition is ContributionDisposition.Effective;
+
+    public string AccessibleName =>
+        $"{DispositionLabel} contribution: {Summary}; {Source.LayerName}; {Source.Location}";
+
+    public string OpenSourceAccessibleName => $"Open source for {DispositionLabel.ToLowerInvariant()} contribution {Summary}";
 }
 
 public sealed record ContributionSetPresentation(

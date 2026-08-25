@@ -548,6 +548,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         var previousStateId = SelectedState?.Id;
         var previousCountryTag = SelectedCountry?.Tag;
+        LastSourceNavigationRequest = null;
         snapshot = loadedSnapshot;
         AvailableLanguages.Clear();
         foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)

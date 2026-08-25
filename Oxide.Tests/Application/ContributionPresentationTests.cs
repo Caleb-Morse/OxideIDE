@@ -64,6 +64,8 @@ public sealed class ContributionPresentationTests
                 Assert.NotEmpty(contribution.ContributionId);
                 Assert.NotEmpty(contribution.Summary);
                 Assert.NotEmpty(contribution.Explanation);
+                Assert.Contains(contribution.DispositionLabel, contribution.AccessibleName, StringComparison.Ordinal);
+                Assert.Contains(contribution.Summary, contribution.OpenSourceAccessibleName, StringComparison.Ordinal);
                 Assert.NotEmpty(contribution.Source.PhysicalPath);
                 Assert.NotEmpty(contribution.Source.VirtualPath);
                 Assert.True(contribution.Source.SpanLength > 0);
@@ -83,6 +85,12 @@ public sealed class ContributionPresentationTests
                 presentation.EffectiveSource?.DocumentId,
                 presentation.EffectiveNavigationRequest?.DocumentId);
             var comparison = Assert.Single(presentation.Comparisons);
+            Assert.Contains(comparison.ShadowedSummary, comparison.AccessibleName, StringComparison.Ordinal);
+            Assert.All(comparison.Fields, field =>
+            {
+                Assert.Contains(field.FieldName, field.AccessibleName, StringComparison.Ordinal);
+                Assert.Contains(field.DifferenceLabel, field.AccessibleName, StringComparison.Ordinal);
+            });
             Assert.Equal(comparison.ShadowedSource.DocumentId, comparison.ShadowedNavigationRequest.DocumentId);
             Assert.Equal(presentation.SemanticIdentity, comparison.ShadowedNavigationRequest.SemanticIdentity);
         });

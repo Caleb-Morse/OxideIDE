@@ -15,7 +15,11 @@ public sealed record ContributionFieldComparisonPresentation(
     string EffectiveValue,
     string ShadowedValue,
     ContributionFieldDifference Difference,
-    string DifferenceLabel);
+    string DifferenceLabel)
+{
+    public string AccessibleName =>
+        $"{FieldName}: effective {EffectiveValue}; shadowed {ShadowedValue}; {DifferenceLabel}";
+}
 
 public sealed record ContributionComparisonPresentation(
     string ShadowedContributionId,
@@ -29,4 +33,6 @@ public sealed record ContributionComparisonPresentation(
     public string Summary => DifferenceCount == 1
         ? "1 structural difference"
         : $"{DifferenceCount:N0} structural differences";
+
+    public string AccessibleName => $"Compare effective contribution with {ShadowedSummary}; {Summary}";
 }
