@@ -81,8 +81,20 @@ the related state and clears a filter if necessary to reveal it.
 ### Status
 
 The durable header shows the workspace name and counts for files, states, and
-countries. The footer shows snapshot version and error/warning counts. Users
-can reload or return to workspace selection without restarting Oxide.
+countries. The footer shows snapshot version and error/warning counts alongside
+a compact automatic-refresh state. Normal watching and successful refresh remain
+quiet; pending and active work receive a small activity indicator, while watcher
+or refresh failures receive warning emphasis and retain their detailed reason in
+a tooltip. Users can reload or return to workspace selection without restarting
+Oxide.
+
+Automatic refresh is enabled by default and persisted independently in Settings.
+Turning it off stops and disposes the current watcher without discarding the
+published snapshot. Turning it back on creates a watcher for the current workspace.
+An automatic publication rebuilds presentation objects on the captured UI context
+while retaining state/country selection where the identity still exists. Explicit
+Reload uses the same coordinator, cancels superseded incremental work, and remains
+the clear recovery action.
 
 ## Presentation boundary
 
@@ -99,8 +111,8 @@ Provenance is resolved through the published snapshot's document index.
 
 ## Current limitations
 
-This slice is read-only. It has no map, embedded source editor, automatic file
-watching, saved recent-workspace list, playset selection, DLC resolution, or
+This slice is read-only. It has no map, embedded source editor, saved
+recent-workspace list, playset selection, DLC resolution, or
 dependency-mod ordering. Country naming currently recognizes the direct tag key;
 ideology-qualified naming remains future work. Provenance paths and exact source
 locations are visible, but navigation into an embedded source viewer awaits that

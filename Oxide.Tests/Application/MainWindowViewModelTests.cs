@@ -528,6 +528,124 @@ public sealed class MainWindowViewModelTests
         Assert.Equal(string.Empty, viewModel.SourceNavigationSummary);
     }
 
+    [Fact]
+    public async Task Automatic_refresh_reprojects_the_published_snapshot_and_preserves_selection()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 manpower=10 }");
+        var path = fixture.WriteGameFile("history/states/2-Two.txt", "state={ id=2 manpower=10 }");
+        using var service = new WorkspaceService();
+        await using var source = new DeterministicWorkspaceChangeSource();
+        await using var coordinator = new WorkspaceRefreshCoordinator(service);
+        using var viewModel = new MainWindowViewModel(
+            service,
+            refreshCoordinator: coordinator,
+            changeSourceFactory: _ => source)
+        {
+            GameRootPath = fixture.GameRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.SelectedState = viewModel.States.Single(state => state.Id == 2);
+        var previousVersion = service.CurrentSnapshot!.Version;
+        File.WriteAllText(path, "state={ id=2 manpower=20 }");
+
+        source.Emit(ChangeBatch(service.CurrentSnapshot, path));
+        await WaitForAsync(() => service.CurrentSnapshot!.Version > previousVersion);
+        await WaitForAsync(() => viewModel.SelectedState?.Manpower == "20");
+
+        Assert.Equal(2, viewModel.SelectedState?.Id);
+        Assert.Equal("Watching for changes", viewModel.AutomaticRefreshSummary);
+        Assert.False(viewModel.RefreshNeedsAttention);
+    }
+
+    [Fact]
+    public async Task Automatic_refresh_preference_is_restored_toggled_and_persisted()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 }");
+        var settings = new RecordingSettingsStore(new ApplicationSettingsLoadResult(new ApplicationSettings(
+            AutomaticRefreshEnabled: false)));
+        using var service = new WorkspaceService();
+        await using var source = new DeterministicWorkspaceChangeSource();
+        await using var coordinator = new WorkspaceRefreshCoordinator(service);
+        using var viewModel = new MainWindowViewModel(
+            service,
+            settings,
+            refreshCoordinator: coordinator,
+            changeSourceFactory: _ => source)
+        {
+            GameRootPath = fixture.GameRoot,
+        };
+        await viewModel.InitializeAsync();
+        viewModel.GameRootPath = fixture.GameRoot;
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.False(viewModel.AutomaticRefreshEnabled);
+        Assert.False(source.IsRunning);
+        Assert.Equal("Automatic refresh is off", viewModel.AutomaticRefreshSummary);
+
+        await viewModel.SetAutomaticRefreshAsync(true);
+        Assert.True(source.IsRunning);
+        Assert.True(settings.Saved?.AutomaticRefreshEnabled);
+
+        await viewModel.SetAutomaticRefreshAsync(false);
+        Assert.False(source.IsRunning);
+        Assert.False(settings.Saved?.AutomaticRefreshEnabled);
+    }
+
+    [Fact]
+    public async Task Watcher_failure_is_visible_without_replacing_the_workspace()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 }");
+        using var service = new WorkspaceService();
+        await using var source = new DeterministicWorkspaceChangeSource();
+        await using var coordinator = new WorkspaceRefreshCoordinator(service);
+        using var viewModel = new MainWindowViewModel(
+            service,
+            refreshCoordinator: coordinator,
+            changeSourceFactory: _ => source)
+        {
+            GameRootPath = fixture.GameRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        var published = service.CurrentSnapshot;
+
+        source.EmitError(new WorkspaceChangeSourceError("The watcher needs recovery."));
+        await WaitForAsync(() => viewModel.RefreshNeedsAttention);
+
+        Assert.Same(published, service.CurrentSnapshot);
+        Assert.Equal("File watching unavailable", viewModel.AutomaticRefreshSummary);
+        Assert.Equal("The watcher needs recovery.", viewModel.AutomaticRefreshDetail);
+        Assert.False(viewModel.HasError);
+    }
+
+    private static WorkspaceChangeBatch ChangeBatch(WorkspaceSnapshot snapshot, string path)
+    {
+        var classified = WorkspaceChangeClassifier.Classify(snapshot.Layers[0], path);
+        return new WorkspaceChangeBatch(
+        [
+            new DocumentChange(
+                new WorkspaceChange(
+                    WorkspaceChangeKind.Changed,
+                    classified.Source,
+                    classified.Source,
+                    DateTimeOffset.UnixEpoch,
+                    WorkspaceChangeOrigin.Watcher),
+                classified.DocumentKind!.Value,
+                classified.Category!.Value),
+        ]);
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!condition())
+        {
+            await Task.Delay(10, timeout.Token);
+        }
+    }
+
     private sealed class CancellableWorkspaceService : IWorkspaceService
     {
         public WorkspaceSnapshot? CurrentSnapshot => null;

@@ -5,6 +5,7 @@ using Oxide.Core;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
+using Oxide.Core.Workspaces.Refresh;
 using Oxide.Core.Workspaces.Snapshots;
 using Oxide.Syntax.Diagnostics;
 
@@ -15,6 +16,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IWorkspaceService workspaceService;
     private readonly bool ownsWorkspaceService;
     private readonly IApplicationSettingsStore? settingsStore;
+    private readonly WorkspaceRefreshCoordinator? refreshCoordinator;
+    private readonly Func<WorkspaceConfiguration, IWorkspaceChangeSource>? changeSourceFactory;
+    private readonly bool ownsRefreshCoordinator;
+    private readonly SynchronizationContext? presentationContext;
     private readonly List<StateListItemViewModel> allStates = [];
     private readonly List<CountryListItemViewModel> allCountries = [];
     private CancellationTokenSource? loadCancellation;
@@ -36,6 +41,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private OxideTheme theme = OxideTheme.IronRustDark;
     private bool showingCountryDetails;
     private SourceNavigationRequest? lastSourceNavigationRequest;
+    private bool automaticRefreshEnabled = true;
+    private bool explicitLoadActive;
+    private WorkspaceRefreshCoordinatorStatus refreshStatus = new(
+        WorkspaceRefreshCoordinatorState.Stopped,
+        "Automatic refresh is not active.");
 
     public MainWindowViewModel()
         : this(new WorkspaceService(), new JsonApplicationSettingsStore(), ownsWorkspaceService: true)
@@ -45,11 +55,26 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public MainWindowViewModel(
         IWorkspaceService workspaceService,
         IApplicationSettingsStore? settingsStore = null,
-        bool ownsWorkspaceService = false)
+        bool ownsWorkspaceService = false,
+        WorkspaceRefreshCoordinator? refreshCoordinator = null,
+        Func<WorkspaceConfiguration, IWorkspaceChangeSource>? changeSourceFactory = null)
     {
         this.workspaceService = workspaceService;
         this.settingsStore = settingsStore;
         this.ownsWorkspaceService = ownsWorkspaceService;
+        presentationContext = SynchronizationContext.Current;
+        this.refreshCoordinator = refreshCoordinator ?? (ownsWorkspaceService
+            ? new WorkspaceRefreshCoordinator(workspaceService)
+            : null);
+        this.changeSourceFactory = changeSourceFactory ?? (ownsWorkspaceService
+            ? configuration => new FileSystemWorkspaceChangeSource(configuration)
+            : null);
+        ownsRefreshCoordinator = refreshCoordinator is null && this.refreshCoordinator is not null;
+        if (this.refreshCoordinator is not null)
+        {
+            this.refreshCoordinator.StatusChanged += OnRefreshStatusChanged;
+            workspaceService.SnapshotPublished += OnSnapshotPublished;
+        }
         ApplicationName = ApplicationInfo.Oxide.Name;
     }
 
@@ -342,6 +367,42 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public int WarningCount => Problems.Count(problem => problem.Severity is DiagnosticSeverity.Warning);
 
+    public bool AutomaticRefreshEnabled
+    {
+        get => automaticRefreshEnabled;
+        private set
+        {
+            if (SetProperty(ref automaticRefreshEnabled, value))
+            {
+                OnPropertyChanged(nameof(AutomaticRefreshSummary));
+                OnPropertyChanged(nameof(IsAutomaticRefreshAvailable));
+            }
+        }
+    }
+
+    public bool IsAutomaticRefreshAvailable => refreshCoordinator is not null && changeSourceFactory is not null;
+
+    public string AutomaticRefreshSummary => !AutomaticRefreshEnabled
+        ? "Automatic refresh is off"
+        : refreshStatus.State switch
+        {
+            WorkspaceRefreshCoordinatorState.Watching or WorkspaceRefreshCoordinatorState.UpToDate =>
+                "Watching for changes",
+            WorkspaceRefreshCoordinatorState.ChangesPending => "Changes pending…",
+            WorkspaceRefreshCoordinatorState.Refreshing => "Refreshing…",
+            WorkspaceRefreshCoordinatorState.RefreshFailed => "Automatic refresh failed",
+            WorkspaceRefreshCoordinatorState.WatcherUnavailable => "File watching unavailable",
+            _ => "Automatic refresh is waiting",
+        };
+
+    public string AutomaticRefreshDetail => refreshStatus.Message;
+
+    public bool IsRefreshBusy => AutomaticRefreshEnabled && refreshStatus.State is
+        WorkspaceRefreshCoordinatorState.ChangesPending or WorkspaceRefreshCoordinatorState.Refreshing;
+
+    public bool RefreshNeedsAttention => AutomaticRefreshEnabled && refreshStatus.State is
+        WorkspaceRefreshCoordinatorState.RefreshFailed or WorkspaceRefreshCoordinatorState.WatcherUnavailable;
+
     public async Task InitializeAsync()
     {
         if (settingsStore is null)
@@ -358,6 +419,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Theme = result.Settings.Theme;
             PreferredLanguage = LanguageSelectionPolicy.NormalizePreference(result.Settings.PreferredLanguage);
             EnglishFallbackEnabled = result.Settings.EnglishFallbackEnabled;
+            AutomaticRefreshEnabled = result.Settings.AutomaticRefreshEnabled;
             ThemeChanged?.Invoke(Theme);
             if (result.Warning is not null)
             {
@@ -414,6 +476,27 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         await SaveSettingsAsync();
     }
 
+    public async Task SetAutomaticRefreshAsync(bool enabled)
+    {
+        if (!IsAutomaticRefreshAvailable || AutomaticRefreshEnabled == enabled)
+        {
+            return;
+        }
+
+        AutomaticRefreshEnabled = enabled;
+        if (enabled && snapshot is not null)
+        {
+            await StartAutomaticRefreshAsync(snapshot.Configuration);
+        }
+        else if (!enabled && refreshCoordinator is not null)
+        {
+            await refreshCoordinator.StopAsync();
+            ApplyRefreshStatus(refreshCoordinator.Status);
+        }
+
+        await SaveSettingsAsync();
+    }
+
     public void DismissError() => ErrorMessage = null;
 
     public void ReportError(string message) => ErrorMessage = message;
@@ -440,8 +523,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await LoadAsync((progress, cancellation) =>
-            workspaceService.OpenAsync(configuration, progress, cancellation));
+        if (refreshCoordinator is not null)
+        {
+            await refreshCoordinator.StopAsync();
+        }
+
+        await LoadAsync(
+            (progress, cancellation) => workspaceService.OpenAsync(configuration, progress, cancellation),
+            startAutomaticRefresh: true);
     }
 
     public async Task ReloadAsync()
@@ -451,14 +540,30 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await LoadAsync((progress, cancellation) => workspaceService.ReloadAsync(progress, cancellation));
+        if (AutomaticRefreshEnabled && refreshCoordinator is not null)
+        {
+            await LoadAsync(
+                (_, cancellation) => refreshCoordinator.ReloadAsync(cancellation),
+                startAutomaticRefresh: false);
+            return;
+        }
+
+        await LoadAsync(
+            (progress, cancellation) => workspaceService.ReloadAsync(progress, cancellation),
+            startAutomaticRefresh: false);
     }
 
     public void CancelLoading() => loadCancellation?.Cancel();
 
-    public void ShowWelcome()
+    public async Task ShowWelcomeAsync()
     {
         CancelLoading();
+        if (refreshCoordinator is not null)
+        {
+            await refreshCoordinator.StopAsync();
+            ApplyRefreshStatus(refreshCoordinator.Status);
+        }
+
         Screen = ApplicationScreen.Welcome;
     }
 
@@ -468,6 +573,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         loadCancellation?.Cancel();
         loadCancellation?.Dispose();
+        if (refreshCoordinator is not null)
+        {
+            refreshCoordinator.StatusChanged -= OnRefreshStatusChanged;
+            workspaceService.SnapshotPublished -= OnSnapshotPublished;
+            if (ownsRefreshCoordinator)
+            {
+                refreshCoordinator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+        }
+
         if (ownsWorkspaceService && workspaceService is IDisposable disposable)
         {
             disposable.Dispose();
@@ -475,7 +590,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     private async Task LoadAsync(
-        Func<IProgress<WorkspaceLoadProgress>, CancellationToken, Task<WorkspaceSnapshot>> load)
+        Func<IProgress<WorkspaceLoadProgress>, CancellationToken, Task<WorkspaceSnapshot>> load,
+        bool startAutomaticRefresh)
     {
         loadCancellation?.Dispose();
         loadCancellation = new CancellationTokenSource();
@@ -484,12 +600,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         LoadingMessage = "Discovering supported files…";
         Screen = ApplicationScreen.Loading;
         var progress = new Progress<WorkspaceLoadProgress>(UpdateProgress);
+        explicitLoadActive = true;
 
         try
         {
             var loadedSnapshot = await load(progress, loadCancellation.Token);
             ApplySnapshot(loadedSnapshot);
             Screen = ApplicationScreen.Workspace;
+            if (startAutomaticRefresh && AutomaticRefreshEnabled)
+            {
+                await StartAutomaticRefreshAsync(loadedSnapshot.Configuration);
+            }
+
             await SaveSettingsAsync();
         }
         catch (OperationCanceledException)
@@ -501,6 +623,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             ErrorMessage = $"Oxide could not open the workspace: {exception.Message}";
             Screen = snapshot is null ? ApplicationScreen.Welcome : ApplicationScreen.Workspace;
+        }
+        finally
+        {
+            explicitLoadActive = false;
         }
     }
 
@@ -518,7 +644,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 LastActiveModRoot: string.IsNullOrWhiteSpace(ActiveModRootPath) ? null : ActiveModRootPath,
                 Theme: Theme,
                 PreferredLanguage: PreferredLanguage,
-                EnglishFallbackEnabled: EnglishFallbackEnabled));
+                EnglishFallbackEnabled: EnglishFallbackEnabled,
+                AutomaticRefreshEnabled: AutomaticRefreshEnabled));
         }
         catch (Exception exception)
         {
@@ -584,6 +711,63 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StatusSummary));
         OnPropertyChanged(nameof(ErrorCount));
         OnPropertyChanged(nameof(WarningCount));
+    }
+
+    private async Task StartAutomaticRefreshAsync(WorkspaceConfiguration configuration)
+    {
+        if (refreshCoordinator is null || changeSourceFactory is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await refreshCoordinator.ReplaceChangeSourceAsync(changeSourceFactory(configuration));
+            ApplyRefreshStatus(refreshCoordinator.Status);
+        }
+        catch (Exception exception)
+        {
+            ApplyRefreshStatus(new WorkspaceRefreshCoordinatorStatus(
+                WorkspaceRefreshCoordinatorState.WatcherUnavailable,
+                exception.Message));
+        }
+    }
+
+    private void OnSnapshotPublished(WorkspaceSnapshot published)
+    {
+        if (explicitLoadActive || !AutomaticRefreshEnabled)
+        {
+            return;
+        }
+
+        DispatchPresentation(() =>
+        {
+            ApplySnapshot(published);
+            Screen = ApplicationScreen.Workspace;
+        });
+    }
+
+    private void OnRefreshStatusChanged(WorkspaceRefreshCoordinatorStatus updated) =>
+        DispatchPresentation(() => ApplyRefreshStatus(updated));
+
+    private void ApplyRefreshStatus(WorkspaceRefreshCoordinatorStatus updated)
+    {
+        refreshStatus = updated;
+        OnPropertyChanged(nameof(AutomaticRefreshSummary));
+        OnPropertyChanged(nameof(AutomaticRefreshDetail));
+        OnPropertyChanged(nameof(IsRefreshBusy));
+        OnPropertyChanged(nameof(RefreshNeedsAttention));
+    }
+
+    private void DispatchPresentation(Action action)
+    {
+        if (presentationContext is null || ReferenceEquals(SynchronizationContext.Current, presentationContext))
+        {
+            action();
+            return;
+        }
+
+        presentationContext.Post(_ => action(), null);
     }
 
     private void RebuildPresentation()

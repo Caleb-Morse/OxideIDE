@@ -79,6 +79,7 @@ public sealed class WorkspaceRefreshCoordinator : IAsyncDisposable
         {
             Unsubscribe(previous);
             await previous.StopAsync().ConfigureAwait(false);
+            await previous.DisposeAsync().ConfigureAwait(false);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -140,6 +141,7 @@ public sealed class WorkspaceRefreshCoordinator : IAsyncDisposable
         {
             Unsubscribe(source);
             await source.StopAsync().ConfigureAwait(false);
+            await source.DisposeAsync().ConfigureAwait(false);
         }
 
         PublishStatus(WorkspaceRefreshCoordinatorState.Stopped, "Refresh coordination is stopped.");

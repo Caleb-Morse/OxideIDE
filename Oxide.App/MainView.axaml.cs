@@ -47,7 +47,7 @@ public partial class MainView : Window
     private async void OpenWorkspace_Click(object? sender, RoutedEventArgs e) => await ViewModel.OpenWorkspaceAsync();
     private async void Reload_Click(object? sender, RoutedEventArgs e) => await ViewModel.ReloadAsync();
     private void CancelLoading_Click(object? sender, RoutedEventArgs e) => ViewModel.CancelLoading();
-    private void ChangeWorkspace_Click(object? sender, RoutedEventArgs e) => ViewModel.ShowWelcome();
+    private async void ChangeWorkspace_Click(object? sender, RoutedEventArgs e) => await ViewModel.ShowWelcomeAsync();
     private async void ToggleTheme_Click(object? sender, RoutedEventArgs e) => await ViewModel.ToggleThemeAsync();
     private void DismissError_Click(object? sender, RoutedEventArgs e) => ViewModel.DismissError();
 
@@ -65,6 +65,14 @@ public partial class MainView : Window
         if (sender is ToggleSwitch { IsChecked: { } enabled })
         {
             await ViewModel.SetEnglishFallbackAsync(enabled);
+        }
+    }
+
+    private async void AutomaticRefresh_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch { IsChecked: { } enabled })
+        {
+            await ViewModel.SetAutomaticRefreshAsync(enabled);
         }
     }
 
