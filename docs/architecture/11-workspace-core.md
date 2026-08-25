@@ -110,13 +110,32 @@ and reuses unchanged `SourceDocument` instances. Failed reads remain failed,
 diagnostic documents rather than disappearing.
 
 The complete candidate document set is reordered and its same-path and
-`replace_path` participation is recalculated before semantics are built. This
-slice intentionally rebuilds the complete semantic snapshot from the candidate
-documents; domain-level semantic reuse comes later. Requests involving uncertain
-state, descriptors, or configuration use the existing full discovery path.
+`replace_path` participation is recalculated before semantics are built. Requests
+involving uncertain state, descriptors, or configuration use the existing full
+discovery path.
 Cancellation, stale requests, invalid source identities, and failures cannot
 publish over the previous snapshot. Successful publication is one atomic swap
 and reports added, changed, removed, reused, and reparsed document counts.
+
+## Semantic invalidation
+
+Incremental refresh uses an explicit domain dependency plan rather than private
+cache decisions inside individual builders. The current immutable domains are
+countries, states, strategic regions, the province-to-region index,
+state-to-region memberships, and localisation. Direct source changes invalidate:
+
+- localisation → localisation only;
+- country tags → countries, states, and state-region memberships;
+- states → states and state-region memberships; and
+- strategic regions → regions, the province index, and state memberships.
+
+Declaration extraction repeats only for directly changed content categories.
+Unchanged declaration records and semantic indexes are reused by reference.
+Dependent domains rebuild against effective inputs from the candidate snapshot,
+and retained domain diagnostics remain present without duplication. Refresh
+metrics list the exact rebuilt and reused domains. Full rediscovery rebuilds every
+domain; per-entity invalidation remains intentionally deferred until measurements
+justify its additional cache complexity.
 
 ## Diagnostics
 
@@ -131,9 +150,10 @@ physical path, and source span.
 
 ## Current limitations
 
-The current implementation uses explicit reload rather than file watching. The
-desktop setup supports base game plus one active mod; ordered dependency-style
-layers require programmatic configuration. Oxide does not yet resolve DLC,
-launcher playsets, dependency order from descriptors, or a complete province
-registry. Precedence is implemented only for supported domains and paths, not
-as a universal Clausewitz loading rule.
+The core implements bounded file watching and incremental refresh, but the
+desktop application still exposes explicit reload until refresh coordination and
+presentation are connected. The desktop setup supports base game plus one active
+mod; ordered dependency-style layers require programmatic configuration. Oxide
+does not yet resolve DLC, launcher playsets, dependency order from descriptors,
+or a complete province registry. Precedence is implemented only for supported
+domains and paths, not as a universal Clausewitz loading rule.

@@ -8,102 +8,126 @@ using Oxide.Core.Semantics.Model;
 using Oxide.Core.Semantics.Resolution;
 using Oxide.Core.Semantics.Snapshots;
 using Oxide.Core.Workspaces.Documents;
+using Oxide.Core.Workspaces.Refresh;
 using Oxide.Syntax.Diagnostics;
 
 namespace Oxide.Core.Semantics.Building;
 
 internal static class SemanticBuilder
 {
-    public static SemanticBuildResult Build(ImmutableArray<SourceDocument> documents)
+    public static SemanticBuildResult Build(ImmutableArray<SourceDocument> documents) =>
+        BuildCore(
+            documents,
+            null,
+            SemanticInvalidationPlan.Create([], rebuildAll: true));
+
+    public static SemanticBuildResult BuildIncremental(
+        ImmutableArray<SourceDocument> documents,
+        SemanticSnapshot previousSnapshot,
+        SemanticInvalidationPlan plan)
     {
-        var states = ImmutableArray.CreateBuilder<StateDeclaration>();
-        var countries = ImmutableArray.CreateBuilder<CountryTagDeclaration>();
-        var strategicRegions = ImmutableArray.CreateBuilder<StrategicRegionDeclaration>();
-        var localisations = ImmutableArray.CreateBuilder<LocalisationDeclaration>();
-        var allStates = ImmutableArray.CreateBuilder<DeclarationInventoryItem<StateDeclaration>>();
-        var allCountries = ImmutableArray.CreateBuilder<DeclarationInventoryItem<CountryTagDeclaration>>();
-        var allStrategicRegions = ImmutableArray.CreateBuilder<DeclarationInventoryItem<StrategicRegionDeclaration>>();
-        var allLocalisations = ImmutableArray.CreateBuilder<DeclarationInventoryItem<LocalisationDeclaration>>();
-        var allExtractionDiagnostics = ImmutableArray.CreateBuilder<SemanticDiagnosticInventoryItem>();
-        var diagnostics = ImmutableArray.CreateBuilder<SemanticDiagnostic>();
+        ArgumentNullException.ThrowIfNull(previousSnapshot);
+        ArgumentNullException.ThrowIfNull(plan);
+        return BuildCore(documents, previousSnapshot, plan);
+    }
 
-        foreach (var document in documents.Where(document => document.IsLoaded))
+    private static SemanticBuildResult BuildCore(
+        ImmutableArray<SourceDocument> documents,
+        SemanticSnapshot? previousSnapshot,
+        SemanticInvalidationPlan plan)
+    {
+        var declarationInventory = BuildDeclarationInventory(documents, previousSnapshot, plan);
+        var states = declarationInventory.States
+            .Where(item => item.IsEligible)
+            .Select(item => item.Declaration)
+            .ToImmutableArray();
+        var countries = declarationInventory.Countries
+            .Where(item => item.IsEligible)
+            .Select(item => item.Declaration)
+            .ToImmutableArray();
+        var strategicRegions = declarationInventory.StrategicRegions
+            .Where(item => item.IsEligible)
+            .Select(item => item.Declaration)
+            .ToImmutableArray();
+        var localisations = declarationInventory.Localisations
+            .Where(item => item.IsEligible)
+            .Select(item => item.Declaration)
+            .ToImmutableArray();
+        var diagnostics = declarationInventory.Diagnostics
+            .Where(item => item.IsActive)
+            .Select(item => item.Diagnostic)
+            .ToImmutableArray()
+            .ToBuilder();
+
+        var countryEntities = plan.Rebuilds(SemanticRefreshDomain.Countries)
+            ? BuildCountries(declarationInventory.Countries, diagnostics)
+            : previousSnapshot!.Countries;
+        if (!plan.Rebuilds(SemanticRefreshDomain.Countries))
         {
-            if (document.LocalisationSyntaxTree is not null)
-            {
-                var extracted = LocalisationDeclarationExtractor.Extract(document);
-                allLocalisations.AddRange(extracted.Select(declaration => Inventory(declaration, document)));
-                if (document.Participates)
-                {
-                    localisations.AddRange(extracted);
-                }
-            }
-            else if (document.VirtualPath.Value.StartsWith("history/states/", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = StateDeclarationExtractor.Extract(document);
-                allStates.AddRange(result.Declarations.Select(declaration => Inventory(declaration, document)));
-                if (document.Participates)
-                {
-                    states.AddRange(result.Declarations);
-                    diagnostics.AddRange(result.Diagnostics);
-                }
-
-                allExtractionDiagnostics.AddRange(result.Diagnostics.Select(diagnostic =>
-                    InventoryDiagnostic(diagnostic, document)));
-            }
-            else if (document.VirtualPath.Value.StartsWith("common/country_tags/", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = CountryTagDeclarationExtractor.Extract(document);
-                allCountries.AddRange(result.Declarations.Select(declaration => Inventory(declaration, document)));
-                if (document.Participates)
-                {
-                    countries.AddRange(result.Declarations);
-                    diagnostics.AddRange(result.Diagnostics);
-                }
-
-                allExtractionDiagnostics.AddRange(result.Diagnostics.Select(diagnostic =>
-                    InventoryDiagnostic(diagnostic, document)));
-            }
-            else if (document.VirtualPath.Value.StartsWith("map/strategicregions/", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = StrategicRegionDeclarationExtractor.Extract(document);
-                allStrategicRegions.AddRange(result.Declarations.Select(declaration => Inventory(declaration, document)));
-                if (document.Participates)
-                {
-                    strategicRegions.AddRange(result.Declarations);
-                    diagnostics.AddRange(result.Diagnostics);
-                }
-
-                allExtractionDiagnostics.AddRange(result.Diagnostics.Select(diagnostic =>
-                    InventoryDiagnostic(diagnostic, document)));
-            }
+            diagnostics.AddRange(countryEntities.Values.SelectMany(entity => entity.Diagnostics));
         }
 
-        var declarationInventory = new SemanticDeclarationInventory(
-            allStates.ToImmutable(),
-            allCountries.ToImmutable(),
-            allStrategicRegions.ToImmutable(),
-            allLocalisations.ToImmutable(),
-            allExtractionDiagnostics.ToImmutable());
+        var stateEntities = plan.Rebuilds(SemanticRefreshDomain.States)
+            ? BuildStates(declarationInventory.States, countryEntities, diagnostics)
+            : previousSnapshot!.States;
+        if (!plan.Rebuilds(SemanticRefreshDomain.States))
+        {
+            diagnostics.AddRange(stateEntities.Values.SelectMany(entity => entity.Diagnostics));
+        }
 
-        var countryEntities = BuildCountries(declarationInventory.Countries, diagnostics);
-        var stateEntities = BuildStates(declarationInventory.States, countryEntities, diagnostics);
-        var strategicRegionEntities = BuildStrategicRegions(declarationInventory.StrategicRegions, diagnostics);
-        var provinceStrategicRegionIndex = new ProvinceStrategicRegionIndex(strategicRegionEntities, diagnostics);
-        var stateStrategicRegionMemberships = BuildStateStrategicRegionMemberships(
-            stateEntities,
-            provinceStrategicRegionIndex,
-            diagnostics);
-        var localisationStart = Stopwatch.GetTimestamp();
-        var localisationEntries = BuildLocalisations(declarationInventory.Localisations, diagnostics);
-        var localisationElapsed = Stopwatch.GetElapsedTime(localisationStart);
-        var allDiagnostics = diagnostics.ToImmutable();
+        var strategicRegionEntities = plan.Rebuilds(SemanticRefreshDomain.StrategicRegions)
+            ? BuildStrategicRegions(declarationInventory.StrategicRegions, diagnostics)
+            : previousSnapshot!.StrategicRegions;
+        if (!plan.Rebuilds(SemanticRefreshDomain.StrategicRegions))
+        {
+            diagnostics.AddRange(strategicRegionEntities.Values.SelectMany(entity => entity.Diagnostics));
+        }
 
+        ProvinceStrategicRegionIndex provinceStrategicRegionIndex;
+        if (plan.Rebuilds(SemanticRefreshDomain.ProvinceStrategicRegionIndex))
+        {
+            provinceStrategicRegionIndex = new ProvinceStrategicRegionIndex(strategicRegionEntities, diagnostics);
+        }
+        else
+        {
+            provinceStrategicRegionIndex = previousSnapshot!.ProvinceStrategicRegionIndex;
+            diagnostics.AddRange(previousSnapshot.Diagnostics.Where(diagnostic => diagnostic.Code == "OXIDE4016"));
+        }
+
+        ImmutableDictionary<int, StateStrategicRegionMembership> stateStrategicRegionMemberships;
+        if (plan.Rebuilds(SemanticRefreshDomain.StateStrategicRegionMemberships))
+        {
+            stateStrategicRegionMemberships = BuildStateStrategicRegionMemberships(
+                stateEntities,
+                provinceStrategicRegionIndex,
+                diagnostics);
+        }
+        else
+        {
+            stateStrategicRegionMemberships = previousSnapshot!.StateStrategicRegionMemberships;
+            diagnostics.AddRange(stateStrategicRegionMemberships.Values.SelectMany(membership => membership.Diagnostics));
+        }
+
+        var localisationMilliseconds = 0d;
+        ImmutableDictionary<LocalisationIdentity, LocalisationEntry> localisationEntries;
+        if (plan.Rebuilds(SemanticRefreshDomain.Localisations))
+        {
+            var localisationStart = Stopwatch.GetTimestamp();
+            localisationEntries = BuildLocalisations(declarationInventory.Localisations, diagnostics);
+            localisationMilliseconds = Stopwatch.GetElapsedTime(localisationStart).TotalMilliseconds;
+        }
+        else
+        {
+            localisationEntries = previousSnapshot!.Localisations;
+            diagnostics.AddRange(previousSnapshot.Diagnostics.Where(diagnostic => diagnostic.Code == "OXIDE4009"));
+        }
+
+        var allDiagnostics = diagnostics.Distinct().ToImmutableArray();
         var snapshot = new SemanticSnapshot(
-            states.ToImmutable(),
-            countries.ToImmutable(),
-            strategicRegions.ToImmutable(),
-            localisations.ToImmutable(),
+            states,
+            countries,
+            strategicRegions,
+            localisations,
             declarationInventory,
             stateEntities,
             countryEntities,
@@ -112,7 +136,92 @@ internal static class SemanticBuilder
             stateStrategicRegionMemberships,
             localisationEntries,
             allDiagnostics);
-        return new SemanticBuildResult(snapshot, localisationElapsed.TotalMilliseconds);
+        return new SemanticBuildResult(
+            snapshot,
+            localisationMilliseconds,
+            plan.RebuiltDomains,
+            plan.ReusedDomains);
+    }
+
+    private static SemanticDeclarationInventory BuildDeclarationInventory(
+        ImmutableArray<SourceDocument> documents,
+        SemanticSnapshot? previousSnapshot,
+        SemanticInvalidationPlan plan)
+    {
+        var allStates = ImmutableArray.CreateBuilder<DeclarationInventoryItem<StateDeclaration>>();
+        var allCountries = ImmutableArray.CreateBuilder<DeclarationInventoryItem<CountryTagDeclaration>>();
+        var allStrategicRegions = ImmutableArray.CreateBuilder<DeclarationInventoryItem<StrategicRegionDeclaration>>();
+        var allLocalisations = ImmutableArray.CreateBuilder<DeclarationInventoryItem<LocalisationDeclaration>>();
+        var allExtractionDiagnostics = ImmutableArray.CreateBuilder<SemanticDiagnosticInventoryItem>();
+
+        if (previousSnapshot is not null)
+        {
+            if (!plan.Changes(ContentCategory.StateHistory))
+            {
+                allStates.AddRange(previousSnapshot.DeclarationInventory.States);
+            }
+
+            if (!plan.Changes(ContentCategory.CountryTags))
+            {
+                allCountries.AddRange(previousSnapshot.DeclarationInventory.Countries);
+            }
+
+            if (!plan.Changes(ContentCategory.StrategicRegion))
+            {
+                allStrategicRegions.AddRange(previousSnapshot.DeclarationInventory.StrategicRegions);
+            }
+
+            if (!plan.Changes(ContentCategory.Localisation))
+            {
+                allLocalisations.AddRange(previousSnapshot.DeclarationInventory.Localisations);
+            }
+
+            allExtractionDiagnostics.AddRange(previousSnapshot.DeclarationInventory.Diagnostics.Where(item =>
+                SupportedContentProfile.TryClassify(item.Source.VirtualPath, out _, out var category)
+                && !plan.Changes(category)));
+        }
+
+        foreach (var document in documents.Where(document => document.IsLoaded))
+        {
+            if (!plan.Changes(document.Participation.Category))
+            {
+                continue;
+            }
+
+            if (document.Participation.Category is ContentCategory.Localisation)
+            {
+                var extracted = LocalisationDeclarationExtractor.Extract(document);
+                allLocalisations.AddRange(extracted.Select(declaration => Inventory(declaration, document)));
+            }
+            else if (document.Participation.Category is ContentCategory.StateHistory)
+            {
+                var result = StateDeclarationExtractor.Extract(document);
+                allStates.AddRange(result.Declarations.Select(declaration => Inventory(declaration, document)));
+                allExtractionDiagnostics.AddRange(result.Diagnostics.Select(diagnostic =>
+                    InventoryDiagnostic(diagnostic, document)));
+            }
+            else if (document.Participation.Category is ContentCategory.CountryTags)
+            {
+                var result = CountryTagDeclarationExtractor.Extract(document);
+                allCountries.AddRange(result.Declarations.Select(declaration => Inventory(declaration, document)));
+                allExtractionDiagnostics.AddRange(result.Diagnostics.Select(diagnostic =>
+                    InventoryDiagnostic(diagnostic, document)));
+            }
+            else if (document.Participation.Category is ContentCategory.StrategicRegion)
+            {
+                var result = StrategicRegionDeclarationExtractor.Extract(document);
+                allStrategicRegions.AddRange(result.Declarations.Select(declaration => Inventory(declaration, document)));
+                allExtractionDiagnostics.AddRange(result.Diagnostics.Select(diagnostic =>
+                    InventoryDiagnostic(diagnostic, document)));
+            }
+        }
+
+        return new SemanticDeclarationInventory(
+            allStates.ToImmutable(),
+            allCountries.ToImmutable(),
+            allStrategicRegions.ToImmutable(),
+            allLocalisations.ToImmutable(),
+            allExtractionDiagnostics.ToImmutable());
 
         static DeclarationInventoryItem<TDeclaration> Inventory<TDeclaration>(
             TDeclaration declaration,

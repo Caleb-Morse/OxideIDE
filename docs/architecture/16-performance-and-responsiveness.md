@@ -2,9 +2,11 @@
 
 ## Measurement before optimization
 
-The workspace records where load time is spent without introducing
-incremental parsing, caches, file watchers, or speculative optimization. A
-`WorkspaceSnapshot` exposes immutable `WorkspaceLoadMetrics` for:
+The workspace records where full and incremental load time is spent. Full loads
+remain the baseline; incremental refresh reuses unchanged documents and
+unaffected semantic domains through explicit dependency rules rather than
+speculative per-entity caching. A `WorkspaceSnapshot` exposes immutable
+`WorkspaceLoadMetrics` for:
 
 - discovered, loaded, and failed document counts;
 - workspace and semantic diagnostic counts;
@@ -21,6 +23,13 @@ measured end-to-end duration. It also measures state/country/strategic-region na
 derived projection throughput, and managed memory observed at reporting time.
 The memory value is not labeled as peak memory; process-level peak resident
 memory is captured by the operating system during explicit external runs.
+
+Incremental refresh metrics separately record raw and coalesced changes;
+documents added, changed, removed, reused, and reparsed; whether discovery was
+escalated to a full rescan; and the exact semantic domains rebuilt or reused.
+Timing remains divided across discovery, document loading, semantic rebuilding,
+publication, and total refresh. These values are observations rather than
+deterministic pass/fail thresholds.
 
 Document-kind timings include reading and decoding as well as parsing. They are
 named loading/parsing aggregates rather than claiming precision the sequential

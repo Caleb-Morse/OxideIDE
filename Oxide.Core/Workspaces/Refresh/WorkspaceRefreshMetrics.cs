@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Oxide.Core.Workspaces.Refresh;
 
 public sealed record WorkspaceRefreshMetrics(
@@ -16,4 +18,9 @@ public sealed record WorkspaceRefreshMetrics(
     double DocumentLoadingMilliseconds,
     double SemanticMilliseconds,
     double PublicationMilliseconds,
-    double TotalMilliseconds);
+    double TotalMilliseconds)
+{
+    public ImmutableArray<SemanticRefreshDomain> RebuiltSemanticDomains { get; init; } = [];
+
+    public ImmutableArray<SemanticRefreshDomain> ReusedSemanticDomains { get; init; } = [];
+}

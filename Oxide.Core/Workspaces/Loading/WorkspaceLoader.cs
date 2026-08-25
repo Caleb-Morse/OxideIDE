@@ -177,7 +177,7 @@ internal sealed class WorkspaceLoader
                         !fullSnapshot.DocumentsById.ContainsKey(document.Id)),
                     0,
                     fullSnapshot.Documents.Length,
-                    4,
+                    Enum.GetValues<SemanticRefreshDomain>().Length,
                     0,
                     true,
                     0,
@@ -185,7 +185,11 @@ internal sealed class WorkspaceLoader
                     fullSnapshot.LoadMetrics.DocumentLoadingMilliseconds,
                     fullSnapshot.LoadMetrics.SemanticBuildingMilliseconds,
                     0,
-                    fullSnapshot.LoadMetrics.TotalMilliseconds));
+                    fullSnapshot.LoadMetrics.TotalMilliseconds)
+                {
+                    RebuiltSemanticDomains = Enum.GetValues<SemanticRefreshDomain>().ToImmutableArray(),
+                    ReusedSemanticDomains = [],
+                });
         }
 
         return RefreshDocuments(
@@ -313,7 +317,11 @@ internal sealed class WorkspaceLoader
             classifiedDocuments.Length,
             classifiedDocuments.Length));
         var semanticStart = Stopwatch.GetTimestamp();
-        var semanticResult = SemanticBuilder.Build(classifiedDocuments);
+        var invalidationPlan = SemanticInvalidationPlan.Create(request.Changes.Changes);
+        var semanticResult = SemanticBuilder.BuildIncremental(
+            classifiedDocuments,
+            previousSnapshot.Semantics,
+            invalidationPlan);
         var semanticElapsed = Stopwatch.GetElapsedTime(semanticStart);
         var totalElapsed = Stopwatch.GetElapsedTime(totalStart);
         var loadMetrics = new WorkspaceLoadMetrics(
@@ -345,15 +353,19 @@ internal sealed class WorkspaceLoader
             removedDocumentIds.Count,
             classifiedDocuments.Length - reparsedDocumentIds.Count,
             reparsedDocumentIds.Count,
-            4,
-            0,
+            semanticResult.RebuiltDomains.Length,
+            semanticResult.ReusedDomains.Length,
             false,
             0,
             0,
             documentLoadingElapsed.TotalMilliseconds,
             semanticElapsed.TotalMilliseconds,
             0,
-            totalElapsed.TotalMilliseconds);
+            totalElapsed.TotalMilliseconds)
+        {
+            RebuiltSemanticDomains = semanticResult.RebuiltDomains,
+            ReusedSemanticDomains = semanticResult.ReusedDomains,
+        };
         return new WorkspaceRefreshLoadResult(snapshot, refreshMetrics);
     }
 
