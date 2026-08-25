@@ -64,6 +64,23 @@ virtual path in a higher layer shadows the lower document. Descriptor
 Excluded documents remain loaded, parsed, indexed, and available through the
 declaration inventory, but cannot supply an effective semantic contribution.
 
+## Incremental refresh contracts
+
+The workspace defines immutable change contracts independently of any operating-
+system watcher. A `WorkspaceChange` records created, changed, deleted, renamed,
+or uncertain input with previous/current stable source identities, observation
+time, and origin. `WorkspaceChangeBatch` orders those changes deterministically
+and can require a reasoned full rescan; uncertainty always escalates rather than
+guessing at a partial update.
+
+`SupportedContentProfile` is shared by full discovery and change classification,
+so both paths recognize exactly the same state, country-tag, strategic-region,
+and localisation files. Classification distinguishes supported files,
+unsupported files inside a layer, and paths outside the configured layer root.
+Refresh requests, outcomes, and metrics already have stable contracts for later
+watcher and incremental-loader work. No filesystem watcher or incremental
+publication pipeline is implemented yet.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

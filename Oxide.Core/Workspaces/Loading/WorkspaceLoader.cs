@@ -15,14 +15,6 @@ namespace Oxide.Core.Workspaces.Loading;
 
 internal sealed class WorkspaceLoader
 {
-    private static readonly ImmutableArray<DiscoveryRule> DiscoveryRules =
-    [
-        new("history/states", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz, ContentCategory.StateHistory),
-        new("map/strategicregions", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz, ContentCategory.StrategicRegion),
-        new("common/country_tags", "*.txt", SearchOption.TopDirectoryOnly, SourceDocumentKind.Clausewitz, ContentCategory.CountryTags),
-        new("localisation", "*.yml", SearchOption.AllDirectories, SourceDocumentKind.Localisation, ContentCategory.Localisation),
-    ];
-
     public Task<WorkspaceSnapshot> LoadAsync(
         long version,
         WorkspaceConfiguration configuration,
@@ -155,10 +147,12 @@ internal sealed class WorkspaceLoader
                 continue;
             }
 
-            foreach (var rule in DiscoveryRules)
+            foreach (var rule in SupportedContentProfile.Rules)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var directory = Path.Combine(layer.RootPath, rule.VirtualDirectory.Replace('/', Path.DirectorySeparatorChar));
+                var directory = Path.Combine(
+                    layer.RootPath,
+                    rule.Directory.Value.Replace('/', Path.DirectorySeparatorChar));
                 if (!Directory.Exists(directory))
                 {
                     continue;
@@ -166,15 +160,24 @@ internal sealed class WorkspaceLoader
 
                 try
                 {
-                    foreach (var physicalPath in Directory.EnumerateFiles(directory, rule.Pattern, rule.SearchOption))
+                    var searchOption = rule.IncludeSubdirectories
+                        ? SearchOption.AllDirectories
+                        : SearchOption.TopDirectoryOnly;
+                    foreach (var physicalPath in Directory.EnumerateFiles(directory, "*", searchOption))
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         var relativePath = Path.GetRelativePath(layer.RootPath, physicalPath);
+                        var virtualPath = new VirtualPath(relativePath);
+                        if (!rule.Matches(virtualPath))
+                        {
+                            continue;
+                        }
+
                         candidates.Add(new DocumentCandidate(
                             layer,
                             Path.GetFullPath(physicalPath),
-                            new VirtualPath(relativePath),
-                            rule.Kind,
+                            virtualPath,
+                            rule.DocumentKind,
                             rule.Category));
                     }
                 }
@@ -334,13 +337,6 @@ internal sealed class WorkspaceLoader
         IOException or
         UnauthorizedAccessException or
         SecurityException;
-
-    private sealed record DiscoveryRule(
-        string VirtualDirectory,
-        string Pattern,
-        SearchOption SearchOption,
-        SourceDocumentKind Kind,
-        ContentCategory Category);
 
     private sealed record DocumentCandidate(
         ContentLayer Layer,
