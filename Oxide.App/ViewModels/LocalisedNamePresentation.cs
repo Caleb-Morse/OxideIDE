@@ -11,13 +11,15 @@ internal sealed record LocalisedNamePresentation(
     string SourceLocation,
     string SourceLayer,
     string SourceLanguage,
-    string SourceKey)
+    string SourceKey,
+    LocalisationInspectionPresentation Inspection)
 {
     public static LocalisedNamePresentation Create(
         HumanReadableName name,
         string key,
         WorkspaceSnapshot snapshot)
     {
+        var inspection = LocalisationInspectionPresentation.Create(name, key, snapshot);
         if (name.Resolution is not ResolvedLocalisation resolved)
         {
             var status = name.Resolution switch
@@ -29,7 +31,7 @@ internal sealed record LocalisedNamePresentation(
                 _ => "No localisation key",
             };
             return new LocalisedNamePresentation(name.DisplayText, status, "No resolved localisation source",
-                "No source location", "—", "—", key);
+                "No source location", "—", "—", key, inspection);
         }
 
         var provenance = resolved.Provenance;
@@ -43,6 +45,7 @@ internal sealed record LocalisedNamePresentation(
             location is null ? $"Offset {provenance.Span.Start}" : $"Line {location.Value.Line + 1}, column {location.Value.Character + 1}",
             provenance.Layer.Kind.ToString(),
             resolved.ResolvedLanguage.Value,
-            key);
+            key,
+            inspection);
     }
 }

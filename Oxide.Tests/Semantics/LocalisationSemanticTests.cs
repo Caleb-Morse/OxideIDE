@@ -10,6 +10,34 @@ namespace Oxide.Tests.Semantics;
 public sealed class LocalisationSemanticTests
 {
     [Fact]
+    public async Task Whole_value_localisation_references_resolve_with_a_bounded_provenance_chain()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile(
+            "localisation/english/states_l_english.yml",
+            "l_english:\n STATE_1050:0 \"$VICTORY_POINTS_1001$\"\n");
+        fixture.WriteGameFile(
+            "localisation/english/victory_points_l_english.yml",
+            "l_english:\n VICTORY_POINTS_1001:0 \"Bengbu\"\n CYCLE_A:0 \"$CYCLE_B$\"\n CYCLE_B:0 \"$CYCLE_A$\"\n");
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+
+        var resolved = Assert.IsType<ResolvedLocalisation>(
+            snapshot.Semantics.LocalisationResolver.Resolve("english", "STATE_1050"));
+        var cycle = Assert.IsType<ResolvedLocalisation>(
+            snapshot.Semantics.LocalisationResolver.Resolve("english", "CYCLE_A"));
+
+        Assert.Equal("Bengbu", resolved.Value);
+        Assert.Equal(["STATE_1050", "VICTORY_POINTS_1001"],
+            resolved.ReferenceChain.Select(step => step.Identity.Key.Value));
+        Assert.Equal("$VICTORY_POINTS_1001$", resolved.Declaration.Value.Value);
+        Assert.Equal("Bengbu", resolved.ReferenceChain[^1].Declaration.Value.Value);
+        Assert.NotEqual(resolved.RootProvenance, resolved.Provenance);
+        Assert.Equal(["CYCLE_A", "CYCLE_B"], cycle.ReferenceChain.Select(step => step.Identity.Key.Value));
+        Assert.Equal("$CYCLE_A$", cycle.Value);
+    }
+
+    [Fact]
     public async Task Declarations_are_language_qualified_and_resolve_with_exact_value_provenance()
     {
         using var fixture = new TemporaryWorkspace();

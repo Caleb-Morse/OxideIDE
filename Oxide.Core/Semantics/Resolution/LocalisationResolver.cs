@@ -46,13 +46,14 @@ public sealed class LocalisationResolver
         var exact = ResolveCandidate(language, language, key, "Exact language match", []);
         if (exact is not MissingLocalisation || !allowEnglishFallback || language == English)
         {
-            return exact;
+            return ExpandReferences(exact);
         }
 
         var fallback = ResolveCandidate(language, English, key, "English fallback", exact.Attempts);
-        return fallback is MissingLocalisation
+        var result = fallback is MissingLocalisation
             ? new MissingLocalisation(language, key, [language, English], fallback.Attempts)
             : fallback;
+        return ExpandReferences(result);
     }
 
     public HumanReadableName ResolveName(
@@ -105,7 +106,8 @@ public sealed class LocalisationResolver
                 entry.Resolution.EffectiveContribution!.Declaration,
                 reason,
                 entry.Resolution,
-                attempts),
+                attempts,
+                []),
             ContributionResolutionKind.DuplicateWithinLayer or ContributionResolutionKind.Ambiguous =>
                 new AmbiguousLocalisation(
                     requestedLanguage,
@@ -135,5 +137,52 @@ public sealed class LocalisationResolver
                 entry.Resolution,
                 attempts),
         };
+    }
+
+    private LocalisationResolution ExpandReferences(LocalisationResolution resolution)
+    {
+        if (resolution is not ResolvedLocalisation resolved)
+        {
+            return resolution;
+        }
+
+        var rootIdentity = new LocalisationIdentity(resolved.ResolvedLanguage, resolved.Key);
+        var chain = ImmutableArray.CreateBuilder<LocalisationReferenceStep>();
+        chain.Add(new LocalisationReferenceStep(rootIdentity, resolved.Declaration, resolved.ContributionResolution));
+        var visited = new HashSet<LocalisationIdentity> { rootIdentity };
+        var current = resolved.Declaration;
+
+        while (chain.Count < 16 && TryReadReference(current.Value.Value, out var referencedKey))
+        {
+            var identity = new LocalisationIdentity(resolved.ResolvedLanguage, referencedKey);
+            if (!visited.Add(identity)
+                || !_entries.TryGetValue(identity, out var entry)
+                || entry.Resolution.Kind is not ContributionResolutionKind.Effective)
+            {
+                break;
+            }
+
+            current = entry.Resolution.EffectiveContribution!.Declaration;
+            chain.Add(new LocalisationReferenceStep(identity, current, entry.Resolution));
+        }
+
+        return resolved with { ReferenceChain = chain.ToImmutable() };
+    }
+
+    private static bool TryReadReference(string value, out LocalisationKey key)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length > 2
+            && trimmed[0] == '$'
+            && trimmed[^1] == '$'
+            && !trimmed.AsSpan(1, trimmed.Length - 2).Contains('$')
+            && !string.IsNullOrWhiteSpace(trimmed[1..^1]))
+        {
+            key = new LocalisationKey(trimmed[1..^1]);
+            return true;
+        }
+
+        key = default;
+        return false;
     }
 }

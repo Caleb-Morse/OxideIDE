@@ -26,6 +26,7 @@ public sealed class CountryListItemViewModel
         LocalisationLocation = presentation.SourceLocation;
         LocalisationLayer = presentation.SourceLayer;
         ResolvedLanguage = presentation.SourceLanguage;
+        LocalisationInspection = presentation.Inspection;
         DefinitionPath = entity.DefinitionPath?.Value ?? "No effective definition path";
         Status = entity.Status.ToString();
         DeclarationSummary = entity.Contributions.Length == 1
@@ -57,6 +58,7 @@ public sealed class CountryListItemViewModel
     public string LocalisationLocation { get; }
     public string LocalisationLayer { get; }
     public string ResolvedLanguage { get; }
+    public LocalisationInspectionPresentation LocalisationInspection { get; }
     public ImmutableArray<int> OwnedStateIds { get; }
     public ImmutableArray<int> CoreStateIds { get; }
     public string OwnedStates { get; }

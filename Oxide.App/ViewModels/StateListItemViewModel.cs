@@ -27,6 +27,7 @@ public sealed class StateListItemViewModel
         LocalisationLocation = name.SourceLocation;
         LocalisationLayer = name.SourceLayer;
         ResolvedLanguage = name.SourceLanguage;
+        LocalisationInspection = name.Inspection;
         Owner = DescribeCountry(entity.Owner, snapshot, language, allowEnglishFallback);
         Category = entity.StateCategory?.Value ?? "Unknown";
         Manpower = entity.Manpower?.Value.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) ?? "Unknown";
@@ -117,6 +118,8 @@ public sealed class StateListItemViewModel
     public string LocalisationLayer { get; }
 
     public string ResolvedLanguage { get; }
+
+    public LocalisationInspectionPresentation LocalisationInspection { get; }
 
     public string SearchText =>
         $"{Id} {DisplayName} {LocalizationKey} {Owner} {Category} {StrategicRegion} {StrategicRegionStatus} {SourceSummary}";

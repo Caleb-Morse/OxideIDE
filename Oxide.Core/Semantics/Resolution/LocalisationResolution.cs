@@ -21,18 +21,30 @@ public sealed record LocalisationResolutionAttempt(
         || ContributionResolution.Kind is ContributionResolutionKind.Missing;
 }
 
+public sealed record LocalisationReferenceStep(
+    LocalisationIdentity Identity,
+    LocalisationDeclaration Declaration,
+    ContributionResolution<LocalisationIdentity, LocalisationDeclaration> ContributionResolution);
+
 public sealed record ResolvedLocalisation(
     LocalisationLanguage RequestedLanguage,
     LocalisationKey Key,
     LocalisationDeclaration Declaration,
     string SelectionReason,
     ContributionResolution<LocalisationIdentity, LocalisationDeclaration> ContributionResolution,
-    ImmutableArray<LocalisationResolutionAttempt> Attempts)
+    ImmutableArray<LocalisationResolutionAttempt> Attempts,
+    ImmutableArray<LocalisationReferenceStep> ReferenceChain)
     : LocalisationResolution(RequestedLanguage, Key, Attempts)
 {
-    public string Value => Declaration.Value.Value;
+    public string Value => ReferenceChain.IsEmpty
+        ? Declaration.Value.Value
+        : ReferenceChain[^1].Declaration.Value.Value;
 
-    public SourceProvenance Provenance => Declaration.Value.Provenance;
+    public SourceProvenance Provenance => ReferenceChain.IsEmpty
+        ? Declaration.Value.Provenance
+        : ReferenceChain[^1].Declaration.Value.Provenance;
+
+    public SourceProvenance RootProvenance => Declaration.Value.Provenance;
 
     public LocalisationLanguage ResolvedLanguage => Declaration.Language;
 

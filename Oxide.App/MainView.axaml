@@ -379,6 +379,73 @@
                                                     <TextBlock Text="{Binding SelectedState.LocalisationSource}" TextWrapping="Wrap" FontFamily="Menlo,Consolas,monospace" />
                                                     <TextBlock Text="{Binding SelectedState.LocalisationLocation}" Classes="muted" />
                                                     <TextBlock Text="{Binding SelectedState.ResolvedLanguage, StringFormat=Language: {0}}" Classes="muted" />
+                                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="0,5,0,0">
+                                                        <StackPanel Grid.Column="0" Spacing="2">
+                                                            <TextBlock Classes="label" Text="REQUESTED" />
+                                                            <TextBlock Text="{Binding SelectedState.LocalisationInspection.RequestedLanguage}" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Spacing="2">
+                                                            <TextBlock Classes="label" Text="RESOLVED" />
+                                                            <TextBlock Text="{Binding SelectedState.LocalisationInspection.ResolvedLanguage}" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="2" Spacing="2">
+                                                            <TextBlock Classes="label" Text="FALLBACK" />
+                                                            <TextBlock Text="{Binding SelectedState.LocalisationInspection.FallbackStatus}" TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <Expander AutomationProperties.Name="State localisation resolution attempts"
+                                                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                              Background="Transparent" BorderThickness="0">
+                                                        <Expander.Header>
+                                                            <StackPanel Spacing="2">
+                                                                <TextBlock Text="Resolution path" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{Binding SelectedState.LocalisationInspection.SelectionReason}" Classes="muted" FontSize="11" />
+                                                            </StackPanel>
+                                                        </Expander.Header>
+                                                        <StackPanel Margin="0,8,0,0" Spacing="8">
+                                                        <ItemsControl ItemsSource="{Binding SelectedState.LocalisationInspection.ReferenceChain}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:LocalisationReferencePresentation">
+                                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,0,0,5">
+                                                                        <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
+                                                                        <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="muted" TextTrimming="CharacterEllipsis" />
+                                                                        <TextBlock Grid.Column="2" Text="{Binding Contribution.EffectiveLayerLabel}" Classes="muted" FontSize="10" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <ItemsControl ItemsSource="{Binding SelectedState.LocalisationInspection.Attempts}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:LocalisationAttemptPresentation">
+                                                                    <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="11" Margin="0,0,0,7">
+                                                                        <StackPanel Spacing="4">
+                                                                            <Grid ColumnDefinitions="*,Auto">
+                                                                                <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
+                                                                                <TextBlock Grid.Column="1" Text="{Binding Outcome}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="SemiBold" />
+                                                                            </Grid>
+                                                                            <TextBlock Text="{Binding ResolutionReason}" Classes="muted" TextWrapping="Wrap" />
+                                                                            <StackPanel IsVisible="{Binding HasContribution}" Spacing="3">
+                                                                                <TextBlock Text="{Binding Contribution.EffectiveLayerLabel}" />
+                                                                                <TextBlock Text="{Binding Contribution.ContributionCountLabel}" Classes="muted" />
+                                                                                <ItemsControl ItemsSource="{Binding Contribution.Contributions}">
+                                                                                    <ItemsControl.ItemTemplate>
+                                                                                        <DataTemplate x:DataType="vm:ContributionItemPresentation">
+                                                                                            <Grid ColumnDefinitions="95,*" ColumnSpacing="8" Margin="0,3,0,0">
+                                                                                                <TextBlock Text="{Binding DispositionLabel}" FontWeight="SemiBold" />
+                                                                                                <TextBlock Grid.Column="1" Text="{Binding Source.VirtualPath}" Classes="muted"
+                                                                                                           FontFamily="Menlo,Consolas,monospace" FontSize="10" TextTrimming="CharacterEllipsis" />
+                                                                                            </Grid>
+                                                                                        </DataTemplate>
+                                                                                    </ItemsControl.ItemTemplate>
+                                                                                </ItemsControl>
+                                                                            </StackPanel>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        </StackPanel>
+                                                    </Expander>
                                                 </StackPanel>
                                             </Border>
                                             <Border Classes="card" Padding="18">
@@ -539,6 +606,73 @@
                                                 <TextBlock Text="{Binding SelectedCountry.LocalisationSource}" TextWrapping="Wrap" FontFamily="Menlo,Consolas,monospace" />
                                                 <TextBlock Text="{Binding SelectedCountry.LocalisationLocation}" Classes="muted" />
                                                 <TextBlock Text="{Binding SelectedCountry.ResolvedLanguage, StringFormat=Language: {0}}" Classes="muted" />
+                                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="0,5,0,0">
+                                                    <StackPanel Grid.Column="0" Spacing="2">
+                                                        <TextBlock Classes="label" Text="REQUESTED" />
+                                                        <TextBlock Text="{Binding SelectedCountry.LocalisationInspection.RequestedLanguage}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Spacing="2">
+                                                        <TextBlock Classes="label" Text="RESOLVED" />
+                                                        <TextBlock Text="{Binding SelectedCountry.LocalisationInspection.ResolvedLanguage}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" Spacing="2">
+                                                        <TextBlock Classes="label" Text="FALLBACK" />
+                                                        <TextBlock Text="{Binding SelectedCountry.LocalisationInspection.FallbackStatus}" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Grid>
+                                                <Expander AutomationProperties.Name="Country localisation resolution attempts"
+                                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                          Background="Transparent" BorderThickness="0">
+                                                    <Expander.Header>
+                                                        <StackPanel Spacing="2">
+                                                            <TextBlock Text="Resolution path" FontWeight="SemiBold" />
+                                                            <TextBlock Text="{Binding SelectedCountry.LocalisationInspection.SelectionReason}" Classes="muted" FontSize="11" />
+                                                        </StackPanel>
+                                                    </Expander.Header>
+                                                    <StackPanel Margin="0,8,0,0" Spacing="8">
+                                                    <ItemsControl ItemsSource="{Binding SelectedCountry.LocalisationInspection.ReferenceChain}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:LocalisationReferencePresentation">
+                                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,0,0,5">
+                                                                    <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
+                                                                    <TextBlock Grid.Column="1" Text="{Binding Value}" Classes="muted" TextTrimming="CharacterEllipsis" />
+                                                                    <TextBlock Grid.Column="2" Text="{Binding Contribution.EffectiveLayerLabel}" Classes="muted" FontSize="10" />
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <ItemsControl ItemsSource="{Binding SelectedCountry.LocalisationInspection.Attempts}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:LocalisationAttemptPresentation">
+                                                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="11" Margin="0,0,0,7">
+                                                                    <StackPanel Spacing="4">
+                                                                        <Grid ColumnDefinitions="*,Auto">
+                                                                            <TextBlock Text="{Binding StepLabel}" FontWeight="SemiBold" />
+                                                                            <TextBlock Grid.Column="1" Text="{Binding Outcome}" Foreground="{DynamicResource OxideAccentSoft}" FontWeight="SemiBold" />
+                                                                        </Grid>
+                                                                        <TextBlock Text="{Binding ResolutionReason}" Classes="muted" TextWrapping="Wrap" />
+                                                                        <StackPanel IsVisible="{Binding HasContribution}" Spacing="3">
+                                                                            <TextBlock Text="{Binding Contribution.EffectiveLayerLabel}" />
+                                                                            <TextBlock Text="{Binding Contribution.ContributionCountLabel}" Classes="muted" />
+                                                                            <ItemsControl ItemsSource="{Binding Contribution.Contributions}">
+                                                                                <ItemsControl.ItemTemplate>
+                                                                                    <DataTemplate x:DataType="vm:ContributionItemPresentation">
+                                                                                        <Grid ColumnDefinitions="95,*" ColumnSpacing="8" Margin="0,3,0,0">
+                                                                                            <TextBlock Text="{Binding DispositionLabel}" FontWeight="SemiBold" />
+                                                                                            <TextBlock Grid.Column="1" Text="{Binding Source.VirtualPath}" Classes="muted"
+                                                                                                       FontFamily="Menlo,Consolas,monospace" FontSize="10" TextTrimming="CharacterEllipsis" />
+                                                                                        </Grid>
+                                                                                    </DataTemplate>
+                                                                                </ItemsControl.ItemTemplate>
+                                                                            </ItemsControl>
+                                                                        </StackPanel>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    </StackPanel>
+                                                </Expander>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
