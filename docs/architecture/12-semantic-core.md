@@ -59,11 +59,13 @@ Oxide does not silently choose one.
 Every sourced value records its original token text and a `SourceProvenance`
 containing document ID, physical path, content layer, and exact text span.
 
-An `EffectiveValue` is created only when this slice has one unambiguous
-candidate. It records the selected provenance and selection reason. When an
-identity has several declarations, all contributions remain available but no
-effective declaration or property is selected because content precedence is
-not yet verified.
+An `EffectiveValue` records the selected value, exact provenance, selection
+reason, and any ignored candidates. Entity and localisation declarations use a
+shared `ContributionResolution`: every candidate is classified as effective,
+shadowed, ambiguous, invalid, or excluded. The supported domains use
+`LayeredOverride` policy—higher participating layers override lower layers,
+while competing valid declarations in the winning layer remain ambiguous.
+No losing declaration is discarded.
 
 ## Entities and indexes
 
@@ -86,10 +88,11 @@ Every province reference retains the state-side value provenance and every
 region-side candidate provenance.
 
 The localisation index is keyed by `(language, key)`. `LocalisationResolver`
-returns explicit resolved, missing, ambiguous, or invalid outcomes. It first tries
-the requested language and may fall back to English only when the exact key is
-missing. It never selects from duplicate candidates. Resolved outcomes carry the
-selected declaration and exact value provenance. `ResolveName` applies this same
+returns explicit resolved, missing, ambiguous, or invalid outcomes. It first
+resolves the requested language by layer and may fall back to English only when
+that exact key is missing; fallback then performs its own layer resolution.
+Same-layer duplicates remain ambiguous. Whole-value aliases are followed through
+a bounded, provenance-preserving reference chain. `ResolveName` applies this same
 policy to state name keys, country tags, and strategic-region name keys, returning
 a deterministic identifier fallback when no human-readable value can be selected.
 
@@ -130,8 +133,9 @@ provenance. Syntax, workspace, and semantic diagnostics remain distinct layers.
 ## Current limitations
 
 This slice does not load country history files, infer ideology-specific country
-name conventions, simulate dated history, select among duplicate declarations,
-infer mod precedence, model a complete province registry, type strategic-region
-weather, or model states beyond the listed properties. Owner and core
+name conventions, simulate dated history, infer launcher dependency ordering,
+model a complete province registry, type strategic-region weather, or model
+states beyond the listed properties. Same-layer duplicates intentionally remain
+ambiguous. Owner and core
 extraction is limited to immediate properties of the state's initial `history`
 block; dated or scripted changes are not presented as initial ownership.

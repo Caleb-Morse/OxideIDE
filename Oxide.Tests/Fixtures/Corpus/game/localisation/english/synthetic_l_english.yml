@@ -1,5 +1,6 @@
 l_english:
- SYNTHETIC_STATE_1:0 "Alpha State"
+ SYNTHETIC_STATE_1:0 "$SYNTHETIC_VP_1$"
+ SYNTHETIC_VP_1:0 "Alpha State"
  SYNTHETIC_STATE_2:1 "Beta State"
  SYNTHETIC_STATE_3:0 "Gamma State"
  AAA:0 "Alpha Republic"

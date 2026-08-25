@@ -120,6 +120,9 @@ It reports:
   diagnostic, and provenance counts;
 - exact, English-fallback, missing, ambiguous, invalid, and no-key state,
   country, and strategic-region name outcomes;
+- contribution-resolution totals by supported domain, content layer, and
+  disposition, including multi-contribution identities, cross-layer overrides,
+  same-layer duplicates, invalid winners, and missing identities;
 - requested and effective report language plus fallback policy;
 - name projection duration, throughput, and managed memory observed when the
   report is created; and
@@ -132,7 +135,9 @@ emitted to standard output; a compact health summary is emitted to standard
 error so redirected automation retains clean JSON.
 
 The canonical synthetic report requests Spanish with English fallback enabled,
-deliberately exercising exact, fallback, missing, ambiguous, and no-key paths.
+deliberately exercising exact, fallback, missing, ambiguous, and no-key paths,
+plus layered overrides, excluded documents, same-layer duplicates, and a
+whole-value localisation alias.
 Tests assert exact structural counts and normalize only volatile timing and
 memory observations when checking repeatability.
 

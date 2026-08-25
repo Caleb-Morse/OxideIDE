@@ -35,6 +35,20 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(9, summary.StateEntityCount);
         Assert.Equal(3, summary.CountryDeclarationCount);
         Assert.Equal(2, summary.CountryEntityCount);
+        var contributions = summary.Contributions;
+        Assert.Equal(new ContributionDispositionCounts(10, 9, 0, 0, 0, 1), contributions.States.Dispositions);
+        Assert.Equal(new ContributionDispositionCounts(3, 2, 1, 0, 0, 0), contributions.Countries.Dispositions);
+        Assert.Equal(new ContributionDispositionCounts(4, 3, 1, 0, 0, 0), contributions.StrategicRegions.Dispositions);
+        Assert.Equal(new ContributionDispositionCounts(17, 14, 1, 2, 0, 0), contributions.Localisations.Dispositions);
+        Assert.Equal(new ContributionDispositionCounts(34, 28, 3, 2, 0, 1), contributions.AllDomains.Dispositions);
+        Assert.Equal(29, contributions.AllDomains.IdentityCount);
+        Assert.Equal(5, contributions.AllDomains.MultiContributionIdentityCount);
+        Assert.Equal(3, contributions.AllDomains.CrossLayerOverrideCount);
+        Assert.Equal(1, contributions.AllDomains.SameLayerDuplicateIdentityCount);
+        Assert.Equal(0, contributions.AllDomains.InvalidWinnerIdentityCount);
+        Assert.Equal(0, contributions.AllDomains.MissingIdentityCount);
+        Assert.Equal(5, contributions.AllDomains.ContributionsByLayer["active-mod"]);
+        Assert.Equal(29, contributions.AllDomains.ContributionsByLayer["base-game"]);
         Assert.Equal(16, summary.SemanticDiagnosticCount);
         Assert.Equal(1, summary.SemanticDiagnosticsByCode["OXIDE4002"]);
         Assert.DoesNotContain("OXIDE4003", summary.SemanticDiagnosticsByCode.Keys);
@@ -71,15 +85,15 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(6, localisation.DocumentsLoaded);
         Assert.Equal(0, localisation.DocumentsFailed);
         Assert.Equal(["english", "russian", "simp_chinese", "spanish"], localisation.LanguagesDiscovered.ToArray());
-        Assert.Equal(11, localisation.DeclarationsByLanguage["english"]);
+        Assert.Equal(12, localisation.DeclarationsByLanguage["english"]);
         Assert.Equal(1, localisation.DeclarationsByLanguage["russian"]);
         Assert.Equal(1, localisation.DeclarationsByLanguage["simp_chinese"]);
         Assert.Equal(3, localisation.DeclarationsByLanguage["spanish"]);
-        Assert.Equal(16, localisation.DeclarationCount);
-        Assert.Equal(14, localisation.UniqueIdentityCount);
+        Assert.Equal(17, localisation.DeclarationCount);
+        Assert.Equal(15, localisation.UniqueIdentityCount);
         Assert.Equal(2, localisation.DuplicateIdentityCount);
         Assert.Equal(1, localisation.AmbiguousEntryCount);
-        Assert.Equal(16, localisation.DeclarationsWithValidProvenance);
+        Assert.Equal(17, localisation.DeclarationsWithValidProvenance);
         Assert.Equal(1, localisation.SyntaxDiagnosticCount);
         Assert.Equal(1, localisation.SyntaxDiagnosticsByCode["OXIDE1204"]);
         Assert.Equal(1, localisation.SemanticDiagnosticCount);
@@ -154,9 +168,14 @@ public sealed class SyntheticCorpusTests
         {
             var document = snapshot.DocumentsById[resolution.Provenance.DocumentId];
             Assert.NotNull(document.Text);
-            Assert.Equal(resolution.Declaration.Value.OriginalText,
+            Assert.Equal(resolution.ReferenceChain[^1].Declaration.Value.OriginalText,
                 document.Text!.GetText(resolution.Provenance.Span));
         });
+        var referencedStateName = Assert.IsType<ResolvedLocalisation>(
+            snapshot.Semantics.LocalisationResolver.Resolve("english", "SYNTHETIC_STATE_1"));
+        Assert.Equal("Alpha State", referencedStateName.Value);
+        Assert.Equal(["SYNTHETIC_STATE_1", "SYNTHETIC_VP_1"],
+            referencedStateName.ReferenceChain.Select(step => step.Identity.Key.Value));
         Assert.All(snapshot.Semantics.StateStrategicRegionMemberships.Values
             .SelectMany(membership => membership.Provinces), reference =>
         {

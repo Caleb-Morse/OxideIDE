@@ -11,6 +11,11 @@ erDiagram
     STATE_ENTITY ||--|{ STATE_DECLARATION : contributions
     COUNTRY_ENTITY ||--|{ COUNTRY_TAG_DECLARATION : contributions
     STRATEGIC_REGION_ENTITY ||--|{ STRATEGIC_REGION_DECLARATION : contributions
+    STATE_ENTITY ||--|| CONTRIBUTION_RESOLUTION : resolves_with
+    COUNTRY_ENTITY ||--|| CONTRIBUTION_RESOLUTION : resolves_with
+    STRATEGIC_REGION_ENTITY ||--|| CONTRIBUTION_RESOLUTION : resolves_with
+    LOCALISATION_ENTRY ||--|| CONTRIBUTION_RESOLUTION : resolves_with
+    CONTRIBUTION_RESOLUTION ||--|{ RESOLVED_CONTRIBUTION : classifies
     STATE_ENTITY ||--o{ STATE_RESOURCE : has
     STATE_ENTITY ||--o{ STATE_PROVINCE : contains
     STRATEGIC_REGION_ENTITY ||--o{ REGION_PROVINCE_CLAIM : contains
@@ -55,6 +60,18 @@ erDiagram
     }
     SEMANTIC_SNAPSHOT {
         bigint snapshot_version PK
+    }
+    CONTRIBUTION_RESOLUTION {
+        string resolution_id PK
+        enum policy
+        enum outcome
+    }
+    RESOLVED_CONTRIBUTION {
+        string resolution_id FK
+        int ordinal PK
+        string layer_id FK
+        enum disposition
+        string reason
     }
     STATE_DECLARATION {
         string declaration_id PK

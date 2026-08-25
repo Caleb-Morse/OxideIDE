@@ -5,6 +5,12 @@
 Oxide builds an explicit `LoadPlan` and resolves each virtual path and entity
 kind through registered policies. There is no universal “last file wins” rule.
 
+The implemented vertical slice uses ordered `ContentLayer` records. It supports
+base game plus explicitly configured mod layers; the desktop setup currently
+creates base game plus one optional active-mod layer. Supported state,
+country-tag, strategic-region, and language-qualified localisation identities
+use the shared `LayeredOverride` contribution policy.
+
 ## Content layers
 
 A workspace may contain:
@@ -29,6 +35,10 @@ hide lower-layer content before declaration-level resolution occurs. Hidden
 files remain indexed for explanation and comparison but cannot contribute to
 the effective model.
 
+For supported paths, an identical virtual file in a higher layer replaces the
+lower file before declaration resolution. The lower document and declarations
+remain inspectable with an excluded disposition.
+
 ## Resolution policies
 
 A policy is selected using virtual directory, file type, and entity kind. The
@@ -44,6 +54,12 @@ initial policy vocabulary is:
 
 Policies may also define deterministic ordering within a layer, but ordering
 must be verified against the game rather than assumed from filesystem order.
+
+The implemented `LayeredOverride` policy selects one valid declaration from the
+highest contributing layer. Several declarations for the same identity in that
+highest layer remain ambiguous; lower valid declarations are shadowed. Missing,
+invalid, ambiguous, effective, shadowed, and document-excluded outcomes are
+represented explicitly rather than discarded.
 
 ## Effective and complete views
 

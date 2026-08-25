@@ -75,6 +75,12 @@ static void WriteHumanSummary(CorpusSummary summary)
         $"{regions.StateMemberships.Split:N0} split, {regions.StateMemberships.Partial:N0} partial, " +
         $"{regions.StateMemberships.Missing:N0} missing, {regions.StateMemberships.Ambiguous:N0} ambiguous, " +
         $"{regions.StateMemberships.NoProvinces:N0} without provinces.");
+    var contributions = summary.Contributions.AllDomains;
+    Console.Error.WriteLine($"Contributions: {contributions.Dispositions.Total:N0} across {contributions.IdentityCount:N0} identities; " +
+        $"{contributions.Dispositions.Effective:N0} effective, {contributions.Dispositions.Shadowed:N0} shadowed, " +
+        $"{contributions.Dispositions.Ambiguous:N0} ambiguous, {contributions.Dispositions.Invalid:N0} invalid, " +
+        $"{contributions.Dispositions.Excluded:N0} excluded. " +
+        $"Overrides: {contributions.CrossLayerOverrideCount:N0}; same-layer duplicates: {contributions.SameLayerDuplicateIdentityCount:N0}.");
     Console.Error.WriteLine($"Diagnostics: {summary.SyntaxDiagnosticCount:N0} syntax, {summary.SemanticDiagnosticCount:N0} semantic. Slowest stage: {slowestStage.Item1} ({slowestStage.Item2:N0} ms).");
 }
 

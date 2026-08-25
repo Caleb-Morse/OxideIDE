@@ -251,12 +251,14 @@ Standalone chart source: [`diagrams/implemented-logical-erd.mmd`](diagrams/imple
 | `CountryTagDeclaration` | no implemented standalone ID | document, original and normalized tag, definition path, provenance | Same ID recommendation as above. |
 | `StrategicRegionDeclaration` | no implemented standalone ID | document, ID/name candidates, ordered sourced province claims, declaration provenance | Invalid declarations remain inspectable; valid IDs contribute to a typed region. |
 | `LocalisationDeclaration` | no implemented standalone ID | language, case-sensitive key, optional version, sourced value, declaration provenance | Every duplicate remains a contribution to its language-qualified entry. |
-| `LocalisationEntry` | `(language, localisation_key)` | immutable declaration contributions | One contribution resolves; multiple contributions are ambiguous. |
-| `LocalisationResolution` | requested language and key | resolved, missing, or ambiguous payload | English fallback is attempted only after an exact-language miss. Invalid raw requests have a distinct result. |
+| `ContributionResolution<T>` | semantic identity | policy, outcome kind, classified contributions | Shared immutable result for states, countries, regions, and localisation; losing candidates remain queryable. |
+| `ResolvedContribution<T>` | contribution ordinal | declaration, layer, disposition, reason | Disposition is effective, shadowed, ambiguous, invalid, or excluded. |
+| `LocalisationEntry` | `(language, localisation_key)` | immutable declaration contributions and shared resolution | Higher participating layers override lower layers; same-layer valid duplicates remain ambiguous. |
+| `LocalisationResolution` | requested language and key | resolved, missing, ambiguous, or invalid payload and reference chain | English fallback is attempted only after an exact-language miss and performs its own layer resolution. |
 | `EntityId` | `(kind, namespace, local_key)` | typed canonical identity | Current kinds: `State`, `Country`, `StrategicRegion`. Numeric identities use `global`; country uses `tag`. |
 | `StateEntity` | `EntityId` | status, effective name/manpower/category/resources/provinces, owner and core references | Derived per semantic snapshot. |
 | `CountryEntity` | `EntityId` | status, effective definition path | Derived per semantic snapshot. |
-| `StrategicRegionEntity` | `EntityId` | status, contributions, effective name, ordered effective province claims | Duplicate identities retain all contributions and expose no effective values. |
+| `StrategicRegionEntity` | `EntityId` | status, contribution resolution, effective name, ordered effective province claims | Cross-layer overrides resolve; same-layer duplicates retain all contributions and remain ambiguous. |
 | `ProvinceStrategicRegionIndex` | province ID | every `ProvinceStrategicRegionCandidate` | Immutable snapshot lookup; repeated same-region claims remain resolved, competing/ambiguous identities remain ambiguous. |
 | `StateStrategicRegionMembership` | state numeric ID | status, province references, resolved regions, diagnostics | Outcomes are single, split, partial, missing, ambiguous, or no-provinces. |
 | `ProvinceStrategicRegionReference` | state province occurrence | state-side effective value plus resolved/missing/ambiguous outcome | Resolved and ambiguous outcomes retain every region-side candidate provenance. |
@@ -275,15 +277,19 @@ Standalone chart source: [`diagrams/implemented-logical-erd.mmd`](diagrams/imple
 - `Country` tag: exactly three ASCII letters or digits; lookup is uppercase.
 - `State` local key: integer scalar; exactly one ID candidate is needed for a typed
   identity.
-- `SemanticEntityStatus`: `Effective`, `Ambiguous`, `Invalid`.
-- `ContentLayerKind`: `BaseGame`, `ActiveMod`.
+- `SemanticEntityStatus`: `Effective`, `Ambiguous`, `Invalid`, `Missing`.
+- `ContentLayerKind`: `BaseGame`, `Mod`.
 - `DocumentLoadStatus`: `Loaded`, `Failed`.
-- `DocumentContributionStatus`: `SoleCandidate`, `UnknownPrecedence`.
+- `DocumentParticipationKind`: `Participating`, `ShadowedByHigherLayerPath`,
+  `ExcludedByReplacementPath`.
+- `ContributionDisposition`: `Effective`, `Shadowed`, `Ambiguous`, `Invalid`,
+  `Excluded`.
 - `CountryResolution`: `ResolvedCountry`, `MissingCountry`, `AmbiguousCountry`,
   `InvalidCountry`.
 - `LocalisationResolution`: `ResolvedLocalisation`, `MissingLocalisation`,
   `AmbiguousLocalisation`; invalid input returns `InvalidLocalisation`.
-- A state gets one effective declaration only when it has one contribution.
+- A state gets an effective declaration when layered resolution finds one valid
+  winner; every lower-layer or excluded contribution remains attached.
 - Effective scalar properties require exactly one candidate. Duplicate resources do
   not receive an effective value. Owner is optional and is resolved only when there is
   one owner candidate. Cores are multi-valued.
@@ -664,12 +670,13 @@ are mainly an implementation detail. If materialized:
 3. Declarations, references, provenance, and diagnostics have no standalone IDs in the
    current in-memory model. Surrogate/deterministic IDs are needed for a conventional
    ERD.
-4. Content precedence is intentionally unknown. Do not add a universal “last file
-   wins” constraint. Policies depend on directory, file type, entity kind, game
-   version, `replace_path`, and verified ordering.
-5. Country history and semantic localisation resolution are planned but not
-   implemented. Localisation syntax is loaded losslessly, while current state
-   ownership is only an initial-history extraction.
+4. Supported states, country tags, localisation, and strategic regions use verified
+   ordered-layer override resolution plus `replace_path`. Do not generalize this
+   into a universal “last file wins” constraint; other domains still need their
+   own verified policies.
+5. Country history and ideology-specific naming are not implemented. Semantic
+   localisation resolution, fallback, aliases, and provenance are implemented;
+   current state ownership remains an initial-history extraction.
 6. Province, strategic-region, supply, and map-adjacency identities and membership
    constraints need profile-backed validation before making them mandatory.
 7. Equipment/archetype inheritance, shared focus branches, operation phases, MIO

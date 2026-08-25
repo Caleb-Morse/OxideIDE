@@ -18,9 +18,10 @@ silently treated as supported.
 
 ## Configuration and content layers
 
-`WorkspaceConfiguration` contains normalized absolute roots and a display
-name. A snapshot exposes explicit `ContentLayer` records for the read-only base
-game and, when configured, the writable active mod.
+`WorkspaceConfiguration` contains ordered normalized `ContentLayer` records and
+a display name. Convenience construction supports the read-only base game and
+optional writable active mod; the core API also accepts several named mod layers
+with distinct positions and enabled states.
 
 Physical paths and normalized `VirtualPath` values remain separate. Virtual
 paths use forward slashes, are relative to a content root, and reject traversal
@@ -54,13 +55,14 @@ a partially populated snapshot.
 Progress reports distinguish discovery, document loading, publication, and
 completion. Discovery and parsing execute on a worker thread.
 
-## Precedence and uncertainty
+## Document participation
 
-The workspace core does not claim a base/mod file-precedence rule. When several
-layers contain the same virtual path, every candidate is marked
-`UnknownPrecedence`. When only one candidate exists, it is marked
-`SoleCandidate`. Later versioned game-profile policies will determine effective
-visibility without removing the complete view.
+The loader classifies every discovered document as `Participating`,
+`ShadowedByHigherLayerPath`, or `ExcludedByReplacementPath`. An identical
+virtual path in a higher layer shadows the lower document. Descriptor
+`replace_path` rules exclude lower-layer documents under the replaced directory.
+Excluded documents remain loaded, parsed, indexed, and available through the
+declaration inventory, but cannot supply an effective semantic contribution.
 
 ## Diagnostics
 
@@ -75,7 +77,9 @@ physical path, and source span.
 
 ## Current limitations
 
-The current implementation uses explicit reload rather than file watching,
-supports only base game plus one active mod, and does not resolve DLC,
-dependency mods, launcher playsets, a complete province registry, or effective
-base/mod precedence.
+The current implementation uses explicit reload rather than file watching. The
+desktop setup supports base game plus one active mod; ordered dependency-style
+layers require programmatic configuration. Oxide does not yet resolve DLC,
+launcher playsets, dependency order from descriptors, or a complete province
+registry. Precedence is implemented only for supported domains and paths, not
+as a universal Clausewitz loading rule.

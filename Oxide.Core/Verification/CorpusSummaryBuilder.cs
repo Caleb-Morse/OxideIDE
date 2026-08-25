@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
+using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Semantics.Identity;
 using Oxide.Core.Semantics.Resolution;
 using Oxide.Core.Workspaces.Documents;
@@ -45,6 +46,7 @@ public static class CorpusSummaryBuilder
             snapshot.Semantics.States.Count,
             snapshot.Semantics.CountryDeclarations.Length,
             snapshot.Semantics.Countries.Count,
+            BuildContributionSummary(snapshot),
             BuildStrategicRegionSummary(snapshot),
             snapshot.Semantics.Diagnostics.Length,
             CountByCode(snapshot.Semantics.Diagnostics.Select(diagnostic => diagnostic.Code)),
@@ -57,6 +59,80 @@ public static class CorpusSummaryBuilder
             BuildLocalisationSummary(snapshot, options),
             snapshot.LoadMetrics,
             totalLoadDuration.TotalMilliseconds);
+    }
+
+    private static ContributionCorpusSummary BuildContributionSummary(WorkspaceSnapshot snapshot)
+    {
+        var states = BuildContributionDomain(snapshot.Semantics.States.Values
+            .Select(entity => entity.ContributionResolution));
+        var countries = BuildContributionDomain(snapshot.Semantics.Countries.Values
+            .Select(entity => entity.ContributionResolution));
+        var strategicRegions = BuildContributionDomain(snapshot.Semantics.StrategicRegions.Values
+            .Select(entity => entity.ContributionResolution));
+        var localisations = BuildContributionDomain(snapshot.Semantics.Localisations.Values
+            .Select(entry => entry.Resolution));
+        return new ContributionCorpusSummary(
+            states,
+            countries,
+            strategicRegions,
+            localisations,
+            Aggregate([states, countries, strategicRegions, localisations]));
+    }
+
+    private static ContributionDomainSummary BuildContributionDomain<TIdentity, TDeclaration>(
+        IEnumerable<ContributionResolution<TIdentity, TDeclaration>> source)
+        where TIdentity : notnull
+    {
+        var resolutions = source.ToArray();
+        var contributions = resolutions.SelectMany(resolution => resolution.Contributions).ToArray();
+        return new ContributionDomainSummary(
+            resolutions.Length,
+            resolutions.Count(resolution => resolution.Contributions.Length > 1),
+            resolutions.Count(resolution =>
+                resolution.Reason.Kind is ContributionResolutionReasonKind.HigherLayerPrecedence),
+            resolutions.Count(resolution =>
+                resolution.Kind is ContributionResolutionKind.DuplicateWithinLayer),
+            resolutions.Count(resolution => resolution.Kind is ContributionResolutionKind.InvalidWinner),
+            resolutions.Count(resolution => resolution.Kind is ContributionResolutionKind.Missing),
+            new ContributionDispositionCounts(
+                contributions.Length,
+                contributions.Count(contribution => contribution.Disposition is ContributionDisposition.Effective),
+                contributions.Count(contribution => contribution.Disposition is ContributionDisposition.Shadowed),
+                contributions.Count(contribution => contribution.Disposition is ContributionDisposition.Ambiguous),
+                contributions.Count(contribution => contribution.Disposition is ContributionDisposition.Invalid),
+                contributions.Count(contribution => contribution.Disposition is ContributionDisposition.Excluded)),
+            contributions
+                .GroupBy(contribution => contribution.Contribution.Provenance.Layer.Id.Value, StringComparer.Ordinal)
+                .ToImmutableSortedDictionary(
+                    group => group.Key,
+                    group => group.Count(),
+                    StringComparer.Ordinal));
+    }
+
+    private static ContributionDomainSummary Aggregate(ImmutableArray<ContributionDomainSummary> domains)
+    {
+        var layers = domains
+            .SelectMany(domain => domain.ContributionsByLayer)
+            .GroupBy(entry => entry.Key, StringComparer.Ordinal)
+            .ToImmutableSortedDictionary(
+                group => group.Key,
+                group => group.Sum(entry => entry.Value),
+                StringComparer.Ordinal);
+        return new ContributionDomainSummary(
+            domains.Sum(domain => domain.IdentityCount),
+            domains.Sum(domain => domain.MultiContributionIdentityCount),
+            domains.Sum(domain => domain.CrossLayerOverrideCount),
+            domains.Sum(domain => domain.SameLayerDuplicateIdentityCount),
+            domains.Sum(domain => domain.InvalidWinnerIdentityCount),
+            domains.Sum(domain => domain.MissingIdentityCount),
+            new ContributionDispositionCounts(
+                domains.Sum(domain => domain.Dispositions.Total),
+                domains.Sum(domain => domain.Dispositions.Effective),
+                domains.Sum(domain => domain.Dispositions.Shadowed),
+                domains.Sum(domain => domain.Dispositions.Ambiguous),
+                domains.Sum(domain => domain.Dispositions.Invalid),
+                domains.Sum(domain => domain.Dispositions.Excluded)),
+            layers);
     }
 
     private static LocalisationCorpusSummary BuildLocalisationSummary(
