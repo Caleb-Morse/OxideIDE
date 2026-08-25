@@ -71,7 +71,20 @@ public sealed class ContributionPresentationTests
                 Assert.Equal(
                     contribution.Source.PhysicalPath,
                     snapshot.DocumentsById[contribution.Source.DocumentId].PhysicalPath);
+                Assert.Equal(contribution.Source.DocumentId, contribution.NavigationRequest.DocumentId);
+                Assert.Equal(contribution.Source.PhysicalPath, contribution.NavigationRequest.PhysicalPath);
+                Assert.Equal(contribution.Source.VirtualPath, contribution.NavigationRequest.VirtualPath);
+                Assert.Equal(contribution.Source.LayerId, contribution.NavigationRequest.LayerId);
+                Assert.Equal(contribution.Source.SpanStart, contribution.NavigationRequest.SpanStart);
+                Assert.Equal(contribution.Source.SpanLength, contribution.NavigationRequest.SpanLength);
+                Assert.Equal(presentation.SemanticIdentity, contribution.NavigationRequest.SemanticIdentity);
             });
+            Assert.Equal(
+                presentation.EffectiveSource?.DocumentId,
+                presentation.EffectiveNavigationRequest?.DocumentId);
+            var comparison = Assert.Single(presentation.Comparisons);
+            Assert.Equal(comparison.ShadowedSource.DocumentId, comparison.ShadowedNavigationRequest.DocumentId);
+            Assert.Equal(presentation.SemanticIdentity, comparison.ShadowedNavigationRequest.SemanticIdentity);
         });
 
         var stateFields = Assert.Single(presentations[0].Comparisons).Fields;

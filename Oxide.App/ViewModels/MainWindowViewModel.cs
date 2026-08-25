@@ -35,6 +35,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private WorkspaceSnapshot? snapshot;
     private OxideTheme theme = OxideTheme.IronRustDark;
     private bool showingCountryDetails;
+    private SourceNavigationRequest? lastSourceNavigationRequest;
 
     public MainWindowViewModel()
         : this(new WorkspaceService(), new JsonApplicationSettingsStore(), ownsWorkspaceService: true)
@@ -54,6 +55,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public event Action<OxideTheme>? ThemeChanged;
 
+    public event Action<SourceNavigationRequest>? SourceNavigationRequested;
+
     public string ApplicationName { get; }
 
     public ObservableCollection<StateListItemViewModel> States { get; } = [];
@@ -63,6 +66,32 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<LanguageOptionViewModel> AvailableLanguages { get; } = [];
 
     public ObservableCollection<ProblemListItemViewModel> Problems { get; } = [];
+
+    public SourceNavigationRequest? LastSourceNavigationRequest
+    {
+        get => lastSourceNavigationRequest;
+        private set
+        {
+            if (SetProperty(ref lastSourceNavigationRequest, value))
+            {
+                OnPropertyChanged(nameof(HasSourceNavigationRequest));
+                OnPropertyChanged(nameof(SourceNavigationSummary));
+            }
+        }
+    }
+
+    public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null;
+
+    public string SourceNavigationSummary => LastSourceNavigationRequest is null
+        ? string.Empty
+        : $"Source target: {LastSourceNavigationRequest.VirtualPath} · {LastSourceNavigationRequest.Location}";
+
+    public void RequestSourceNavigation(SourceNavigationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        LastSourceNavigationRequest = request;
+        SourceNavigationRequested?.Invoke(request);
+    }
 
     public ApplicationScreen Screen
     {

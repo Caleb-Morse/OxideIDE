@@ -21,6 +21,7 @@ public sealed record ContributionComparisonPresentation(
     string ShadowedContributionId,
     string ShadowedSummary,
     ContributionSourcePresentation ShadowedSource,
+    SourceNavigationRequest ShadowedNavigationRequest,
     ImmutableArray<ContributionFieldComparisonPresentation> Fields)
 {
     public int DifferenceCount => Fields.Count(field => field.Difference is not ContributionFieldDifference.Unchanged);

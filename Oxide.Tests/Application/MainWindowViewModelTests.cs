@@ -483,6 +483,27 @@ public sealed class MainWindowViewModelTests
         });
     }
 
+    [Fact]
+    public async Task Source_navigation_action_publishes_the_exact_navigation_request()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var request = Assert.Single(viewModel.States).Contribution.EffectiveNavigationRequest!;
+        SourceNavigationRequest? published = null;
+        viewModel.SourceNavigationRequested += value => published = value;
+
+        viewModel.RequestSourceNavigation(request);
+
+        Assert.Same(request, published);
+        Assert.Same(request, viewModel.LastSourceNavigationRequest);
+        Assert.True(viewModel.HasSourceNavigationRequest);
+        Assert.Contains(request.VirtualPath, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
+        Assert.Contains(request.Location, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
+    }
+
     private sealed class CancellableWorkspaceService : IWorkspaceService
     {
         public WorkspaceSnapshot? CurrentSnapshot => null;

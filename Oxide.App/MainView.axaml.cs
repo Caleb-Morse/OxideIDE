@@ -87,6 +87,14 @@ public partial class MainView : Window
         }
     }
 
+    private void OpenSource_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: SourceNavigationRequest request })
+        {
+            ViewModel.RequestSourceNavigation(request);
+        }
+    }
+
     private static void ApplyTheme(OxideTheme theme)
     {
         if (Application.Current is not null)

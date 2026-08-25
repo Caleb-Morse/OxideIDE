@@ -35,7 +35,8 @@ public sealed record ContributionItemPresentation(
     ContributionDisposition Disposition,
     string DispositionLabel,
     string Explanation,
-    ContributionSourcePresentation Source)
+    ContributionSourcePresentation Source,
+    SourceNavigationRequest NavigationRequest)
 {
     public bool IsEffective => Disposition is ContributionDisposition.Effective;
 }
@@ -54,6 +55,9 @@ public sealed record ContributionSetPresentation(
     public bool HasCompetingContributions => Contributions.Length > 1;
 
     public bool HasComparisons => Comparisons.Length > 0;
+
+    public SourceNavigationRequest? EffectiveNavigationRequest =>
+        Contributions.FirstOrDefault(contribution => contribution.IsEffective)?.NavigationRequest;
 
     public string ContributionCountLabel => ContributionCount == 1
         ? "1 contribution"
@@ -104,13 +108,18 @@ public sealed record ContributionSetPresentation(
         where TIdentity : notnull
     {
         var contributions = resolution.Contributions
-            .Select(contribution => new ContributionItemPresentation(
-                contribution.Contribution.Id.Value,
-                describe(contribution.Contribution.Declaration),
-                contribution.Disposition,
-                DescribeDisposition(contribution.Disposition),
-                contribution.Explanation,
-                CreateSource(contribution.Contribution.Provenance, snapshot)))
+            .Select(contribution =>
+            {
+                var source = CreateSource(contribution.Contribution.Provenance, snapshot);
+                return new ContributionItemPresentation(
+                    contribution.Contribution.Id.Value,
+                    describe(contribution.Contribution.Declaration),
+                    contribution.Disposition,
+                    DescribeDisposition(contribution.Disposition),
+                    contribution.Explanation,
+                    source,
+                    CreateNavigationRequest(source, semanticIdentity));
+            })
             .ToImmutableArray();
         var outcome = resolution.Kind switch
         {
@@ -124,11 +133,16 @@ public sealed record ContributionSetPresentation(
         var comparisons = resolution.EffectiveContribution is not { } effective
             ? []
             : resolution.ShadowedContributions
-                .Select(shadowed => new ContributionComparisonPresentation(
-                    shadowed.Contribution.Id.Value,
-                    describe(shadowed.Contribution.Declaration),
-                    CreateSource(shadowed.Contribution.Provenance, snapshot),
-                    compare(effective.Declaration, shadowed.Contribution.Declaration)))
+                .Select(shadowed =>
+                {
+                    var source = CreateSource(shadowed.Contribution.Provenance, snapshot);
+                    return new ContributionComparisonPresentation(
+                        shadowed.Contribution.Id.Value,
+                        describe(shadowed.Contribution.Declaration),
+                        source,
+                        CreateNavigationRequest(source, semanticIdentity),
+                        compare(effective.Declaration, shadowed.Contribution.Declaration));
+                })
                 .ToImmutableArray();
 
         return new ContributionSetPresentation(
@@ -253,6 +267,20 @@ public sealed record ContributionSetPresentation(
         var position = document.Text!.GetPosition(offset);
         return $"Line {position.Line + 1}, column {position.Character + 1}";
     }
+
+    private static SourceNavigationRequest CreateNavigationRequest(
+        ContributionSourcePresentation source,
+        string semanticIdentity) =>
+        new(
+            source.DocumentId,
+            source.PhysicalPath,
+            source.VirtualPath,
+            source.LayerId,
+            source.LayerName,
+            source.SpanStart,
+            source.SpanLength,
+            semanticIdentity,
+            source.Location);
 
     private static string DescribeDisposition(ContributionDisposition disposition) => disposition switch
     {
