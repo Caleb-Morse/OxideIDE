@@ -4,6 +4,7 @@ using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Semantics.Identity;
 using Oxide.Core.Semantics.Resolution;
 using Oxide.Core.Workspaces.Documents;
+using Oxide.Core.Workspaces.Refresh;
 using Oxide.Core.Workspaces.Snapshots;
 
 namespace Oxide.Core.Verification;
@@ -13,7 +14,8 @@ public static class CorpusSummaryBuilder
     public static CorpusSummary Build(
         WorkspaceSnapshot snapshot,
         TimeSpan totalLoadDuration,
-        CorpusSummaryOptions? options = null)
+        CorpusSummaryOptions? options = null,
+        WorkspaceRefreshResult? incrementalRefresh = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         if (totalLoadDuration < TimeSpan.Zero)
@@ -58,8 +60,25 @@ public static class CorpusSummaryBuilder
                 references.Count(reference => reference is InvalidCountry)),
             BuildLocalisationSummary(snapshot, options),
             snapshot.LoadMetrics,
-            totalLoadDuration.TotalMilliseconds);
+            totalLoadDuration.TotalMilliseconds,
+            incrementalRefresh is null ? null : BuildIncrementalRefreshSummary(incrementalRefresh));
     }
+
+    private static IncrementalRefreshCorpusSummary BuildIncrementalRefreshSummary(WorkspaceRefreshResult refresh) =>
+        new(
+            refresh.Outcome.ToString(),
+            refresh.Request.Trigger.ToString(),
+            refresh.Metrics.RawEventCount,
+            refresh.Metrics.CoalescedChangeCount,
+            refresh.Metrics.DocumentsReparsed,
+            refresh.Metrics.DocumentsReused,
+            refresh.Metrics.UsedFullRescan,
+            refresh.Metrics.RebuiltSemanticDomains.Select(domain => domain.ToString()).ToImmutableArray(),
+            refresh.Metrics.ReusedSemanticDomains.Select(domain => domain.ToString()).ToImmutableArray(),
+            refresh.Metrics.DocumentLoadingMilliseconds,
+            refresh.Metrics.SemanticMilliseconds,
+            refresh.Metrics.PublicationMilliseconds,
+            refresh.Metrics.TotalMilliseconds);
 
     private static ContributionCorpusSummary BuildContributionSummary(WorkspaceSnapshot snapshot)
     {

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Oxide.Core.Verification;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
+using Oxide.Core.Workspaces.Refresh;
 
 return await RunAsync(args);
 
@@ -18,11 +19,14 @@ static async Task<int> RunAsync(string[] args)
             options.ModRoot,
             options.WorkspaceName));
         stopwatch.Stop();
+        var refresh = await RunIncrementalProbeAsync(workspace, snapshot);
+        var reportedSnapshot = workspace.CurrentSnapshot ?? snapshot;
 
         var summary = CorpusSummaryBuilder.Build(
-            snapshot,
+            reportedSnapshot,
             stopwatch.Elapsed,
-            new CorpusSummaryOptions(options.Language, options.EnglishFallbackEnabled));
+            new CorpusSummaryOptions(options.Language, options.EnglishFallbackEnabled),
+            refresh);
         var json = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
         Console.WriteLine(json);
         WriteHumanSummary(summary);
@@ -48,6 +52,31 @@ static async Task<int> RunAsync(string[] args)
         Console.Error.WriteLine($"Corpus summary failed: {exception.Message}");
         return 1;
     }
+}
+
+static async Task<WorkspaceRefreshResult?> RunIncrementalProbeAsync(
+    WorkspaceService workspace,
+    Oxide.Core.Workspaces.Snapshots.WorkspaceSnapshot snapshot)
+{
+    var document = snapshot.Documents.FirstOrDefault(candidate => candidate.IsLoaded && candidate.Participates);
+    if (document is null)
+    {
+        return null;
+    }
+
+    var change = new DocumentChange(
+        new WorkspaceChange(
+            WorkspaceChangeKind.Changed,
+            document.SourceIdentity,
+            document.SourceIdentity,
+            DateTimeOffset.UtcNow,
+            WorkspaceChangeOrigin.Manual),
+        document.Kind,
+        document.Participation.Category);
+    return await workspace.RefreshAsync(new IncrementalRefreshRequest(
+        snapshot.Version,
+        WorkspaceRefreshTrigger.Manual,
+        new WorkspaceChangeBatch([change], rawEventCount: 1)));
 }
 
 static void WriteHumanSummary(CorpusSummary summary)
@@ -82,6 +111,12 @@ static void WriteHumanSummary(CorpusSummary summary)
         $"{contributions.Dispositions.Excluded:N0} excluded. " +
         $"Overrides: {contributions.CrossLayerOverrideCount:N0}; same-layer duplicates: {contributions.SameLayerDuplicateIdentityCount:N0}.");
     Console.Error.WriteLine($"Diagnostics: {summary.SyntaxDiagnosticCount:N0} syntax, {summary.SemanticDiagnosticCount:N0} semantic. Slowest stage: {slowestStage.Item1} ({slowestStage.Item2:N0} ms).");
+    if (summary.IncrementalRefresh is { } refresh)
+    {
+        Console.Error.WriteLine($"Incremental probe: {refresh.Outcome}; {refresh.DocumentsReparsed:N0} reparsed, " +
+            $"{refresh.DocumentsReused:N0} reused; {refresh.RebuiltSemanticDomains.Length:N0} domains rebuilt in " +
+            $"{refresh.TotalMilliseconds:N0} ms.");
+    }
 }
 
 internal sealed record CommandLineOptions(

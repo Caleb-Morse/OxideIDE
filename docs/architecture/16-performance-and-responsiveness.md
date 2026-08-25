@@ -31,6 +31,14 @@ Timing remains divided across discovery, document loading, semantic rebuilding,
 publication, and total refresh. These values are observations rather than
 deterministic pass/fail thresholds.
 
+The production corpus report now includes a read-only one-document incremental
+probe. It exposes the same document, domain, escalation, and stage observations
+in JSON and in one compact human-readable line. This is operational evidence,
+not a benchmark: correctness is established separately by full-versus-
+incremental semantic equivalence tests. A queue-capacity-one stress scenario
+proves that event pressure remains bounded, refresh operations remain serial,
+and overflow converges through a full rescan.
+
 Document-kind timings include reading and decoding as well as parsing. They are
 named loading/parsing aggregates rather than claiming precision the sequential
 loader cannot provide.

@@ -167,9 +167,10 @@ physical path, and source span.
 
 ## Current limitations
 
-The core implements bounded file watching, incremental refresh, and refresh
-coordination, but the desktop application still needs to connect that pipeline
-and present its state. The desktop setup supports base game plus one active
+The core and desktop application implement bounded file watching, incremental
+refresh, coordinated cancellation, persisted enablement, and compact status
+presentation. Per-entity semantic invalidation remains deferred; affected
+domains rebuild as immutable units. The desktop setup supports base game plus one active
 mod; ordered dependency-style layers require programmatic configuration. Oxide
 does not yet resolve DLC, launcher playsets, dependency order from descriptors,
 or a complete province registry. Precedence is implemented only for supported
