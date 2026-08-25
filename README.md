@@ -50,7 +50,8 @@ It restores the solution, builds Debug and Release, runs all normal tests,
 checks formatting and repository contents, and generates the synthetic corpus
 summary using Spanish with English fallback so exact and fallback paths are both
 exercised. The ignored JSON report is written to
-`artifacts/synthetic-corpus-summary.json`. To run the individual development
+`artifacts/synthetic-corpus-summary.json`; it includes a read-only incremental
+refresh probe and its document/domain timing observations. To run the individual development
 commands manually:
 
 ```sh

@@ -35,6 +35,7 @@
             <Setter Property="CornerRadius" Value="10" />
         </Style>
         <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{DynamicResource OxideMuted}" /></Style>
+        <Style Selector="TextBlock.attention"><Setter Property="Foreground" Value="{DynamicResource OxideErrorText}" /></Style>
         <Style Selector="TextBlock.label">
             <Setter Property="Foreground" Value="{DynamicResource OxideMuted}" />
             <Setter Property="FontSize" Value="12" />
@@ -100,6 +101,17 @@
                                             <ToggleSwitch Grid.Column="1"
                                                           IsChecked="{Binding EnglishFallbackEnabled, Mode=OneWay}"
                                                           VerticalAlignment="Center" Click="EnglishFallback_Click" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsWorkspaceVisible}">
+                                            <StackPanel Grid.Column="0" Spacing="3" Margin="0,0,12,0">
+                                                <TextBlock Text="Automatic refresh" FontWeight="SemiBold" />
+                                                <TextBlock Text="Keep this workspace current when supported files change."
+                                                           Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1"
+                                                          IsChecked="{Binding AutomaticRefreshEnabled, Mode=OneWay}"
+                                                          IsEnabled="{Binding IsAutomaticRefreshAvailable}"
+                                                          VerticalAlignment="Center" Click="AutomaticRefresh_Click" />
                                         </Grid>
                                     </StackPanel>
                                 </Border>
@@ -715,12 +727,18 @@
         </Grid>
 
         <Border Grid.Row="2" Background="{DynamicResource OxideSurface}" BorderBrush="{DynamicResource OxideBorder}" BorderThickness="0,1,0,0">
-            <Grid Margin="14,0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="14">
+            <Grid Margin="14,0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="14">
                 <TextBlock Grid.Column="0" Text="{Binding StatusSummary}" VerticalAlignment="Center" FontSize="11" Classes="muted" />
                 <TextBlock Grid.Column="1" Text="{Binding SourceNavigationSummary}" IsVisible="{Binding HasSourceNavigationRequest}"
                            VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource OxideAccentSoft}"
                            MaxWidth="520" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceNavigationSummary}" />
-                <TextBlock Grid.Column="2" Text="Read-only semantic workspace" VerticalAlignment="Center" FontSize="11" Classes="muted" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                            IsVisible="{Binding IsWorkspaceVisible}" ToolTip.Tip="{Binding AutomaticRefreshDetail}">
+                    <ProgressBar Width="28" Height="3" IsIndeterminate="True" IsVisible="{Binding IsRefreshBusy}" />
+                    <TextBlock Text="{Binding AutomaticRefreshSummary}" FontSize="11" Classes="muted"
+                               Classes.attention="{Binding RefreshNeedsAttention}" />
+                </StackPanel>
+                <TextBlock Grid.Column="3" Text="Read-only semantic workspace" VerticalAlignment="Center" FontSize="11" Classes="muted" />
             </Grid>
         </Border>
 

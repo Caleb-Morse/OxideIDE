@@ -48,6 +48,7 @@ public sealed class ApplicationSettingsTests : IDisposable
         Assert.Null(result.Warning);
         Assert.Equal("english", result.Settings.PreferredLanguage);
         Assert.True(result.Settings.EnglishFallbackEnabled);
+        Assert.True(result.Settings.AutomaticRefreshEnabled);
     }
 
     [Fact]

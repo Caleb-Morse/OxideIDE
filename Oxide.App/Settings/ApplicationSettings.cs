@@ -6,4 +6,5 @@ public sealed record ApplicationSettings(
     string? LastActiveModRoot = null,
     OxideTheme Theme = OxideTheme.IronRustDark,
     string PreferredLanguage = "english",
-    bool EnglishFallbackEnabled = true);
+    bool EnglishFallbackEnabled = true,
+    bool AutomaticRefreshEnabled = true);

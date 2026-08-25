@@ -1,6 +1,7 @@
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
 using Oxide.Core.Workspaces.Snapshots;
+using Oxide.Core.Workspaces.Refresh;
 
 namespace Oxide.Core.Workspaces;
 
@@ -16,6 +17,11 @@ public interface IWorkspaceService
         CancellationToken cancellationToken = default);
 
     Task<WorkspaceSnapshot> ReloadAsync(
+        IProgress<WorkspaceLoadProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkspaceRefreshResult> RefreshAsync(
+        IncrementalRefreshRequest request,
         IProgress<WorkspaceLoadProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

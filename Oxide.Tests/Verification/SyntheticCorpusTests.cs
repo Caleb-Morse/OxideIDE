@@ -4,6 +4,8 @@ using Oxide.Core.Verification;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Documents;
+using Oxide.Core.Workspaces.Refresh;
+using Oxide.Core.Workspaces.Snapshots;
 
 namespace Oxide.Tests.Verification;
 
@@ -245,5 +247,49 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(first.SyntaxDiagnosticsByCode.ToArray(), second.SyntaxDiagnosticsByCode.ToArray());
         Assert.Equal(first.SemanticDiagnosticsByCode.ToArray(), second.SemanticDiagnosticsByCode.ToArray());
         Assert.Equal(first.CountryReferences, second.CountryReferences);
+    }
+
+    [Fact]
+    [Trait("Category", "SyntheticCorpus")]
+    public async Task Corpus_summary_reports_a_bounded_incremental_probe()
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, "Fixtures", "Corpus");
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(
+            Path.Combine(root, "game"),
+            Path.Combine(root, "mod"),
+            "Synthetic corpus"));
+        var document = snapshot.Documents.First(document => document.IsLoaded && document.Participates);
+        var change = new DocumentChange(
+            new WorkspaceChange(
+                WorkspaceChangeKind.Changed,
+                document.SourceIdentity,
+                document.SourceIdentity,
+                DateTimeOffset.UnixEpoch,
+                WorkspaceChangeOrigin.Manual),
+            document.Kind,
+            document.Participation.Category);
+        var refresh = await service.RefreshAsync(new IncrementalRefreshRequest(
+            snapshot.Version,
+            WorkspaceRefreshTrigger.Manual,
+            new WorkspaceChangeBatch([change], rawEventCount: 1)));
+
+        var refreshed = Assert.IsType<WorkspaceSnapshot>(service.CurrentSnapshot);
+        var summary = CorpusSummaryBuilder.Build(
+            refreshed,
+            TimeSpan.Zero,
+            incrementalRefresh: refresh);
+
+        var incremental = Assert.IsType<IncrementalRefreshCorpusSummary>(summary.IncrementalRefresh);
+        Assert.Equal("Published", incremental.Outcome);
+        Assert.Equal("Manual", incremental.Trigger);
+        Assert.Equal(1, incremental.RawEventCount);
+        Assert.Equal(1, incremental.CoalescedChangeCount);
+        Assert.Equal(1, incremental.DocumentsReparsed);
+        Assert.Equal(refreshed.Documents.Length - 1, incremental.DocumentsReused);
+        Assert.False(incremental.UsedFullRescan);
+        Assert.NotEmpty(incremental.RebuiltSemanticDomains);
+        Assert.NotEmpty(incremental.ReusedSemanticDomains);
+        Assert.True(incremental.TotalMilliseconds >= 0);
     }
 }

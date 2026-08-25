@@ -23,4 +23,5 @@ public sealed record CorpusSummary(
     ReferenceResolutionCounts CountryReferences,
     LocalisationCorpusSummary Localisation,
     WorkspaceLoadMetrics WorkspacePerformance,
-    double TotalLoadMilliseconds);
+    double TotalLoadMilliseconds,
+    IncrementalRefreshCorpusSummary? IncrementalRefresh);

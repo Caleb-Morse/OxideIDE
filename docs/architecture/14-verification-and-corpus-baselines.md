@@ -70,7 +70,9 @@ Run installation-dependent verification explicitly:
 
 This restores and builds Release, runs only the four external-corpus tests,
 and writes `artifacts/external-corpus-summary.json` through the production
-reporter.
+reporter. The reporter performs one read-only incremental probe by rereading an
+existing participating document; it never writes to the supplied installation
+or mod root.
 
 The current extracted-installation baseline is:
 
@@ -126,7 +128,10 @@ It reports:
 - requested and effective report language plus fallback policy;
 - name projection duration, throughput, and managed memory observed when the
   report is created; and
-- total loading milliseconds.
+- total loading milliseconds; and
+- one incremental probe outcome, trigger, raw/coalesced event counts,
+  reparsed/reused documents, full-rescan decision, exact rebuilt/reused semantic
+  domains, and stage timings.
 
 `Oxide.CorpusSummary` is the command-line host for this production report. It
 accepts `--game-root`, optional `--mod-root`, optional `--name`, optional
@@ -139,7 +144,10 @@ deliberately exercising exact, fallback, missing, ambiguous, and no-key paths,
 plus layered overrides, excluded documents, same-layer duplicates, and a
 whole-value localisation alias.
 Tests assert exact structural counts and normalize only volatile timing and
-memory observations when checking repeatability.
+memory observations when checking repeatability. Cross-domain tests compare an
+incremental semantic fingerprint with a clean full reload. Coordinator stress
+tests constrain the command queue to one entry, force overflow, and verify
+serialized recovery through one reasoned full rescan.
 
 ## Repository safeguards
 

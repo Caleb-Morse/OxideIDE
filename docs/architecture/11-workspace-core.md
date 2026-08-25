@@ -64,6 +64,96 @@ virtual path in a higher layer shadows the lower document. Descriptor
 Excluded documents remain loaded, parsed, indexed, and available through the
 declaration inventory, but cannot supply an effective semantic contribution.
 
+## Incremental refresh contracts
+
+The workspace defines immutable change contracts independently of any operating-
+system watcher. A `WorkspaceChange` records created, changed, deleted, renamed,
+or uncertain input with previous/current stable source identities, observation
+time, and origin. `WorkspaceChangeBatch` orders those changes deterministically
+and can require a reasoned full rescan; uncertainty always escalates rather than
+guessing at a partial update.
+
+`SupportedContentProfile` is shared by full discovery and change classification,
+so both paths recognize exactly the same state, country-tag, strategic-region,
+and localisation files. Classification distinguishes supported files,
+unsupported files inside a layer, and paths outside the configured layer root.
+Refresh requests, outcomes, and metrics provide the boundary used by the
+filesystem change source and later incremental-loader work.
+
+## Filesystem change source
+
+`FileSystemWorkspaceChangeSource` watches every enabled, existing content layer
+through a bounded channel. Native callbacks only enqueue raw path events. One
+background reader debounces each burst, classifies supported paths through the
+shared profile, and publishes an immutable batch. Repeated writes are coalesced;
+delete-then-create replacement saves become one change, and temporary files that
+are created and deleted within a burst disappear.
+
+Watcher errors, queue overflow, missing roots, uncertain event sequences, and
+mod-descriptor changes request a reasoned full rescan. Unsupported paths are
+ignored. Renames into or out of supported scope become creations or deletions,
+and renames across supported domains become an explicit delete plus create.
+Starting, stopping, restarting, and disposal are generation-isolated so an old
+watcher cannot deliver events to a replacement workspace. Observer failures are
+reported without terminating the watcher worker.
+
+The watcher does not read, parse, build semantics, publish snapshots, or access
+the UI.
+
+## Incremental document refresh
+
+`WorkspaceService.RefreshAsync` accepts a request targeting one exact published
+snapshot. The loader revalidates every previous and current source identity
+against that snapshot's enabled layers and the shared supported-content profile.
+It removes deleted identities, loads and parses only created or changed sources,
+and reuses unchanged `SourceDocument` instances. Failed reads remain failed,
+diagnostic documents rather than disappearing.
+
+The complete candidate document set is reordered and its same-path and
+`replace_path` participation is recalculated before semantics are built. Requests
+involving uncertain state, descriptors, or configuration use the existing full
+discovery path.
+Cancellation, stale requests, invalid source identities, and failures cannot
+publish over the previous snapshot. Successful publication is one atomic swap
+and reports added, changed, removed, reused, and reparsed document counts.
+
+## Semantic invalidation
+
+Incremental refresh uses an explicit domain dependency plan rather than private
+cache decisions inside individual builders. The current immutable domains are
+countries, states, strategic regions, the province-to-region index,
+state-to-region memberships, and localisation. Direct source changes invalidate:
+
+- localisation → localisation only;
+- country tags → countries, states, and state-region memberships;
+- states → states and state-region memberships; and
+- strategic regions → regions, the province index, and state memberships.
+
+Declaration extraction repeats only for directly changed content categories.
+Unchanged declaration records and semantic indexes are reused by reference.
+Dependent domains rebuild against effective inputs from the candidate snapshot,
+and retained domain diagnostics remain present without duplication. Refresh
+metrics list the exact rebuilt and reused domains. Full rediscovery rebuilds every
+domain; per-entity invalidation remains intentionally deferred until measurements
+justify its additional cache complexity.
+
+## Refresh coordination
+
+`WorkspaceRefreshCoordinator` connects a change source to `WorkspaceService`
+without placing file work in native watcher callbacks. A bounded command channel
+feeds one background consumer, so automatic refreshes never overlap. Bursts that
+arrive before processing are coalesced, while changes that arrive during a load
+remain pending for the next snapshot. Coordinator overflow escalates to a
+reasoned full rescan instead of allocating an unbounded backlog.
+
+Manual reload cancels active incremental work and takes priority over older
+queued changes. Replacing or stopping a change source increments a generation,
+cancels active work, and prevents old-source commands from reaching the new
+workspace. Cancellation and the workspace service's exact-version request check
+together prevent stale work from publishing. Observable states distinguish
+watching, pending, refreshing, current, failed, unavailable, and stopped; a
+failing status observer cannot terminate coordination.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:
@@ -77,9 +167,11 @@ physical path, and source span.
 
 ## Current limitations
 
-The current implementation uses explicit reload rather than file watching. The
-desktop setup supports base game plus one active mod; ordered dependency-style
-layers require programmatic configuration. Oxide does not yet resolve DLC,
-launcher playsets, dependency order from descriptors, or a complete province
-registry. Precedence is implemented only for supported domains and paths, not
-as a universal Clausewitz loading rule.
+The core and desktop application implement bounded file watching, incremental
+refresh, coordinated cancellation, persisted enablement, and compact status
+presentation. Per-entity semantic invalidation remains deferred; affected
+domains rebuild as immutable units. The desktop setup supports base game plus one active
+mod; ordered dependency-style layers require programmatic configuration. Oxide
+does not yet resolve DLC, launcher playsets, dependency order from descriptors,
+or a complete province registry. Precedence is implemented only for supported
+domains and paths, not as a universal Clausewitz loading rule.
