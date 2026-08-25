@@ -7,7 +7,8 @@ public sealed record WorkspaceChangeBatch
     public WorkspaceChangeBatch(
         IEnumerable<DocumentChange> changes,
         bool requiresFullRescan = false,
-        string? fullRescanReason = null)
+        string? fullRescanReason = null,
+        int? rawEventCount = null)
     {
         ArgumentNullException.ThrowIfNull(changes);
         Changes = changes
@@ -27,6 +28,14 @@ public sealed record WorkspaceChangeBatch
         {
             throw new ArgumentException("A full rescan request must include a reason.", nameof(fullRescanReason));
         }
+
+        RawEventCount = rawEventCount ?? Changes.Length;
+        if (RawEventCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(rawEventCount),
+                "The raw event count cannot be negative.");
+        }
     }
 
     public ImmutableArray<DocumentChange> Changes { get; }
@@ -34,6 +43,8 @@ public sealed record WorkspaceChangeBatch
     public bool RequiresFullRescan { get; }
 
     public string? FullRescanReason { get; }
+
+    public int RawEventCount { get; }
 
     public DateTimeOffset? FirstObservedAt => Changes.IsEmpty ? null : Changes[0].Change.ObservedAt;
 

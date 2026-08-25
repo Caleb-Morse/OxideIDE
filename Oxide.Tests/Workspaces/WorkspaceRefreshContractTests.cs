@@ -173,6 +173,38 @@ public sealed class WorkspaceRefreshContractTests
         Assert.Equal("Watcher buffer overflowed.", batch.FullRescanReason);
     }
 
+    [Fact]
+    public void One_raw_rename_may_expand_to_delete_and_create_changes()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var stateSource = SupportedSource(fixture, "history/states/1-Test.txt");
+        var localisationSource = SupportedSource(fixture, "localisation/english/test_l_english.yml");
+        var observedAt = DateTimeOffset.UnixEpoch;
+        var deleted = new DocumentChange(
+            new WorkspaceChange(
+                WorkspaceChangeKind.Deleted,
+                stateSource.Source,
+                null,
+                observedAt,
+                WorkspaceChangeOrigin.Watcher),
+            stateSource.DocumentKind!.Value,
+            stateSource.Category!.Value);
+        var created = new DocumentChange(
+            new WorkspaceChange(
+                WorkspaceChangeKind.Created,
+                null,
+                localisationSource.Source,
+                observedAt,
+                WorkspaceChangeOrigin.Watcher),
+            localisationSource.DocumentKind!.Value,
+            localisationSource.Category!.Value);
+
+        var batch = new WorkspaceChangeBatch([deleted, created], rawEventCount: 1);
+
+        Assert.Equal(1, batch.RawEventCount);
+        Assert.Equal(2, batch.Changes.Length);
+    }
+
     [Theory]
     [InlineData(WorkspaceRefreshTrigger.ConfigurationChanged)]
     [InlineData(WorkspaceRefreshTrigger.RecoveryFullRescan)]

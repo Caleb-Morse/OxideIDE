@@ -77,9 +77,29 @@ guessing at a partial update.
 so both paths recognize exactly the same state, country-tag, strategic-region,
 and localisation files. Classification distinguishes supported files,
 unsupported files inside a layer, and paths outside the configured layer root.
-Refresh requests, outcomes, and metrics already have stable contracts for later
-watcher and incremental-loader work. No filesystem watcher or incremental
-publication pipeline is implemented yet.
+Refresh requests, outcomes, and metrics provide the boundary used by the
+filesystem change source and later incremental-loader work.
+
+## Filesystem change source
+
+`FileSystemWorkspaceChangeSource` watches every enabled, existing content layer
+through a bounded channel. Native callbacks only enqueue raw path events. One
+background reader debounces each burst, classifies supported paths through the
+shared profile, and publishes an immutable batch. Repeated writes are coalesced;
+delete-then-create replacement saves become one change, and temporary files that
+are created and deleted within a burst disappear.
+
+Watcher errors, queue overflow, missing roots, uncertain event sequences, and
+mod-descriptor changes request a reasoned full rescan. Unsupported paths are
+ignored. Renames into or out of supported scope become creations or deletions,
+and renames across supported domains become an explicit delete plus create.
+Starting, stopping, restarting, and disposal are generation-isolated so an old
+watcher cannot deliver events to a replacement workspace. Observer failures are
+reported without terminating the watcher worker.
+
+The watcher does not read, parse, build semantics, publish snapshots, or access
+the UI. Those responsibilities begin with the incremental loader and refresh
+coordinator in subsequent slices.
 
 ## Diagnostics
 
