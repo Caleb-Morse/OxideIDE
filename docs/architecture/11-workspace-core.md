@@ -137,6 +137,23 @@ metrics list the exact rebuilt and reused domains. Full rediscovery rebuilds eve
 domain; per-entity invalidation remains intentionally deferred until measurements
 justify its additional cache complexity.
 
+## Refresh coordination
+
+`WorkspaceRefreshCoordinator` connects a change source to `WorkspaceService`
+without placing file work in native watcher callbacks. A bounded command channel
+feeds one background consumer, so automatic refreshes never overlap. Bursts that
+arrive before processing are coalesced, while changes that arrive during a load
+remain pending for the next snapshot. Coordinator overflow escalates to a
+reasoned full rescan instead of allocating an unbounded backlog.
+
+Manual reload cancels active incremental work and takes priority over older
+queued changes. Replacing or stopping a change source increments a generation,
+cancels active work, and prevents old-source commands from reaching the new
+workspace. Cancellation and the workspace service's exact-version request check
+together prevent stale work from publishing. Observable states distinguish
+watching, pending, refreshing, current, failed, unavailable, and stopped; a
+failing status observer cannot terminate coordination.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:
@@ -150,9 +167,9 @@ physical path, and source span.
 
 ## Current limitations
 
-The core implements bounded file watching and incremental refresh, but the
-desktop application still exposes explicit reload until refresh coordination and
-presentation are connected. The desktop setup supports base game plus one active
+The core implements bounded file watching, incremental refresh, and refresh
+coordination, but the desktop application still needs to connect that pipeline
+and present its state. The desktop setup supports base game plus one active
 mod; ordered dependency-style layers require programmatic configuration. Oxide
 does not yet resolve DLC, launcher playsets, dependency order from descriptors,
 or a complete province registry. Precedence is implemented only for supported
