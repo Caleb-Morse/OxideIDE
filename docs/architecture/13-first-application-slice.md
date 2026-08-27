@@ -116,5 +116,7 @@ recent-workspace list, playset selection, DLC resolution, or
 dependency-mod ordering. Country naming currently recognizes the direct tag key;
 ideology-qualified naming remains future work. Provenance paths and exact source
 locations are visible, but navigation into an embedded source viewer awaits that
-viewer. Source actions already publish an exact `SourceNavigationRequest`, and
-the footer confirms its file and span; only embedded rendering remains deferred.
+viewer. Source actions now publish a snapshot-qualified `SourceNavigationRequest`
+and resolve it through the core navigation contract before the footer confirms
+its file and span. Stale, missing, failed, mismatched, and invalid targets are
+explicit outcomes; embedded rendering remains deferred.

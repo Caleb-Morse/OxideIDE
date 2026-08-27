@@ -500,6 +500,9 @@ public sealed class MainWindowViewModelTests
 
         Assert.Same(request, published);
         Assert.Same(request, viewModel.LastSourceNavigationRequest);
+        Assert.True(viewModel.LastSourceNavigationResolution?.IsResolved);
+        Assert.Equal(service.CurrentSnapshot!.Version, request.SnapshotVersion);
+        Assert.Equal(request.DocumentId, request.Target.DocumentId);
         Assert.True(viewModel.HasSourceNavigationRequest);
         Assert.Contains(request.VirtualPath, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
         Assert.Contains(request.Location, viewModel.SourceNavigationSummary, StringComparison.Ordinal);

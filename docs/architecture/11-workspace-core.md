@@ -154,6 +154,22 @@ together prevent stale work from publishing. Observable states distinguish
 watching, pending, refreshing, current, failed, unavailable, and stopped; a
 failing status observer cannot terminate coordination.
 
+## Snapshot-qualified source navigation
+
+`SourceNavigationTarget` identifies one exact snapshot version, document ID,
+content layer, virtual path, source span, semantic identity, and navigation
+reason. `SourceNavigationResolver` resolves that target only through the
+immutable snapshot indexes; it performs no filesystem access and never
+substitutes a same-path declaration from another layer.
+
+Resolution distinguishes an exact location from snapshot-version mismatch,
+missing document, source-identity mismatch, failed load, unavailable text,
+unsupported document kind, and invalid span. A resolved location includes the
+physical and virtual paths, complete layer and participation metadata, document
+kind and load state, exact span, and one-based start/end line and column. This
+contract is the read-only boundary for the embedded source viewer; rendering,
+search, history, and refresh remapping remain later Phase 10 work.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

@@ -6,6 +6,7 @@ using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
 using Oxide.Core.Workspaces.Refresh;
+using Oxide.Core.Workspaces.Navigation;
 using Oxide.Core.Workspaces.Snapshots;
 using Oxide.Syntax.Diagnostics;
 
@@ -41,6 +42,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private OxideTheme theme = OxideTheme.IronRustDark;
     private bool showingCountryDetails;
     private SourceNavigationRequest? lastSourceNavigationRequest;
+    private SourceNavigationResolution? lastSourceNavigationResolution;
     private bool automaticRefreshEnabled = true;
     private bool explicitLoadActive;
     private WorkspaceRefreshCoordinatorStatus refreshStatus = new(
@@ -107,14 +109,26 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null;
 
+    public SourceNavigationResolution? LastSourceNavigationResolution
+    {
+        get => lastSourceNavigationResolution;
+        private set => SetProperty(ref lastSourceNavigationResolution, value);
+    }
+
     public string SourceNavigationSummary => LastSourceNavigationRequest is null
         ? string.Empty
-        : $"Source target: {LastSourceNavigationRequest.VirtualPath} · {LastSourceNavigationRequest.Location}";
+        : LastSourceNavigationResolution?.IsResolved is true
+            ? $"Source target: {LastSourceNavigationRequest.VirtualPath} · {LastSourceNavigationRequest.Location}"
+            : LastSourceNavigationResolution?.Message ?? "The source target could not be resolved.";
 
     public void RequestSourceNavigation(SourceNavigationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         LastSourceNavigationRequest = request;
+        LastSourceNavigationResolution = snapshot is null
+            ? null
+            : SourceNavigationResolver.Resolve(snapshot, request.Target);
+        OnPropertyChanged(nameof(SourceNavigationSummary));
         SourceNavigationRequested?.Invoke(request);
     }
 
@@ -676,6 +690,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var previousStateId = SelectedState?.Id;
         var previousCountryTag = SelectedCountry?.Tag;
         LastSourceNavigationRequest = null;
+        LastSourceNavigationResolution = null;
         snapshot = loadedSnapshot;
         AvailableLanguages.Clear();
         foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)
