@@ -120,3 +120,9 @@ viewer. Source actions now publish a snapshot-qualified `SourceNavigationRequest
 and resolve it through the core navigation contract before the footer confirms
 its file and span. Stale, missing, failed, mismatched, and invalid targets are
 explicit outcomes; embedded rendering remains deferred.
+
+The reusable source-document presentation model is also implemented below the
+Avalonia boundary. It provides exact snapshot text, bounded line materialization,
+selected spans, diagnostic navigation, token-derived highlighting, and bounded
+find operations. The next application sub-phase will render this model and route
+the existing source actions into it.
