@@ -43,6 +43,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private bool showingCountryDetails;
     private SourceNavigationRequest? lastSourceNavigationRequest;
     private SourceNavigationResolution? lastSourceNavigationResolution;
+    private SourceViewerViewModel? sourceViewer;
     private bool automaticRefreshEnabled = true;
     private bool explicitLoadActive;
     private WorkspaceRefreshCoordinatorStatus refreshStatus = new(
@@ -109,6 +110,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null;
 
+    public SourceViewerViewModel? SourceViewer
+    {
+        get => sourceViewer;
+        private set
+        {
+            if (SetProperty(ref sourceViewer, value))
+            {
+                OnPropertyChanged(nameof(IsConceptWorkspaceVisible));
+                OnPropertyChanged(nameof(IsSourceViewerVisible));
+            }
+        }
+    }
+
     public SourceNavigationResolution? LastSourceNavigationResolution
     {
         get => lastSourceNavigationResolution;
@@ -129,8 +143,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             ? null
             : SourceNavigationResolver.Resolve(snapshot, request.Target);
         OnPropertyChanged(nameof(SourceNavigationSummary));
+        SourceViewer = LastSourceNavigationResolution?.IsResolved is true
+            ? new SourceViewerViewModel(LastSourceNavigationResolution)
+            : null;
         SourceNavigationRequested?.Invoke(request);
     }
+
+    public void CloseSourceViewer() => SourceViewer = null;
 
     public ApplicationScreen Screen
     {
@@ -142,6 +161,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsWelcomeVisible));
                 OnPropertyChanged(nameof(IsLoadingVisible));
                 OnPropertyChanged(nameof(IsWorkspaceVisible));
+                OnPropertyChanged(nameof(IsConceptWorkspaceVisible));
+                OnPropertyChanged(nameof(IsSourceViewerVisible));
             }
         }
     }
@@ -151,6 +172,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsLoadingVisible => Screen is ApplicationScreen.Loading;
 
     public bool IsWorkspaceVisible => Screen is ApplicationScreen.Workspace;
+
+    public bool IsConceptWorkspaceVisible => IsWorkspaceVisible && SourceViewer is null;
+
+    public bool IsSourceViewerVisible => IsWorkspaceVisible && SourceViewer is not null;
 
     public string GameRootPath
     {
@@ -691,6 +716,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var previousCountryTag = SelectedCountry?.Tag;
         LastSourceNavigationRequest = null;
         LastSourceNavigationResolution = null;
+        SourceViewer = null;
         snapshot = loadedSnapshot;
         AvailableLanguages.Clear();
         foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)

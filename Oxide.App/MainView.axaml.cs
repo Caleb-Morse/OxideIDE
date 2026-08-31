@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Oxide.App.Settings;
 using Oxide.App.ViewModels;
 
@@ -100,7 +101,44 @@ public partial class MainView : Window
         if (sender is Button { Tag: SourceNavigationRequest request })
         {
             ViewModel.RequestSourceNavigation(request);
+            ApplySourceSelection();
         }
+    }
+
+    private void CloseSourceViewer_Click(object? sender, RoutedEventArgs e) => ViewModel.CloseSourceViewer();
+
+    private void SourceFindNext_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SourceViewer?.FindNext() is true) ApplySourceSelection();
+    }
+
+    private void SourceFindPrevious_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SourceViewer?.FindPrevious() is true) ApplySourceSelection();
+    }
+
+    private void SourceDiagnostic_SelectionChanged(object? sender, SelectionChangedEventArgs e) => ApplySourceSelection();
+
+    private async void CopyFullSource_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SourceViewer is not { } sourceViewer || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        await clipboard.SetTextAsync(sourceViewer.FullText);
+    }
+
+    private void ApplySourceSelection()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ViewModel.SourceViewer is not { } sourceViewer) return;
+
+            SourceTextBlock.SelectionStart = sourceViewer.SelectionStart;
+            SourceTextBlock.SelectionEnd = sourceViewer.SelectionEnd;
+            SourceTextBlock.Focus();
+        }, DispatcherPriority.Loaded);
     }
 
     private static void ApplyTheme(OxideTheme theme)

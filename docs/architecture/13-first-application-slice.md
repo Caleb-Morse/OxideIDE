@@ -111,18 +111,20 @@ Provenance is resolved through the published snapshot's document index.
 
 ## Current limitations
 
-This slice is read-only. It has no map, embedded source editor, saved
+This slice is read-only. It has no map, source editor, saved
 recent-workspace list, playset selection, DLC resolution, or
 dependency-mod ordering. Country naming currently recognizes the direct tag key;
 ideology-qualified naming remains future work. Provenance paths and exact source
-locations are visible, but navigation into an embedded source viewer awaits that
-viewer. Source actions now publish a snapshot-qualified `SourceNavigationRequest`
-and resolve it through the core navigation contract before the footer confirms
-its file and span. Stale, missing, failed, mismatched, and invalid targets are
-explicit outcomes; embedded rendering remains deferred.
+locations are visible, and source actions open a snapshot-qualified embedded
+viewer. The viewer identifies the exact layer and participation outcome, selects
+the requested declaration, exposes diagnostic jumps and bounded find operations,
+and permits native selection plus explicit full-file copying. It never reads from
+disk: all displayed text and metadata come from the published immutable snapshot.
+Stale, missing, failed, mismatched, and invalid targets remain explicit outcomes
+and do not open substitute content.
 
-The reusable source-document presentation model is also implemented below the
-Avalonia boundary. It provides exact snapshot text, bounded line materialization,
-selected spans, diagnostic navigation, token-derived highlighting, and bounded
-find operations. The next application sub-phase will render this model and route
-the existing source actions into it.
+The reusable source-document presentation model below the Avalonia boundary
+provides exact snapshot text, bounded line materialization, selected spans,
+diagnostic navigation, token-derived highlight metadata, and bounded find
+operations. The first application surface renders a shared scrolling line-number
+gutter and text window; richer token-colored rendering remains future work.

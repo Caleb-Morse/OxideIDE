@@ -29,7 +29,8 @@ public static class SourceViewerPresenter
         }
 
         var selectedLine = source.GetPosition(focus.Start).Line;
-        var firstLine = Math.Max(0, selectedLine - options.MaximumMaterializedLines / 3);
+        const int preferredContextLines = 4;
+        var firstLine = Math.Max(0, selectedLine - Math.Min(preferredContextLines, options.MaximumMaterializedLines / 3));
         var lastLineExclusive = Math.Min(source.LineCount, firstLine + options.MaximumMaterializedLines);
         firstLine = Math.Max(0, lastLineExclusive - options.MaximumMaterializedLines);
         var lines = ImmutableArray.CreateBuilder<SourceViewerLine>(lastLineExclusive - firstLine);

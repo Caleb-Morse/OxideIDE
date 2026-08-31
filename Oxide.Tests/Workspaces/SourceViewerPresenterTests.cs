@@ -61,6 +61,7 @@ public sealed class SourceViewerPresenterTests
         Assert.Equal(12, presentation.Lines.Length);
         Assert.True(presentation.LinesTruncated);
         Assert.Contains(presentation.Lines, line => line.Text == "value_900=yes" && line.Selection is not null);
+        Assert.InRange(900 - presentation.FirstMaterializedLine, 0, 4);
         Assert.InRange(presentation.Highlights.Length, 0, 8);
         Assert.True(presentation.HighlightsTruncated);
         Assert.InRange(900, presentation.FirstMaterializedLine, presentation.LastMaterializedLine);

@@ -167,12 +167,12 @@ missing document, source-identity mismatch, failed load, unavailable text,
 unsupported document kind, and invalid span. A resolved location includes the
 physical and virtual paths, complete layer and participation metadata, document
 kind and load state, exact span, and one-based start/end line and column. This
-contract is the read-only boundary for the embedded source viewer; application
-rendering, navigation history, and refresh remapping remain later Phase 10 work.
+contract is the read-only boundary used by the embedded source viewer.
+Navigation history and refresh remapping remain later Phase 10 work.
 
 `SourceViewerPresenter` turns a resolved location into an exact-text, read-only
 document model. It exposes encoding and newline metadata, a bounded line window
-centered on the active span, token-derived Clausewitz or localisation highlight
+with the active span near its leading edge, token-derived Clausewitz or localisation highlight
 spans, and document diagnostics with their own navigation targets. Line windows,
 highlight spans, search results, and query length have explicit configurable
 limits. Search supports bounded all-results reporting plus next/previous wrapping;

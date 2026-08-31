@@ -506,6 +506,23 @@ public sealed class MainWindowViewModelTests
         Assert.True(viewModel.HasSourceNavigationRequest);
         Assert.Contains(request.VirtualPath, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
         Assert.Contains(request.Location, viewModel.SourceNavigationSummary, StringComparison.Ordinal);
+        Assert.True(viewModel.IsSourceViewerVisible);
+        Assert.False(viewModel.IsConceptWorkspaceVisible);
+        Assert.NotNull(viewModel.SourceViewer);
+        Assert.Equal("1-Test.txt", viewModel.SourceViewer.FileName);
+        Assert.Equal("state={ id=1 }", viewModel.SourceViewer.FullText);
+        Assert.Equal(request.SpanStart, viewModel.SourceViewer.SelectionStart);
+
+        viewModel.SourceViewer.SearchText = "id=1";
+        Assert.Equal("1 match", viewModel.SourceViewer.SearchSummary);
+        Assert.True(viewModel.SourceViewer.FindNext());
+        Assert.Equal("id=1", viewModel.SourceViewer.VisibleText[
+            viewModel.SourceViewer.SelectionStart..viewModel.SourceViewer.SelectionEnd]);
+
+        viewModel.CloseSourceViewer();
+
+        Assert.False(viewModel.IsSourceViewerVisible);
+        Assert.True(viewModel.IsConceptWorkspaceVisible);
     }
 
     [Fact]
@@ -527,6 +544,7 @@ public sealed class MainWindowViewModelTests
         Assert.Equal("10", oldState.Manpower);
         Assert.Equal("20", newState.Manpower);
         Assert.Null(viewModel.LastSourceNavigationRequest);
+        Assert.Null(viewModel.SourceViewer);
         Assert.False(viewModel.HasSourceNavigationRequest);
         Assert.Equal(string.Empty, viewModel.SourceNavigationSummary);
     }

@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:Oxide.App.ViewModels"
+        xmlns:navigation="using:Oxide.Core.Workspaces.Navigation"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="Oxide.App.MainView" x:DataType="vm:MainWindowViewModel"
         Width="1280" Height="800" MinWidth="980" MinHeight="640"
@@ -171,7 +172,7 @@
                 </Border>
             </Grid>
 
-            <Grid IsVisible="{Binding IsWorkspaceVisible}" Margin="14" ColumnDefinitions="370,12,*">
+            <Grid IsVisible="{Binding IsConceptWorkspaceVisible}" Margin="14" ColumnDefinitions="370,12,*">
                 <Border Grid.Column="0" Classes="card" Padding="12">
                     <TabControl>
                         <TabItem Header="States">
@@ -723,6 +724,128 @@
                         </Grid>
                     </Grid>
                 </Border>
+            </Grid>
+
+            <Grid IsVisible="{Binding IsSourceViewerVisible}" Margin="14" RowDefinitions="Auto,10,*">
+                <Border Grid.Row="0" Classes="card" Padding="14">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                        <Button Grid.Column="0" Classes="quiet" Content="← Back to concept"
+                                Click="CloseSourceViewer_Click" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="9">
+                                <TextBlock Text="{Binding SourceViewer.FileName}" FontSize="18" FontWeight="Bold" />
+                                <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="10" Padding="8,2">
+                                    <TextBlock Text="{Binding SourceViewer.LayerName}" FontSize="11" FontWeight="SemiBold" />
+                                </Border>
+                                <TextBlock Text="{Binding SourceViewer.Participation}" Classes="muted" FontSize="11"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding SourceViewer.VirtualPath}" Classes="muted"
+                                       FontFamily="Menlo,Consolas,monospace" FontSize="11" TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding SourceViewer.PhysicalPath}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" Spacing="3">
+                            <TextBlock Text="{Binding SourceViewer.LocationLabel}" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                            <TextBlock Text="{Binding SourceViewer.SnapshotLabel}" Classes="muted" FontSize="11" HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="2" ColumnDefinitions="*,10,300" RowDefinitions="Auto,8,*">
+                    <Border Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="0" Classes="card" Padding="10,8">
+                        <Grid ColumnDefinitions="Auto,260,Auto,Auto,Auto,*,Auto" ColumnSpacing="8">
+                            <TextBlock Grid.Column="0" Text="Find" VerticalAlignment="Center" FontWeight="SemiBold" />
+                            <TextBox Grid.Column="1" Text="{Binding SourceViewer.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     Watermark="Find in this file…" MaxLength="512" />
+                            <Button Grid.Column="2" Classes="quiet" Content="Previous" IsEnabled="{Binding SourceViewer.CanSearch}"
+                                    Click="SourceFindPrevious_Click" />
+                            <Button Grid.Column="3" Classes="quiet" Content="Next" IsEnabled="{Binding SourceViewer.CanSearch}"
+                                    Click="SourceFindNext_Click" />
+                            <TextBlock Grid.Column="4" Text="{Binding SourceViewer.SearchSummary}" Classes="muted"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="5" Text="{Binding SourceViewer.WindowSummary}" Classes="muted"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right" />
+                            <Button Grid.Column="6" Classes="quiet" Content="Copy full file" Click="CopyFullSource_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="0" Grid.Row="2" Classes="card" ClipToBounds="True">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                      Padding="0" Background="{DynamicResource OxideSurface}">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Border Grid.Column="0" Background="{DynamicResource OxideSurfaceRaised}"
+                                        BorderBrush="{DynamicResource OxideBorder}" BorderThickness="0,0,1,0" Padding="12,14">
+                                    <TextBlock Text="{Binding SourceViewer.LineNumbers}" TextAlignment="Right"
+                                               FontFamily="Menlo,Consolas,monospace" FontSize="12" LineHeight="19"
+                                               Foreground="{DynamicResource OxideMuted}" />
+                                </Border>
+                                <SelectableTextBlock x:Name="SourceTextBlock" Grid.Column="1"
+                                                     Text="{Binding SourceViewer.VisibleText}"
+                                                     SelectionStart="{Binding SourceViewer.SelectionStart, Mode=OneWay}"
+                                                     SelectionEnd="{Binding SourceViewer.SelectionEnd, Mode=OneWay}"
+                                                     FontFamily="Menlo,Consolas,monospace" FontSize="12" LineHeight="19"
+                                                     TextWrapping="NoWrap" Padding="14"
+                                                     AutomationProperties.Name="Read-only snapshot source text" />
+                            </Grid>
+                        </ScrollViewer>
+                    </Border>
+
+                    <Border Grid.Column="2" Grid.Row="2" Classes="card" Padding="12">
+                        <Grid RowDefinitions="Auto,8,*,Auto">
+                            <StackPanel Grid.Row="0" Spacing="3">
+                                <TextBlock Text="Source details" FontWeight="Bold" FontSize="16" />
+                                <TextBlock Text="{Binding SourceViewer.SemanticIdentity}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ScrollViewer Grid.Row="2">
+                                <StackPanel Spacing="14">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Classes="label" Text="NAVIGATION REASON" />
+                                        <TextBlock Text="{Binding SourceViewer.Reason}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <StackPanel Grid.Column="0" Spacing="3">
+                                            <TextBlock Classes="label" Text="DOCUMENT KIND" />
+                                            <TextBlock Text="{Binding SourceViewer.DocumentKind}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="3">
+                                            <TextBlock Classes="label" Text="LAYER KIND" />
+                                            <TextBlock Text="{Binding SourceViewer.LayerKind}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <StackPanel Grid.Column="0" Spacing="3">
+                                            <TextBlock Classes="label" Text="ENCODING" />
+                                            <TextBlock Text="{Binding SourceViewer.EncodingLabel}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="3">
+                                            <TextBlock Classes="label" Text="NEWLINES" />
+                                            <TextBlock Text="{Binding SourceViewer.NewlineLabel}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <StackPanel Spacing="6" IsVisible="{Binding SourceViewer.HasDiagnostics}">
+                                        <TextBlock Text="{Binding SourceViewer.DiagnosticSummary}" FontWeight="SemiBold" />
+                                        <ListBox ItemsSource="{Binding SourceViewer.Diagnostics}"
+                                                 SelectedItem="{Binding SourceViewer.SelectedDiagnostic}"
+                                                 SelectionChanged="SourceDiagnostic_SelectionChanged">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="navigation:SourceViewerDiagnostic">
+                                                    <StackPanel Spacing="2">
+                                                        <TextBlock Text="{Binding Code}" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource OxideAccentSoft}" />
+                                                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="11" />
+                                                        <TextBlock Text="{Binding Line, StringFormat={}Line {0}}" Classes="muted" FontSize="10" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                            <TextBlock Grid.Row="3" Text="Read-only snapshot source" Classes="muted" FontSize="10"
+                                       HorizontalAlignment="Right" Margin="0,8,0,0" />
+                        </Grid>
+                    </Border>
+                </Grid>
             </Grid>
         </Grid>
 
