@@ -550,6 +550,112 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Source_history_supports_back_forward_and_discards_the_forward_branch()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-One.txt", "state={ id=1 }");
+        fixture.WriteGameFile("history/states/2-Two.txt", "state={ id=2 }");
+        fixture.WriteGameFile("history/states/3-Three.txt", "state={ id=3 }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var requests = viewModel.States.Select(state => state.Contribution.EffectiveNavigationRequest!).ToArray();
+
+        viewModel.RequestSourceNavigation(requests[0]);
+        viewModel.RequestSourceNavigation(requests[1]);
+
+        Assert.True(viewModel.CanNavigateSourceBack);
+        Assert.False(viewModel.CanNavigateSourceForward);
+        Assert.Equal("2 of 2", viewModel.SourceHistorySummary);
+        viewModel.NavigateSourceBack();
+        Assert.Same(requests[0], viewModel.LastSourceNavigationRequest);
+        Assert.True(viewModel.CanNavigateSourceForward);
+        viewModel.NavigateSourceForward();
+        Assert.Same(requests[1], viewModel.LastSourceNavigationRequest);
+
+        viewModel.NavigateSourceBack();
+        viewModel.RequestSourceNavigation(requests[2]);
+
+        Assert.Same(requests[2], viewModel.LastSourceNavigationRequest);
+        Assert.Equal("2 of 2", viewModel.SourceHistorySummary);
+        Assert.False(viewModel.CanNavigateSourceForward);
+    }
+
+    [Fact]
+    public async Task Source_history_is_bounded_and_related_contributions_remain_navigable()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile(
+            "history/states/All.txt",
+            string.Join('\n', Enumerable.Range(1, 55).Select(id => $"state={{ id={id} }}")));
+        fixture.WriteModFile("history/states/1-Mod.txt", "state={ id=1 manpower=10 }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        var requests = viewModel.States.Select(state => state.Contribution.EffectiveNavigationRequest!).ToArray();
+
+        foreach (var request in requests)
+        {
+            viewModel.RequestSourceNavigation(request);
+        }
+
+        Assert.Equal("50 of 50", viewModel.SourceHistorySummary);
+        var firstState = viewModel.States.Single(state => state.Id == 1);
+        viewModel.RequestSourceNavigation(firstState.Contribution.EffectiveNavigationRequest!);
+        var viewer = Assert.IsType<SourceViewerViewModel>(viewModel.SourceViewer);
+        Assert.Equal(2, viewer.Relationships.Length);
+        Assert.Single(viewer.Relationships, relationship => relationship.IsCurrent);
+        var shadowed = Assert.Single(viewer.Relationships, relationship =>
+            relationship.Label.StartsWith("Shadowed", StringComparison.Ordinal));
+
+        viewModel.RequestSourceNavigation(shadowed.NavigationRequest);
+
+        Assert.True(viewModel.CanNavigateSourceBack);
+        Assert.Single(viewModel.SourceViewer!.Relationships, relationship =>
+            relationship.IsCurrent && relationship.Label.StartsWith("Shadowed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Source_relationship_lookup_supports_each_semantic_identity_domain()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 name=STATE_1 provinces={ 10 } }");
+        fixture.WriteGameFile("common/country_tags/00_test.txt", "AAA=\"countries/Test.txt\"");
+        fixture.WriteGameFile("map/strategicregions/1-Test.txt", "strategic_region={ id=1 name=REGION_1 provinces={ 10 } }");
+        fixture.WriteGameFile(
+            "localisation/english/test_l_english.yml",
+            "l_english:\n STATE_1:0 \"Test State\"\n REGION_1:0 \"Test Region\"");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var snapshot = service.CurrentSnapshot!;
+        var requests = new[]
+        {
+            Assert.Single(viewModel.States).Contribution.EffectiveNavigationRequest!,
+            Assert.Single(viewModel.Countries).Contribution.EffectiveNavigationRequest!,
+            ContributionSetPresentation.Create(snapshot.Semantics.StrategicRegions[1], snapshot)
+                .EffectiveNavigationRequest!,
+            ContributionSetPresentation.Create(
+                    snapshot.Semantics.Localisations[new(
+                        new("english"),
+                        new("STATE_1"))],
+                    snapshot)
+                .EffectiveNavigationRequest!,
+        };
+
+        foreach (var request in requests)
+        {
+            viewModel.RequestSourceNavigation(request);
+            Assert.Single(viewModel.SourceViewer!.Relationships);
+            Assert.True(viewModel.SourceViewer.Relationships[0].IsCurrent);
+        }
+    }
+
+    [Fact]
     public async Task Automatic_refresh_reprojects_the_published_snapshot_and_preserves_selection()
     {
         using var fixture = new TemporaryWorkspace();

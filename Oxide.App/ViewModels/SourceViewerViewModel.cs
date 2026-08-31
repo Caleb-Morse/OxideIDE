@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Oxide.Core.Workspaces.Navigation;
+using Oxide.Core.Workspaces.Snapshots;
 using Oxide.Syntax.Text;
 
 namespace Oxide.App.ViewModels;
@@ -13,8 +14,14 @@ public sealed class SourceViewerViewModel : ObservableObject
     private string searchSummary = "Find in this file";
     private SourceViewerDiagnostic? selectedDiagnostic;
 
-    public SourceViewerViewModel(SourceNavigationResolution resolution, SourceViewerPresentationOptions? options = null)
+    public SourceViewerViewModel(
+        WorkspaceSnapshot snapshot,
+        SourceNavigationRequest request,
+        SourceNavigationResolution resolution,
+        SourceViewerPresentationOptions? options = null)
     {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(resolution);
         if (!resolution.IsResolved)
         {
@@ -24,6 +31,7 @@ public sealed class SourceViewerViewModel : ObservableObject
         this.resolution = resolution;
         this.options = options ?? new SourceViewerPresentationOptions();
         document = SourceViewerPresenter.Create(resolution, this.options);
+        Relationships = SourceRelationshipProjector.Create(snapshot, request);
     }
 
     public string FileName => Path.GetFileName(document.Location.VirtualPath.Value);
@@ -42,7 +50,12 @@ public sealed class SourceViewerViewModel : ObservableObject
     public string FullText => document.Text;
     public int LineCount => document.LineCount;
     public ImmutableArray<SourceViewerDiagnostic> Diagnostics => document.Diagnostics;
+    public ImmutableArray<SourceRelationshipViewModel> Relationships { get; }
     public bool HasDiagnostics => !Diagnostics.IsEmpty;
+    public bool HasRelationships => !Relationships.IsEmpty;
+    public string RelationshipSummary => Relationships.Length == 1
+        ? "1 related contribution"
+        : $"{Relationships.Length:N0} related contributions";
     public string DiagnosticSummary => Diagnostics.Length == 1 ? "1 source diagnostic" : $"{Diagnostics.Length:N0} source diagnostics";
 
     public string VisibleText

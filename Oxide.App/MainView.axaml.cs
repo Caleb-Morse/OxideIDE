@@ -107,6 +107,27 @@ public partial class MainView : Window
 
     private void CloseSourceViewer_Click(object? sender, RoutedEventArgs e) => ViewModel.CloseSourceViewer();
 
+    private void SourceHistoryBack_Click(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.NavigateSourceBack();
+        ApplySourceSelection();
+    }
+
+    private void SourceHistoryForward_Click(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.NavigateSourceForward();
+        ApplySourceSelection();
+    }
+
+    private void OpenRelatedSource_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: SourceNavigationRequest request })
+        {
+            ViewModel.RequestSourceNavigation(request);
+            ApplySourceSelection();
+        }
+    }
+
     private void SourceFindNext_Click(object? sender, RoutedEventArgs e)
     {
         if (ViewModel.SourceViewer?.FindNext() is true) ApplySourceSelection();

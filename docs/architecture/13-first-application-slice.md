@@ -123,6 +123,13 @@ disk: all displayed text and metadata come from the published immutable snapshot
 Stale, missing, failed, mismatched, and invalid targets remain explicit outcomes
 and do not open substitute content.
 
+The source header provides bounded back and forward history, including standard
+forward-branch removal when a new source is opened from an earlier entry. The
+details panel lists every contribution related by the same semantic identity and
+labels its disposition and layer. The current contribution is visible but not a
+navigable self-link. A new workspace snapshot clears history; preserving and
+remapping compatible locations across refreshes is intentionally deferred.
+
 The reusable source-document presentation model below the Avalonia boundary
 provides exact snapshot text, bounded line materialization, selected spans,
 diagnostic navigation, token-derived highlight metadata, and bounded find

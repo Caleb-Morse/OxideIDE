@@ -728,10 +728,19 @@
 
             <Grid IsVisible="{Binding IsSourceViewerVisible}" Margin="14" RowDefinitions="Auto,10,*">
                 <Border Grid.Row="0" Classes="card" Padding="14">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-                        <Button Grid.Column="0" Classes="quiet" Content="← Back to concept"
-                                Click="CloseSourceViewer_Click" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="14">
+                        <Button Grid.Column="0" Classes="quiet" Content="← Concept"
+                                Click="CloseSourceViewer_Click" VerticalAlignment="Center"
+                                AutomationProperties.Name="Return to concept view" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button Classes="quiet" Content="‹" IsEnabled="{Binding CanNavigateSourceBack}"
+                                    Click="SourceHistoryBack_Click" AutomationProperties.Name="Previous source location" />
+                            <Button Classes="quiet" Content="›" IsEnabled="{Binding CanNavigateSourceForward}"
+                                    Click="SourceHistoryForward_Click" AutomationProperties.Name="Next source location" />
+                            <TextBlock Text="{Binding SourceHistorySummary}" Classes="muted" FontSize="11"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="3" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="9">
                                 <TextBlock Text="{Binding SourceViewer.FileName}" FontSize="18" FontWeight="Bold" />
                                 <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="10" Padding="8,2">
@@ -744,7 +753,7 @@
                                        FontFamily="Menlo,Consolas,monospace" FontSize="11" TextTrimming="CharacterEllipsis"
                                        ToolTip.Tip="{Binding SourceViewer.PhysicalPath}" />
                         </StackPanel>
-                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" Spacing="3">
+                        <StackPanel Grid.Column="3" HorizontalAlignment="Right" Spacing="3">
                             <TextBlock Text="{Binding SourceViewer.LocationLabel}" FontWeight="SemiBold" HorizontalAlignment="Right" />
                             <TextBlock Text="{Binding SourceViewer.SnapshotLabel}" Classes="muted" FontSize="11" HorizontalAlignment="Right" />
                         </StackPanel>
@@ -822,6 +831,27 @@
                                             <TextBlock Text="{Binding SourceViewer.NewlineLabel}" />
                                         </StackPanel>
                                     </Grid>
+                                    <StackPanel Spacing="6" IsVisible="{Binding SourceViewer.HasRelationships}">
+                                        <TextBlock Text="{Binding SourceViewer.RelationshipSummary}" FontWeight="SemiBold" />
+                                        <ItemsControl ItemsSource="{Binding SourceViewer.Relationships}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:SourceRelationshipViewModel">
+                                                    <Button Classes="quiet" Tag="{Binding NavigationRequest}"
+                                                            Click="OpenRelatedSource_Click"
+                                                            IsEnabled="{Binding CanNavigate}"
+                                                            AutomationProperties.Name="{Binding AccessibleName}"
+                                                            HorizontalContentAlignment="Stretch" Margin="0,0,0,4">
+                                                        <StackPanel Spacing="2">
+                                                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource OxideAccentSoft}" />
+                                                            <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                                                                       Classes="muted" FontSize="10" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                     <StackPanel Spacing="6" IsVisible="{Binding SourceViewer.HasDiagnostics}">
                                         <TextBlock Text="{Binding SourceViewer.DiagnosticSummary}" FontWeight="SemiBold" />
                                         <ListBox ItemsSource="{Binding SourceViewer.Diagnostics}"

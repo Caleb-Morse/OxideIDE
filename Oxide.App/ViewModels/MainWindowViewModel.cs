@@ -14,6 +14,7 @@ namespace Oxide.App.ViewModels;
 
 public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const int MaximumSourceHistoryEntries = 50;
     private readonly IWorkspaceService workspaceService;
     private readonly bool ownsWorkspaceService;
     private readonly IApplicationSettingsStore? settingsStore;
@@ -44,6 +45,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private SourceNavigationRequest? lastSourceNavigationRequest;
     private SourceNavigationResolution? lastSourceNavigationResolution;
     private SourceViewerViewModel? sourceViewer;
+    private readonly List<SourceNavigationRequest> sourceNavigationHistory = [];
+    private int sourceNavigationHistoryIndex = -1;
     private bool automaticRefreshEnabled = true;
     private bool explicitLoadActive;
     private WorkspaceRefreshCoordinatorStatus refreshStatus = new(
@@ -110,6 +113,15 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null;
 
+    public bool CanNavigateSourceBack => sourceNavigationHistoryIndex > 0;
+
+    public bool CanNavigateSourceForward =>
+        sourceNavigationHistoryIndex >= 0 && sourceNavigationHistoryIndex < sourceNavigationHistory.Count - 1;
+
+    public string SourceHistorySummary => sourceNavigationHistoryIndex < 0
+        ? "No source history"
+        : $"{sourceNavigationHistoryIndex + 1:N0} of {sourceNavigationHistory.Count:N0}";
+
     public SourceViewerViewModel? SourceViewer
     {
         get => sourceViewer;
@@ -138,15 +150,82 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public void RequestSourceNavigation(SourceNavigationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        NavigateSource(request, recordHistory: true);
+    }
+
+    public void NavigateSourceBack()
+    {
+        if (!CanNavigateSourceBack) return;
+
+        sourceNavigationHistoryIndex--;
+        NavigateSource(sourceNavigationHistory[sourceNavigationHistoryIndex], recordHistory: false);
+        NotifySourceHistoryChanged();
+    }
+
+    public void NavigateSourceForward()
+    {
+        if (!CanNavigateSourceForward) return;
+
+        sourceNavigationHistoryIndex++;
+        NavigateSource(sourceNavigationHistory[sourceNavigationHistoryIndex], recordHistory: false);
+        NotifySourceHistoryChanged();
+    }
+
+    private void NavigateSource(SourceNavigationRequest request, bool recordHistory)
+    {
         LastSourceNavigationRequest = request;
         LastSourceNavigationResolution = snapshot is null
             ? null
             : SourceNavigationResolver.Resolve(snapshot, request.Target);
         OnPropertyChanged(nameof(SourceNavigationSummary));
-        SourceViewer = LastSourceNavigationResolution?.IsResolved is true
-            ? new SourceViewerViewModel(LastSourceNavigationResolution)
+        SourceViewer = snapshot is not null && LastSourceNavigationResolution?.IsResolved is true
+            ? new SourceViewerViewModel(snapshot, request, LastSourceNavigationResolution)
             : null;
+        if (recordHistory && SourceViewer is not null)
+        {
+            RecordSourceHistory(request);
+        }
+
         SourceNavigationRequested?.Invoke(request);
+    }
+
+    private void RecordSourceHistory(SourceNavigationRequest request)
+    {
+        if (sourceNavigationHistoryIndex >= 0 &&
+            sourceNavigationHistory[sourceNavigationHistoryIndex] == request)
+        {
+            return;
+        }
+
+        if (sourceNavigationHistoryIndex < sourceNavigationHistory.Count - 1)
+        {
+            sourceNavigationHistory.RemoveRange(
+                sourceNavigationHistoryIndex + 1,
+                sourceNavigationHistory.Count - sourceNavigationHistoryIndex - 1);
+        }
+
+        sourceNavigationHistory.Add(request);
+        if (sourceNavigationHistory.Count > MaximumSourceHistoryEntries)
+        {
+            sourceNavigationHistory.RemoveAt(0);
+        }
+
+        sourceNavigationHistoryIndex = sourceNavigationHistory.Count - 1;
+        NotifySourceHistoryChanged();
+    }
+
+    private void ClearSourceHistory()
+    {
+        sourceNavigationHistory.Clear();
+        sourceNavigationHistoryIndex = -1;
+        NotifySourceHistoryChanged();
+    }
+
+    private void NotifySourceHistoryChanged()
+    {
+        OnPropertyChanged(nameof(CanNavigateSourceBack));
+        OnPropertyChanged(nameof(CanNavigateSourceForward));
+        OnPropertyChanged(nameof(SourceHistorySummary));
     }
 
     public void CloseSourceViewer() => SourceViewer = null;
@@ -717,6 +796,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         LastSourceNavigationRequest = null;
         LastSourceNavigationResolution = null;
         SourceViewer = null;
+        ClearSourceHistory();
         snapshot = loadedSnapshot;
         AvailableLanguages.Clear();
         foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)

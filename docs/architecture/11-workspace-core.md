@@ -168,12 +168,24 @@ unsupported document kind, and invalid span. A resolved location includes the
 physical and virtual paths, complete layer and participation metadata, document
 kind and load state, exact span, and one-based start/end line and column. This
 contract is the read-only boundary used by the embedded source viewer.
-Navigation history and refresh remapping remain later Phase 10 work.
+Application navigation history stores at most 50 resolved, snapshot-qualified
+targets. Back and forward navigation re-resolve the exact target without disk
+access, opening a new location after going back discards the forward branch, and
+publishing a replacement snapshot clears the history rather than substituting
+same-path content. Refresh remapping remains later Phase 10 work.
+
+The viewer projects source relationships for every contribution competing for
+the current semantic identity. Effective, shadowed, ambiguous, invalid, and
+excluded dispositions remain distinct, the current location is identified, and
+every navigable relationship retains its exact document, layer, and source span.
+Relationship discovery uses the semantic snapshot's identity indexes and does
+not scan source files or semantic collections on the UI path.
 
 `SourceViewerPresenter` turns a resolved location into an exact-text, read-only
 document model. It exposes encoding and newline metadata, a bounded line window
-with the active span near its leading edge, token-derived Clausewitz or localisation highlight
-spans, and document diagnostics with their own navigation targets. Line windows,
+with the active span near its leading edge, token-derived Clausewitz or
+localisation highlight spans, and document diagnostics with their own navigation
+targets. Line windows,
 highlight spans, search results, and query length have explicit configurable
 limits. Search supports bounded all-results reporting plus next/previous wrapping;
 it operates on the snapshot string and performs no parsing or file access. The
