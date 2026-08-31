@@ -47,6 +47,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private SourceViewerViewModel? sourceViewer;
     private readonly List<SourceNavigationRequest> sourceNavigationHistory = [];
     private int sourceNavigationHistoryIndex = -1;
+    private string? sourceRefreshNotice;
     private bool automaticRefreshEnabled = true;
     private bool explicitLoadActive;
     private WorkspaceRefreshCoordinatorStatus refreshStatus = new(
@@ -111,7 +112,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null;
+    public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null || SourceRefreshNotice is not null;
+
+    public string? SourceRefreshNotice
+    {
+        get => sourceRefreshNotice;
+        private set
+        {
+            if (SetProperty(ref sourceRefreshNotice, value))
+            {
+                OnPropertyChanged(nameof(HasSourceNavigationRequest));
+                OnPropertyChanged(nameof(SourceNavigationSummary));
+            }
+        }
+    }
 
     public bool CanNavigateSourceBack => sourceNavigationHistoryIndex > 0;
 
@@ -141,11 +155,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref lastSourceNavigationResolution, value);
     }
 
-    public string SourceNavigationSummary => LastSourceNavigationRequest is null
+    public string SourceNavigationSummary => SourceRefreshNotice ?? (LastSourceNavigationRequest is null
         ? string.Empty
         : LastSourceNavigationResolution?.IsResolved is true
             ? $"Source target: {LastSourceNavigationRequest.VirtualPath} · {LastSourceNavigationRequest.Location}"
-            : LastSourceNavigationResolution?.Message ?? "The source target could not be resolved.";
+            : LastSourceNavigationResolution?.Message ?? "The source target could not be resolved.");
 
     public void RequestSourceNavigation(SourceNavigationRequest request)
     {
@@ -173,6 +187,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void NavigateSource(SourceNavigationRequest request, bool recordHistory)
     {
+        SourceRefreshNotice = null;
         LastSourceNavigationRequest = request;
         LastSourceNavigationResolution = snapshot is null
             ? null
@@ -793,10 +808,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         var previousStateId = SelectedState?.Id;
         var previousCountryTag = SelectedCountry?.Tag;
-        LastSourceNavigationRequest = null;
-        LastSourceNavigationResolution = null;
-        SourceViewer = null;
-        ClearSourceHistory();
+        var previousSnapshot = snapshot;
+        var previousHistory = sourceNavigationHistory.ToArray();
+        var previousHistoryIndex = sourceNavigationHistoryIndex;
+        var previousRequest = LastSourceNavigationRequest;
+        var sourceViewerWasOpen = SourceViewer is not null;
+        var previousSearch = SourceViewer?.SearchText;
         snapshot = loadedSnapshot;
         AvailableLanguages.Clear();
         foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)
@@ -827,11 +844,101 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedCountry = previousCountryTag is { } tag
             ? Countries.FirstOrDefault(country => country.Tag == tag)
             : Countries.FirstOrDefault();
+        RestoreSourceNavigation(
+            previousSnapshot,
+            loadedSnapshot,
+            previousHistory,
+            previousHistoryIndex,
+            previousRequest,
+            sourceViewerWasOpen,
+            previousSearch);
         OnPropertyChanged(nameof(WorkspaceName));
         OnPropertyChanged(nameof(WorkspaceSummary));
         OnPropertyChanged(nameof(StatusSummary));
         OnPropertyChanged(nameof(ErrorCount));
         OnPropertyChanged(nameof(WarningCount));
+    }
+
+    private void RestoreSourceNavigation(
+        WorkspaceSnapshot? previousSnapshot,
+        WorkspaceSnapshot loadedSnapshot,
+        IReadOnlyList<SourceNavigationRequest> previousHistory,
+        int previousHistoryIndex,
+        SourceNavigationRequest? previousRequest,
+        bool sourceViewerWasOpen,
+        string? previousSearch)
+    {
+        LastSourceNavigationRequest = null;
+        LastSourceNavigationResolution = null;
+        SourceViewer = null;
+        SourceRefreshNotice = null;
+        ClearSourceHistory();
+        if (previousSnapshot is null || !IsSameWorkspace(previousSnapshot.Configuration, loadedSnapshot.Configuration))
+        {
+            return;
+        }
+
+        for (var index = 0; index < previousHistory.Count; index++)
+        {
+            if (!SourceRelationshipProjector.TryRemap(loadedSnapshot, previousHistory[index], out var remapped, out _))
+            {
+                continue;
+            }
+
+            sourceNavigationHistory.Add(remapped);
+            if (index <= previousHistoryIndex)
+            {
+                sourceNavigationHistoryIndex = sourceNavigationHistory.Count - 1;
+            }
+        }
+
+        NotifySourceHistoryChanged();
+        if (previousRequest is null || !sourceViewerWasOpen)
+        {
+            return;
+        }
+
+        if (!SourceRelationshipProjector.TryRemap(
+                loadedSnapshot,
+                previousRequest,
+                out var current,
+                out var failureReason))
+        {
+            if (sourceNavigationHistoryIndex < sourceNavigationHistory.Count - 1)
+            {
+                sourceNavigationHistory.RemoveRange(
+                    sourceNavigationHistoryIndex + 1,
+                    sourceNavigationHistory.Count - sourceNavigationHistoryIndex - 1);
+                NotifySourceHistoryChanged();
+            }
+
+            SourceRefreshNotice = $"The previous source view became stale after refresh. {failureReason}";
+            return;
+        }
+
+        LastSourceNavigationRequest = current;
+        LastSourceNavigationResolution = SourceNavigationResolver.Resolve(loadedSnapshot, current.Target);
+        SourceViewer = new SourceViewerViewModel(loadedSnapshot, current, LastSourceNavigationResolution);
+        if (!string.IsNullOrEmpty(previousSearch))
+        {
+            SourceViewer.SearchText = previousSearch;
+        }
+    }
+
+    private static bool IsSameWorkspace(WorkspaceConfiguration left, WorkspaceConfiguration right)
+    {
+        if (left.Layers.Length != right.Layers.Length)
+        {
+            return false;
+        }
+
+        return left.Layers.Zip(right.Layers).All(pair =>
+            pair.First.Id == pair.Second.Id &&
+            pair.First.Kind == pair.Second.Kind &&
+            pair.First.Position == pair.Second.Position &&
+            pair.First.IsEnabled == pair.Second.IsEnabled &&
+            string.Equals(pair.First.RootPath, pair.Second.RootPath, StringComparison.Ordinal) &&
+            pair.First.ReplacementRules.SequenceEqual(pair.Second.ReplacementRules));
     }
 
     private async Task StartAutomaticRefreshAsync(WorkspaceConfiguration configuration)

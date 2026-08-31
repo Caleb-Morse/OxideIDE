@@ -312,7 +312,7 @@
                                                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                           Background="Transparent" BorderThickness="0">
                                                     <Expander.Header>
-                                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="3">
+                                                        <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="3">
                                                             <TextBlock Grid.Row="0" Classes="label" Text="DECLARATION CONTRIBUTIONS" />
                                                             <Grid Grid.Row="1" ColumnDefinitions="Auto,10,*">
                                                                 <TextBlock Grid.Column="0" Text="{Binding SelectedState.Contribution.EffectiveLayerLabel}" FontWeight="SemiBold" />
@@ -321,7 +321,12 @@
                                                                            FontSize="11" TextTrimming="CharacterEllipsis"
                                                                            ToolTip.Tip="{Binding SelectedState.Contribution.ResolutionReason}" />
                                                             </Grid>
-                                                            <Border Grid.Column="1" Grid.RowSpan="2" Background="{DynamicResource OxideSurfaceRaised}"
+                                                            <Button Grid.Column="1" Grid.RowSpan="2" Classes="quiet" Content="Open source"
+                                                                    IsVisible="{Binding SelectedState.Contribution.HasEffectiveSource}"
+                                                                    Tag="{Binding SelectedState.Contribution.EffectiveNavigationRequest}"
+                                                                    Click="OpenSource_Click" VerticalAlignment="Center"
+                                                                    AutomationProperties.Name="Open effective state declaration source" />
+                                                            <Border Grid.Column="2" Grid.RowSpan="2" Background="{DynamicResource OxideSurfaceRaised}"
                                                                     CornerRadius="12" Padding="11,5" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding SelectedState.Contribution.ContributionCountLabel}" FontWeight="SemiBold" />
                                                             </Border>
@@ -541,7 +546,7 @@
                                                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                       Background="Transparent" BorderThickness="0">
                                                 <Expander.Header>
-                                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="3">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="3">
                                                         <TextBlock Grid.Row="0" Classes="label" Text="DECLARATION CONTRIBUTIONS" />
                                                         <Grid Grid.Row="1" ColumnDefinitions="Auto,10,*">
                                                             <TextBlock Grid.Column="0" Text="{Binding SelectedCountry.Contribution.EffectiveLayerLabel}" FontWeight="SemiBold" />
@@ -550,7 +555,12 @@
                                                                        FontSize="11" TextTrimming="CharacterEllipsis"
                                                                        ToolTip.Tip="{Binding SelectedCountry.Contribution.ResolutionReason}" />
                                                         </Grid>
-                                                        <Border Grid.Column="1" Grid.RowSpan="2" Background="{DynamicResource OxideSurfaceRaised}"
+                                                        <Button Grid.Column="1" Grid.RowSpan="2" Classes="quiet" Content="Open source"
+                                                                IsVisible="{Binding SelectedCountry.Contribution.HasEffectiveSource}"
+                                                                Tag="{Binding SelectedCountry.Contribution.EffectiveNavigationRequest}"
+                                                                Click="OpenSource_Click" VerticalAlignment="Center"
+                                                                AutomationProperties.Name="Open effective country declaration source" />
+                                                        <Border Grid.Column="2" Grid.RowSpan="2" Background="{DynamicResource OxideSurfaceRaised}"
                                                                 CornerRadius="12" Padding="11,5" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding SelectedCountry.Contribution.ContributionCountLabel}" FontWeight="SemiBold" />
                                                         </Border>

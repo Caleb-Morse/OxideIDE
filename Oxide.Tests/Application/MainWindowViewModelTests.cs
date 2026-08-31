@@ -526,7 +526,7 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task Reload_replaces_presentations_and_clears_stale_source_navigation()
+    public async Task Reload_remaps_a_compatible_source_view_to_the_new_snapshot()
     {
         using var fixture = new TemporaryWorkspace();
         var path = fixture.WriteGameFile("history/states/1-Test.txt", "state={ id=1 manpower=10 }");
@@ -535,6 +535,8 @@ public sealed class MainWindowViewModelTests
         await viewModel.OpenWorkspaceAsync();
         var oldState = Assert.Single(viewModel.States);
         viewModel.RequestSourceNavigation(oldState.Contribution.EffectiveNavigationRequest!);
+        viewModel.SourceViewer!.SearchText = "manpower";
+        var oldVersion = viewModel.LastSourceNavigationRequest!.SnapshotVersion;
         File.WriteAllText(path, "state={ id=1 manpower=20 }");
 
         await viewModel.ReloadAsync();
@@ -543,10 +545,40 @@ public sealed class MainWindowViewModelTests
         Assert.NotSame(oldState, newState);
         Assert.Equal("10", oldState.Manpower);
         Assert.Equal("20", newState.Manpower);
-        Assert.Null(viewModel.LastSourceNavigationRequest);
+        Assert.NotNull(viewModel.LastSourceNavigationRequest);
+        Assert.True(viewModel.LastSourceNavigationRequest.SnapshotVersion > oldVersion);
+        Assert.NotNull(viewModel.SourceViewer);
+        Assert.Contains("manpower=20", viewModel.SourceViewer.FullText, StringComparison.Ordinal);
+        Assert.Equal("manpower", viewModel.SourceViewer.SearchText);
+        Assert.Equal("1 of 1", viewModel.SourceHistorySummary);
+        Assert.Null(viewModel.SourceRefreshNotice);
+    }
+
+    [Fact]
+    public async Task Reload_closes_a_stale_source_without_substituting_another_layer()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile("history/states/1-Base.txt", "state={ id=1 manpower=10 }");
+        var modPath = fixture.WriteModFile("history/states/1-Mod.txt", "state={ id=1 manpower=20 }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.RequestSourceNavigation(Assert.Single(viewModel.States).Contribution.EffectiveNavigationRequest!);
+        File.Delete(modPath);
+
+        await viewModel.ReloadAsync();
+
         Assert.Null(viewModel.SourceViewer);
-        Assert.False(viewModel.HasSourceNavigationRequest);
-        Assert.Equal(string.Empty, viewModel.SourceNavigationSummary);
+        Assert.True(viewModel.IsConceptWorkspaceVisible);
+        Assert.NotNull(viewModel.SourceRefreshNotice);
+        Assert.Contains("stale", viewModel.SourceNavigationSummary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("document and layer", viewModel.SourceNavigationSummary, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("No source history", viewModel.SourceHistorySummary);
+        Assert.Equal("10", Assert.Single(viewModel.States).Manpower);
     }
 
     [Fact]
@@ -673,6 +705,7 @@ public sealed class MainWindowViewModelTests
         };
         await viewModel.OpenWorkspaceAsync();
         viewModel.SelectedState = viewModel.States.Single(state => state.Id == 2);
+        viewModel.RequestSourceNavigation(viewModel.SelectedState.Contribution.EffectiveNavigationRequest!);
         var previousVersion = service.CurrentSnapshot!.Version;
         File.WriteAllText(path, "state={ id=2 manpower=20 }");
 
@@ -681,6 +714,9 @@ public sealed class MainWindowViewModelTests
         await WaitForAsync(() => viewModel.SelectedState?.Manpower == "20");
 
         Assert.Equal(2, viewModel.SelectedState?.Id);
+        Assert.NotNull(viewModel.SourceViewer);
+        Assert.Contains("manpower=20", viewModel.SourceViewer.FullText, StringComparison.Ordinal);
+        Assert.Equal(service.CurrentSnapshot.Version, viewModel.LastSourceNavigationRequest?.SnapshotVersion);
         Assert.Equal("Watching for changes", viewModel.AutomaticRefreshSummary);
         Assert.False(viewModel.RefreshNeedsAttention);
     }
@@ -737,11 +773,15 @@ public sealed class MainWindowViewModelTests
         };
         await viewModel.OpenWorkspaceAsync();
         var published = service.CurrentSnapshot;
+        viewModel.RequestSourceNavigation(Assert.Single(viewModel.States).Contribution.EffectiveNavigationRequest!);
+        var sourceViewer = viewModel.SourceViewer;
 
         source.EmitError(new WorkspaceChangeSourceError("The watcher needs recovery."));
         await WaitForAsync(() => viewModel.RefreshNeedsAttention);
 
         Assert.Same(published, service.CurrentSnapshot);
+        Assert.Same(sourceViewer, viewModel.SourceViewer);
+        Assert.Equal(published!.Version, viewModel.LastSourceNavigationRequest?.SnapshotVersion);
         Assert.Equal("File watching unavailable", viewModel.AutomaticRefreshSummary);
         Assert.Equal("The watcher needs recovery.", viewModel.AutomaticRefreshDetail);
         Assert.False(viewModel.HasError);

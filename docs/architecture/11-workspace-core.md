@@ -172,7 +172,18 @@ Application navigation history stores at most 50 resolved, snapshot-qualified
 targets. Back and forward navigation re-resolve the exact target without disk
 access, opening a new location after going back discards the forward branch, and
 publishing a replacement snapshot clears the history rather than substituting
-same-path content. Refresh remapping remains later Phase 10 work.
+same-path content when the workspace configuration changes.
+
+Within the same workspace, refresh remapping is conservative. A history entry is
+carried into the new snapshot only when the same semantic identity still has one
+matching contribution from the exact document ID and layer. An unchanged span is
+preferred; a uniquely moved span in that same document may be remapped. Missing
+documents, changed layers, missing identities, and multiple same-source matches
+are stale outcomes rather than invitations to open a different contribution.
+Compatible active views preserve their find query. An incompatible active view
+closes, prunes navigation beyond the last safe entry, and publishes a visible
+stale-navigation explanation. Failed refreshes publish no snapshot and therefore
+leave the current viewer and history untouched.
 
 The viewer projects source relationships for every contribution competing for
 the current semantic identity. Effective, shadowed, ambiguous, invalid, and

@@ -127,8 +127,11 @@ The source header provides bounded back and forward history, including standard
 forward-branch removal when a new source is opened from an earlier entry. The
 details panel lists every contribution related by the same semantic identity and
 labels its disposition and layer. The current contribution is visible but not a
-navigable self-link. A new workspace snapshot clears history; preserving and
-remapping compatible locations across refreshes is intentionally deferred.
+navigable self-link. Compatible same-workspace refreshes remap history and the
+active viewer through the exact semantic identity, document, and layer. If that
+proof fails, Oxide closes the viewer and explains that the location became stale
+instead of silently opening another layer's declaration. Changing workspace
+configuration clears source history.
 
 The reusable source-document presentation model below the Avalonia boundary
 provides exact snapshot text, bounded line materialization, selected spans,

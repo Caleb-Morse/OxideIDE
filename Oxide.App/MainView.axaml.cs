@@ -100,6 +100,7 @@ public partial class MainView : Window
     {
         if (sender is Button { Tag: SourceNavigationRequest request })
         {
+            e.Handled = true;
             ViewModel.RequestSourceNavigation(request);
             ApplySourceSelection();
         }

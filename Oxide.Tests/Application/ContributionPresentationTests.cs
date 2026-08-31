@@ -55,6 +55,8 @@ public sealed class ContributionPresentationTests
             Assert.True(presentation.HasCompetingContributions);
             Assert.Equal(2, presentation.ContributionCount);
             Assert.Equal(1, presentation.EffectiveSource!.LayerPosition);
+            Assert.True(presentation.HasEffectiveSource);
+            Assert.NotNull(presentation.EffectiveNavigationRequest);
             Assert.Contains(presentation.Contributions,
                 contribution => contribution.Disposition is ContributionDisposition.Effective);
             Assert.Contains(presentation.Contributions,

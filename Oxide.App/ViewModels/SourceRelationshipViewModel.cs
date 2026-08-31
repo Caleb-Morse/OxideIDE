@@ -39,6 +39,47 @@ internal static class SourceRelationshipProjector
             .ToImmutableArray();
     }
 
+    public static bool TryRemap(
+        WorkspaceSnapshot snapshot,
+        SourceNavigationRequest previous,
+        out SourceNavigationRequest remapped,
+        out string failureReason)
+    {
+        var contribution = FindContribution(snapshot, previous.SemanticIdentity);
+        if (contribution is null)
+        {
+            remapped = previous;
+            failureReason = "The semantic identity no longer exists in the refreshed snapshot.";
+            return false;
+        }
+
+        var sameSource = contribution.Contributions
+            .Select(item => item.NavigationRequest)
+            .Where(request => request.DocumentId == previous.DocumentId && request.LayerId == previous.LayerId)
+            .ToArray();
+        var exactSpan = sameSource.Where(request =>
+            request.SpanStart == previous.SpanStart && request.SpanLength == previous.SpanLength).ToArray();
+        if (exactSpan.Length == 1)
+        {
+            remapped = exactSpan[0];
+            failureReason = string.Empty;
+            return true;
+        }
+
+        if (sameSource.Length == 1)
+        {
+            remapped = sameSource[0];
+            failureReason = string.Empty;
+            return true;
+        }
+
+        remapped = previous;
+        failureReason = sameSource.Length == 0
+            ? "The exact document and layer no longer contribute to this identity."
+            : "Multiple refreshed declarations match the previous document and layer.";
+        return false;
+    }
+
     private static ContributionSetPresentation? FindContribution(WorkspaceSnapshot snapshot, string semanticIdentity)
     {
         const string statePrefix = "State:global:";

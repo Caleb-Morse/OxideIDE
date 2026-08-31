@@ -65,6 +65,8 @@ public sealed record ContributionSetPresentation(
     public SourceNavigationRequest? EffectiveNavigationRequest =>
         Contributions.FirstOrDefault(contribution => contribution.IsEffective)?.NavigationRequest;
 
+    public bool HasEffectiveSource => EffectiveNavigationRequest is not null;
+
     public string ContributionCountLabel => ContributionCount == 1
         ? "1 contribution"
         : $"{ContributionCount:N0} contributions";
