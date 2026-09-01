@@ -203,6 +203,21 @@ it operates on the snapshot string and performs no parsing or file access. The
 model retains the full snapshot text by reference so selection and copying remain
 lossless while visual materialization stays bounded.
 
+## Snapshot-qualified editing boundary
+
+Editing eligibility is evaluated entirely from an immutable workspace snapshot.
+An eligible document can be captured as a `DocumentEditTarget` containing its
+exact snapshot, document, layer, paths, and original-byte fingerprint. Planned
+changes are ordered, non-overlapping text spans; workspace edits reject mixed
+snapshot versions and duplicate document targets.
+
+Capability refusals preserve the reason a source cannot be changed, including a
+read-only layer, stale snapshot, missing or ambiguous provenance, failed or
+malformed source, and unsupported encoding or operation. Preview, application,
+conflict, cancellation, and exact-byte undo contracts are present, but this
+layer does not yet plan semantic edits or write files. The source viewer and
+desktop application therefore remain read-only.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

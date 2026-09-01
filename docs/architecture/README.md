@@ -155,5 +155,8 @@ The implemented application is a read-only state explorer that can:
 12. conservatively preserve compatible source navigation across refreshes while
     reporting stale declarations instead of substituting another layer.
 
-This exercises all core boundaries. Editing and map rendering remain product
-direction rather than current application capabilities.
+The core also exposes a snapshot-qualified editing capability and contract
+boundary: it can explain why an exact source is or is not eligible for a future
+minimal edit and can bind proposed changes to the original bytes. It does not
+yet plan or write those changes, so the application remains read-only. Map
+rendering also remains product direction rather than a current capability.

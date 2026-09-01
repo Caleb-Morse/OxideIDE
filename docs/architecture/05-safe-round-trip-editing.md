@@ -37,6 +37,27 @@ If several source locations are valid, Oxide presents the alternatives. It does
 not silently edit vanilla or DLC files. By default, changes target the active
 mod and create the smallest safe override supported by that entity policy.
 
+## Implemented contract boundary
+
+The workspace core now defines the first editing contracts without enabling
+file mutation. A `WorkspaceEdit` is snapshot-qualified and contains one or more
+non-overlapping `TextChange` values grouped by exact source document. Each
+`DocumentEditTarget` retains the document and layer identities, virtual and
+physical paths, snapshot version, and a SHA-256 fingerprint of the original
+snapshot bytes.
+
+`EditCapabilityEvaluator` is a pure, snapshot-only gate. It permits a document
+only when its provenance is exact, its declaration is unambiguous, its source
+layer is writable and participating, its encoding is supported, its load
+succeeded, and it has no source errors. Refusals remain explicit: read-only
+layer, stale snapshot, ambiguous declaration, malformed source, unsupported
+encoding or operation, external conflict, missing provenance, and failed
+document are distinct outcomes.
+
+Preview, application, and exact-byte undo result types are defined so later
+sub-phases share one safety vocabulary. No planner, writer, application editing
+surface, or automatic override creation is implemented at this boundary.
+
 ## Transactions and conflicts
 
 Multi-file operations are a single `WorkspaceEdit` containing versioned edits.

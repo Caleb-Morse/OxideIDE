@@ -730,7 +730,10 @@ public sealed class MainWindowViewModelTests
 
         source.Emit(ChangeBatch(service.CurrentSnapshot, path));
         await WaitForAsync(() => service.CurrentSnapshot!.Version > previousVersion);
-        await WaitForAsync(() => viewModel.SelectedState?.Manpower == "20");
+        await WaitForAsync(() =>
+            viewModel.SelectedState?.Manpower == "20" &&
+            viewModel.SourceViewer?.FullText.Contains("manpower=20", StringComparison.Ordinal) is true &&
+            viewModel.LastSourceNavigationRequest?.SnapshotVersion == service.CurrentSnapshot.Version);
 
         Assert.Equal(2, viewModel.SelectedState?.Id);
         Assert.NotNull(viewModel.SourceViewer);
