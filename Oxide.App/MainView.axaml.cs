@@ -7,6 +7,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Oxide.App.Settings;
 using Oxide.App.ViewModels;
+using Oxide.Core.Workspaces.Editing;
 
 namespace Oxide.App;
 
@@ -82,6 +83,30 @@ public partial class MainView : Window
     {
         if (ViewModel.SelectedState is not null) ViewModel.ShowStateDetails();
     }
+
+    private void EditStateCategory_Click(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.BeginStateEdit(StateScalarProperty.StateCategory);
+        FocusStateEditValue();
+    }
+
+    private void EditStateManpower_Click(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.BeginStateEdit(StateScalarProperty.Manpower);
+        FocusStateEditValue();
+    }
+
+    private void CancelStateEdit_Click(object? sender, RoutedEventArgs e) => ViewModel.CancelStateEdit();
+
+    private async void ApplyStateEdit_Click(object? sender, RoutedEventArgs e) =>
+        await ViewModel.ApplyStateEditAsync();
+
+    private void FocusStateEditValue() => Dispatcher.UIThread.Post(() =>
+    {
+        if (!ViewModel.IsStateEditOpen) return;
+        StateEditValueTextBox.Focus();
+        StateEditValueTextBox.SelectAll();
+    }, DispatcherPriority.Loaded);
 
     private void Country_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {

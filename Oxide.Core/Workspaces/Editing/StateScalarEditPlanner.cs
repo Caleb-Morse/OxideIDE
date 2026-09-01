@@ -56,6 +56,50 @@ public sealed record StateScalarEditPlan(
 
 public static class StateScalarEditPlanner
 {
+    public static EditCapability Assess(
+        WorkspaceSnapshot snapshot,
+        int stateId,
+        StateScalarProperty property)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stateId);
+        if (!snapshot.Semantics.States.TryGetValue(stateId, out var state))
+        {
+            return EditCapability.Refused(EditRefusalReason.MissingProvenance, $"State {stateId} is not present.");
+        }
+
+        if (state.ContributionResolution.Kind is not ContributionResolutionKind.Effective ||
+            state.EffectiveDeclaration is not { } declaration)
+        {
+            return EditCapability.Refused(
+                EditRefusalReason.AmbiguousDeclaration,
+                $"State {stateId} has no single effective declaration.");
+        }
+
+        var candidates = Candidates(declaration, property);
+        if (candidates.Length == 0)
+        {
+            return EditCapability.Refused(
+                EditRefusalReason.MissingProvenance,
+                $"State {stateId} does not declare {DisplayName(property)} in its effective source.");
+        }
+
+        if (candidates.Length != 1)
+        {
+            return EditCapability.Refused(
+                EditRefusalReason.AmbiguousDeclaration,
+                $"State {stateId} declares {DisplayName(property)} more than once.");
+        }
+
+        return EditCapabilityEvaluator.AssessDocument(
+            snapshot,
+            snapshot.Version,
+            candidates[0].DocumentId,
+            hasExactProvenance: candidates[0].Span.Length > 0,
+            isDeclarationUnambiguous: true,
+            operationSupported: true);
+    }
+
     public static StateScalarEditPlan Plan(WorkspaceSnapshot snapshot, StateScalarEditIntent intent)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -66,19 +110,14 @@ public static class StateScalarEditPlanner
             return Refused(intent, EditRefusalReason.UnsupportedOperation, invalidValueExplanation);
         }
 
-        if (!snapshot.Semantics.States.TryGetValue(intent.StateId, out var state))
+        var assessed = Assess(snapshot, intent.StateId, intent.Property);
+        if (!assessed.IsEditable)
         {
-            return Refused(intent, EditRefusalReason.MissingProvenance, $"State {intent.StateId} is not present.");
+            return new StateScalarEditPlan(intent, assessed, null, null, []);
         }
 
-        if (state.ContributionResolution.Kind is not ContributionResolutionKind.Effective ||
-            state.EffectiveDeclaration is not { } declaration)
-        {
-            return Refused(
-                intent,
-                EditRefusalReason.AmbiguousDeclaration,
-                $"State {intent.StateId} has no single effective declaration.");
-        }
+        var state = snapshot.Semantics.States[intent.StateId];
+        var declaration = state.EffectiveDeclaration!;
 
         var candidates = Candidates(declaration, intent.Property);
         if (candidates.Length == 0)
@@ -106,18 +145,6 @@ public static class StateScalarEditPlanner
         }
 
         var provenance = candidates[0];
-        var capability = EditCapabilityEvaluator.AssessDocument(
-            snapshot,
-            snapshot.Version,
-            provenance.DocumentId,
-            hasExactProvenance: provenance.Span.Length > 0,
-            isDeclarationUnambiguous: true,
-            operationSupported: true);
-        if (!capability.IsEditable)
-        {
-            return new StateScalarEditPlan(intent, capability, null, null, []);
-        }
-
         var target = EditCapabilityEvaluator.CreateTarget(snapshot, provenance.DocumentId);
         var edit = new WorkspaceEdit(
             WorkspaceEditId.Create(),
@@ -125,9 +152,9 @@ public static class StateScalarEditPlanner
             $"Set state {intent.StateId} {DisplayName(intent.Property)} to {normalizedValue}",
             [new DocumentEdit(target, [new TextChange(provenance.Span, normalizedValue)])]);
         var prepared = InMemoryWorkspaceEditPreparer.Prepare(snapshot, edit);
-        var issues = ValidateIntent(snapshot, state.EffectiveDeclaration, intent, normalizedValue, prepared);
+        var issues = ValidateIntent(snapshot, declaration, intent, normalizedValue, prepared);
 
-        return new StateScalarEditPlan(intent, capability, edit, prepared, issues);
+        return new StateScalarEditPlan(intent, assessed, edit, prepared, issues);
     }
 
     private static ImmutableArray<SourceProvenance> Candidates(

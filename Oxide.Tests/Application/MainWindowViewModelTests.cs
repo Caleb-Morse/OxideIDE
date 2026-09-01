@@ -3,6 +3,7 @@ using Oxide.App.Settings;
 using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
+using Oxide.Core.Workspaces.Editing;
 using Oxide.Core.Workspaces.Loading;
 using Oxide.Core.Workspaces.Refresh;
 using Oxide.Core.Workspaces.Snapshots;
@@ -807,6 +808,106 @@ public sealed class MainWindowViewModelTests
         Assert.Equal("File watching unavailable", viewModel.AutomaticRefreshSummary);
         Assert.Equal("The watcher needs recovery.", viewModel.AutomaticRefreshDetail);
         Assert.False(viewModel.HasError);
+    }
+
+    [Fact]
+    public async Task State_edit_surface_previews_an_eligible_active_mod_scalar_without_writing()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string source = "state = { id = 1 manpower = 10 state_category = rural } # preserved";
+        var path = fixture.WriteModFile("history/states/1-Test.txt", source);
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.True(viewModel.CanEditSelectedStateManpower);
+        Assert.True(viewModel.CanEditSelectedStateCategory);
+        viewModel.BeginStateEdit(StateScalarProperty.Manpower);
+
+        Assert.True(viewModel.IsStateEditOpen);
+        Assert.Equal("10", viewModel.StateEditOriginalValue);
+        Assert.False(viewModel.CanApplyStateEdit);
+        viewModel.StateEditDraftValue = "25";
+
+        Assert.True(viewModel.CanApplyStateEdit);
+        Assert.Contains("manpower = 10", viewModel.StateEditPreviewBefore);
+        Assert.Contains("manpower = 25", viewModel.StateEditPreviewAfter);
+        Assert.Equal("history/states/1-Test.txt", viewModel.StateEditSourcePath);
+        Assert.Equal(source, File.ReadAllText(path));
+    }
+
+    [Fact]
+    public async Task State_edit_surface_explains_read_only_base_values()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile(
+            "history/states/1-Base.txt",
+            "state = { id = 1 manpower = 10 state_category = rural }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+
+        Assert.False(viewModel.CanEditSelectedStateManpower);
+        Assert.False(viewModel.CanEditSelectedStateCategory);
+        Assert.Contains("read-only", viewModel.SelectedStateManpowerEditHint, StringComparison.OrdinalIgnoreCase);
+        viewModel.BeginStateEdit(StateScalarProperty.Manpower);
+        Assert.False(viewModel.IsStateEditOpen);
+        Assert.True(viewModel.HasStateEditFeedback);
+    }
+
+    [Fact]
+    public async Task Applying_state_edit_writes_reloads_and_preserves_selection()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteModFile(
+            "history/states/1-Test.txt",
+            "state = { id = 1 manpower = 10 state_category = rural }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.BeginStateEdit(StateScalarProperty.StateCategory);
+        viewModel.StateEditDraftValue = "large_city";
+
+        await viewModel.ApplyStateEditAsync();
+
+        Assert.False(viewModel.IsStateEditOpen);
+        Assert.Equal(1, viewModel.SelectedState?.Id);
+        Assert.Equal("large_city", viewModel.SelectedState?.Category);
+        Assert.Contains("state_category = large_city", File.ReadAllText(path));
+        Assert.Equal("Saved state category.", viewModel.StateEditFeedback);
+    }
+
+    [Fact]
+    public async Task Applying_state_edit_reports_external_conflict_without_overwriting()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteModFile(
+            "history/states/1-Test.txt",
+            "state = { id = 1 manpower = 10 state_category = rural }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.BeginStateEdit(StateScalarProperty.Manpower);
+        viewModel.StateEditDraftValue = "20";
+        File.WriteAllText(path, "state = { id = 1 manpower = 99 state_category = rural }");
+
+        await viewModel.ApplyStateEditAsync();
+
+        Assert.True(viewModel.IsStateEditOpen);
+        Assert.Contains("changed", viewModel.StateEditFeedback!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("manpower = 99", File.ReadAllText(path));
     }
 
     private static WorkspaceChangeBatch ChangeBatch(WorkspaceSnapshot snapshot, string path)

@@ -4,6 +4,7 @@ using Oxide.App.Settings;
 using Oxide.Core;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
+using Oxide.Core.Workspaces.Editing;
 using Oxide.Core.Workspaces.Loading;
 using Oxide.Core.Workspaces.Refresh;
 using Oxide.Core.Workspaces.Navigation;
@@ -53,6 +54,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private WorkspaceRefreshCoordinatorStatus refreshStatus = new(
         WorkspaceRefreshCoordinatorState.Stopped,
         "Automatic refresh is not active.");
+    private readonly WorkspaceEditWriter editWriter;
+    private StateScalarProperty? stateEditProperty;
+    private string stateEditOriginalValue = string.Empty;
+    private string stateEditDraftValue = string.Empty;
+    private StateScalarEditPlan? stateEditPlan;
+    private bool isApplyingStateEdit;
+    private string? stateEditFeedback;
 
     public MainWindowViewModel()
         : this(new WorkspaceService(), new JsonApplicationSettingsStore(), ownsWorkspaceService: true)
@@ -64,7 +72,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         IApplicationSettingsStore? settingsStore = null,
         bool ownsWorkspaceService = false,
         WorkspaceRefreshCoordinator? refreshCoordinator = null,
-        Func<WorkspaceConfiguration, IWorkspaceChangeSource>? changeSourceFactory = null)
+        Func<WorkspaceConfiguration, IWorkspaceChangeSource>? changeSourceFactory = null,
+        WorkspaceEditWriter? editWriter = null)
     {
         this.workspaceService = workspaceService;
         this.settingsStore = settingsStore;
@@ -77,6 +86,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             ? configuration => new FileSystemWorkspaceChangeSource(configuration)
             : null);
         ownsRefreshCoordinator = refreshCoordinator is null && this.refreshCoordinator is not null;
+        this.editWriter = editWriter ?? new WorkspaceEditWriter();
         if (this.refreshCoordinator is not null)
         {
             this.refreshCoordinator.StatusChanged += OnRefreshStatusChanged;
@@ -419,8 +429,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref selectedState, value))
             {
+                CloseStateEdit();
                 OnPropertyChanged(nameof(HasSelectedState));
                 OnPropertyChanged(nameof(HasNoSelectedState));
+                NotifyStateEditingCapabilities();
             }
         }
     }
@@ -428,6 +440,163 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool HasSelectedState => SelectedState is not null;
 
     public bool HasNoSelectedState => SelectedState is null;
+
+    public bool CanEditSelectedStateManpower =>
+        AssessSelectedStateEdit(StateScalarProperty.Manpower).IsEditable;
+
+    public string EditSelectedStateManpowerExplanation =>
+        AssessSelectedStateEdit(StateScalarProperty.Manpower).Explanation;
+
+    public string SelectedStateManpowerEditHint => CanEditSelectedStateManpower
+        ? "Editable active-mod value"
+        : EditSelectedStateManpowerExplanation;
+
+    public bool CanEditSelectedStateCategory =>
+        AssessSelectedStateEdit(StateScalarProperty.StateCategory).IsEditable;
+
+    public string EditSelectedStateCategoryExplanation =>
+        AssessSelectedStateEdit(StateScalarProperty.StateCategory).Explanation;
+
+    public string SelectedStateCategoryEditHint => CanEditSelectedStateCategory
+        ? "Editable active-mod value"
+        : EditSelectedStateCategoryExplanation;
+
+    public bool IsStateEditOpen => stateEditProperty.HasValue;
+
+    public string StateEditTitle => stateEditProperty switch
+    {
+        StateScalarProperty.Manpower => "Edit manpower",
+        StateScalarProperty.StateCategory => "Edit state category",
+        _ => "Edit state value",
+    };
+
+    public string StateEditPropertyLabel => stateEditProperty switch
+    {
+        StateScalarProperty.Manpower => "MANPOWER",
+        StateScalarProperty.StateCategory => "STATE CATEGORY",
+        _ => "VALUE",
+    };
+
+    public string StateEditOriginalValue => stateEditOriginalValue;
+
+    public string StateEditDraftValue
+    {
+        get => stateEditDraftValue;
+        set
+        {
+            if (SetProperty(ref stateEditDraftValue, value))
+            {
+                UpdateStateEditPlan();
+            }
+        }
+    }
+
+    public bool IsApplyingStateEdit
+    {
+        get => isApplyingStateEdit;
+        private set
+        {
+            if (SetProperty(ref isApplyingStateEdit, value))
+            {
+                OnPropertyChanged(nameof(CanApplyStateEdit));
+            }
+        }
+    }
+
+    public bool CanApplyStateEdit => stateEditPlan?.IsValid is true && !IsApplyingStateEdit;
+
+    public string StateEditValidationMessage => stateEditPlan is null
+        ? string.IsNullOrWhiteSpace(StateEditDraftValue)
+            ? "A value is required."
+            : "Enter a value to build a source preview."
+        : stateEditPlan.IsValid
+            ? "Ready to apply after one final live-file conflict check."
+            : stateEditPlan.Capability.Explanation;
+
+    public string StateEditSourcePath => stateEditPlan?.Edit?.Documents[0].Target.VirtualPath.Value ?? string.Empty;
+
+    public string StateEditPreviewBefore => PreviewText(updated: false);
+
+    public string StateEditPreviewAfter => PreviewText(updated: true);
+
+    public string? StateEditFeedback
+    {
+        get => stateEditFeedback;
+        private set
+        {
+            if (SetProperty(ref stateEditFeedback, value))
+            {
+                OnPropertyChanged(nameof(HasStateEditFeedback));
+            }
+        }
+    }
+
+    public bool HasStateEditFeedback => !string.IsNullOrWhiteSpace(StateEditFeedback);
+
+    public void BeginStateEdit(StateScalarProperty property)
+    {
+        if (snapshot is null || SelectedState is null)
+        {
+            return;
+        }
+
+        var capability = StateScalarEditPlanner.Assess(snapshot, SelectedState.Id, property);
+        if (!capability.IsEditable)
+        {
+            StateEditFeedback = capability.Explanation;
+            return;
+        }
+
+        stateEditProperty = property;
+        stateEditOriginalValue = property switch
+        {
+            StateScalarProperty.Manpower => SelectedState.Entity.Manpower!.Value.ToString(
+                System.Globalization.CultureInfo.InvariantCulture),
+            StateScalarProperty.StateCategory => SelectedState.Entity.StateCategory!.Value,
+            _ => string.Empty,
+        };
+        stateEditDraftValue = stateEditOriginalValue;
+        stateEditPlan = null;
+        StateEditFeedback = null;
+        NotifyStateEditChanged();
+        UpdateStateEditPlan();
+    }
+
+    public void CancelStateEdit() => CloseStateEdit();
+
+    public async Task ApplyStateEditAsync()
+    {
+        if (snapshot is null || stateEditPlan is not { IsValid: true, Edit: { } edit })
+        {
+            return;
+        }
+
+        IsApplyingStateEdit = true;
+        try
+        {
+            var result = await editWriter.ApplyAsync(snapshot, edit);
+            if (!result.IsApplied)
+            {
+                StateEditFeedback = result.Issues.FirstOrDefault()?.Message ?? result.Message;
+                UpdateStateEditPlan();
+                return;
+            }
+
+            var editedProperty = StateEditPropertyLabel.ToLowerInvariant();
+            CloseStateEdit();
+            StateEditFeedback = $"Saved {editedProperty}. Reloading the workspace…";
+            await ReloadAsync();
+            StateEditFeedback = $"Saved {editedProperty}.";
+        }
+        catch (Exception exception)
+        {
+            StateEditFeedback = $"Oxide could not apply the edit: {exception.Message}";
+        }
+        finally
+        {
+            IsApplyingStateEdit = false;
+        }
+    }
 
     public CountryListItemViewModel? SelectedCountry
     {
@@ -1080,6 +1249,92 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     public void SelectStateFromCountry(int stateId) => SelectState(stateId);
+
+    private EditCapability AssessSelectedStateEdit(StateScalarProperty property)
+    {
+        if (snapshot is null || SelectedState is null)
+        {
+            return EditCapability.Refused(EditRefusalReason.MissingProvenance, "Select a state first.");
+        }
+
+        return StateScalarEditPlanner.Assess(snapshot, SelectedState.Id, property);
+    }
+
+    private void UpdateStateEditPlan()
+    {
+        stateEditPlan = null;
+        if (snapshot is not null &&
+            SelectedState is not null &&
+            stateEditProperty is { } property &&
+            !string.IsNullOrWhiteSpace(StateEditDraftValue))
+        {
+            var intent = new StateScalarEditIntent(SelectedState.Id, property, StateEditDraftValue);
+            stateEditPlan = StateScalarEditPlanner.Plan(snapshot, intent);
+        }
+
+        OnPropertyChanged(nameof(CanApplyStateEdit));
+        OnPropertyChanged(nameof(StateEditValidationMessage));
+        OnPropertyChanged(nameof(StateEditSourcePath));
+        OnPropertyChanged(nameof(StateEditPreviewBefore));
+        OnPropertyChanged(nameof(StateEditPreviewAfter));
+    }
+
+    private string PreviewText(bool updated)
+    {
+        if (stateEditPlan?.PreparedEdit?.Documents is not [{ } document])
+        {
+            return string.Empty;
+        }
+
+        var source = updated ? document.UpdatedSource : document.OriginalSource;
+        var change = document.Edit.Changes[0];
+        var offset = Math.Min(change.Span.Start, source.Length);
+        var position = source.GetPosition(offset);
+        var firstLine = Math.Max(0, position.Line - 2);
+        var lastLine = Math.Min(source.LineCount - 1, position.Line + 2);
+        var span = Oxide.Syntax.Text.TextSpan.FromBounds(
+            source.GetLineFullSpan(firstLine).Start,
+            source.GetLineFullSpan(lastLine).End);
+        return source.GetText(span);
+    }
+
+    private void CloseStateEdit()
+    {
+        if (!stateEditProperty.HasValue && stateEditPlan is null)
+        {
+            return;
+        }
+
+        stateEditProperty = null;
+        stateEditOriginalValue = string.Empty;
+        stateEditDraftValue = string.Empty;
+        stateEditPlan = null;
+        NotifyStateEditChanged();
+    }
+
+    private void NotifyStateEditingCapabilities()
+    {
+        OnPropertyChanged(nameof(CanEditSelectedStateManpower));
+        OnPropertyChanged(nameof(EditSelectedStateManpowerExplanation));
+        OnPropertyChanged(nameof(SelectedStateManpowerEditHint));
+        OnPropertyChanged(nameof(CanEditSelectedStateCategory));
+        OnPropertyChanged(nameof(EditSelectedStateCategoryExplanation));
+        OnPropertyChanged(nameof(SelectedStateCategoryEditHint));
+    }
+
+    private void NotifyStateEditChanged()
+    {
+        OnPropertyChanged(nameof(IsStateEditOpen));
+        OnPropertyChanged(nameof(StateEditTitle));
+        OnPropertyChanged(nameof(StateEditPropertyLabel));
+        OnPropertyChanged(nameof(StateEditOriginalValue));
+        OnPropertyChanged(nameof(StateEditDraftValue));
+        OnPropertyChanged(nameof(CanApplyStateEdit));
+        OnPropertyChanged(nameof(StateEditValidationMessage));
+        OnPropertyChanged(nameof(StateEditSourcePath));
+        OnPropertyChanged(nameof(StateEditPreviewBefore));
+        OnPropertyChanged(nameof(StateEditPreviewAfter));
+    }
 
     private void ApplyCountryFilter()
     {

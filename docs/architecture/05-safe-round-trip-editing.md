@@ -137,6 +137,22 @@ failure, but a process or machine crash during a multi-file commit can leave
 recovery artifacts for a later recovery workflow. Directory-entry durability
 also remains subject to the host filesystem and operating system.
 
+## First application surface
+
+The state overview exposes Edit actions for `manpower` and `state_category`.
+Each action is enabled only when the selected state's effective value passes the
+shared capability assessment; otherwise the card displays the refusal reason.
+Editing opens an inline, keyboard-focused surface containing the current value,
+an editable candidate, bounded before/after source context, validation status,
+Cancel, and Apply.
+
+The preview updates from the semantic planner without touching disk. Apply runs
+the conflict-safe writer asynchronously and reloads the workspace only after a
+successful replacement, preserving the selected state when it still exists.
+External conflicts remain visible and do not overwrite the live file. The
+surface does not yet expose insertion, base-game override creation, multi-field
+transactions, or undo.
+
 ## Transactions and conflicts
 
 Multi-file operations are a single `WorkspaceEdit` containing versioned edits.
