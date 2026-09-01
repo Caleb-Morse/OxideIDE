@@ -96,7 +96,7 @@ workspace snapshot.
 ## Pre-write validation
 
 `WorkspaceEditPreflightValidator` is the final read-only boundary before a
-future writer. It first repeats in-memory preparation against the supplied
+writer. It first repeats in-memory preparation against the supplied
 immutable snapshot. Only a valid candidate advances to live validation. It then
 reads every target file and compares its SHA-256 fingerprint with the bytes from
 which the edit was planned.
@@ -111,12 +111,39 @@ does not write temporary files, replace originals, or mutate the workspace, and
 its success cannot eliminate the need for the writer to guard the race between
 validation and replacement.
 
+## Conflict-safe writing
+
+`WorkspaceEditWriter` accepts only an edit that can pass the complete preflight
+sequence. It writes every candidate to a uniquely named sibling staging file,
+flushes the bytes to stable storage, preserves Unix file permissions where
+applicable, and repeats live fingerprint validation after staging. Immediately
+before each replacement it checks the target fingerprint once more. A conflict
+before the first replacement leaves every original untouched.
+
+Each target is replaced with the platform's atomic file-replacement primitive,
+which creates a sibling backup of the exact original. Once replacement begins,
+caller cancellation is deferred until the set is consistent. If a later
+replacement fails, Oxide restores backups in reverse order. Successful results
+contain an undo record with the original bytes and applied fingerprint. Staging
+and backup artifacts are removed after success or successful rollback.
+
+If automatic rollback itself fails, the result is failed rather than applied,
+the surviving backups are retained, and their exact paths are returned as
+recovery artifacts. Cleanup failures are also visible warnings. Oxide does not
+claim impossible cross-file atomicity: common filesystems provide atomic rename
+or replacement for one file, not one indivisible transaction covering several
+paths. The coordinated backup-and-rollback protocol prevents ordinary partial
+failure, but a process or machine crash during a multi-file commit can leave
+recovery artifacts for a later recovery workflow. Directory-entry durability
+also remains subject to the host filesystem and operating system.
+
 ## Transactions and conflicts
 
 Multi-file operations are a single `WorkspaceEdit` containing versioned edits.
-All preconditions are checked before any file is written. Writes use temporary
-files and atomic replacement where the platform permits it. If external changes
-invalidate a precondition, the entire operation stops and is recalculated.
+All preconditions are checked before any original is replaced. Writes use
+sibling staging files, per-file atomic replacement, exact backups, and
+coordinated rollback. If external changes invalidate a precondition before
+replacement, the entire operation stops and is recalculated.
 
 Every workspace edit supports preview and undo. Undo records inverse text edits,
 not merely a semantic command, so it restores exact formatting.

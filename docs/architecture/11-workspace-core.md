@@ -240,6 +240,14 @@ deletion. Validation is all-or-nothing across documents and reports rejected,
 conflict, failed, and cancelled outcomes separately. It performs no writes and
 does not publish a snapshot.
 
+`WorkspaceEditWriter` stages and durably flushes every prepared byte sequence in
+the target directory, repeats preflight and immediate fingerprint checks, and
+uses per-file atomic replacement with an exact backup. Later replacement
+failures trigger reverse-order rollback. Application results include exact-byte
+undo state; incomplete rollback retains and reports recovery artifacts. The
+writer does not publish a workspace snapshot, and the application has not yet
+exposed this capability.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

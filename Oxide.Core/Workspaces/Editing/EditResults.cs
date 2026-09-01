@@ -92,7 +92,9 @@ public sealed record WorkspaceEditApplicationResult
     public WorkspaceEditApplicationResult(
         WorkspaceEditApplicationStatus status,
         string message,
-        WorkspaceEditUndoRecord? undoRecord = null)
+        WorkspaceEditUndoRecord? undoRecord = null,
+        ImmutableArray<EditValidationIssue> issues = default,
+        ImmutableArray<string> recoveryArtifacts = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         if (status is WorkspaceEditApplicationStatus.Applied && undoRecord is null)
@@ -103,11 +105,15 @@ public sealed record WorkspaceEditApplicationResult
         Status = status;
         Message = message.Trim();
         UndoRecord = undoRecord;
+        Issues = issues.IsDefault ? [] : issues;
+        RecoveryArtifacts = recoveryArtifacts.IsDefault ? [] : recoveryArtifacts;
     }
 
     public WorkspaceEditApplicationStatus Status { get; }
     public string Message { get; }
     public WorkspaceEditUndoRecord? UndoRecord { get; }
+    public ImmutableArray<EditValidationIssue> Issues { get; }
+    public ImmutableArray<string> RecoveryArtifacts { get; }
     public bool IsApplied => Status is WorkspaceEditApplicationStatus.Applied;
 }
 

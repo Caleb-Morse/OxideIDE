@@ -162,7 +162,9 @@ reparse lossless candidate text entirely in memory. The first semantic planner
 can derive validated replacements for existing active-mod state `manpower` and
 `state_category` values. A read-only preflight gate also revalidates every live
 target fingerprint and rejects stale, changed, deleted, inaccessible, invalid,
-or cancelled edits as an all-or-nothing set. Oxide does not yet insert
-properties, create overrides, or write changes, so the application remains
-read-only. Map rendering also remains product direction rather than a current
-capability.
+or cancelled edits as an all-or-nothing set. A core writer can stage, atomically
+replace individual files, roll back a failed multi-file operation, and retain
+exact recovery evidence when rollback is incomplete. This writer is not exposed
+by the application, and Oxide does not yet insert properties or create
+overrides, so the user interface remains read-only. Map rendering also remains
+product direction rather than a current capability.
