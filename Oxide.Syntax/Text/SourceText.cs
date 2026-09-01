@@ -99,6 +99,35 @@ public sealed class SourceText
         return new TextPosition(line, offset - lineStarts[line]);
     }
 
+    public TextSpan GetLineSpan(int line)
+    {
+        var fullSpan = GetLineFullSpan(line);
+        var end = fullSpan.End;
+        if (end > fullSpan.Start && Text[end - 1] == '\n')
+        {
+            end--;
+        }
+
+        if (end > fullSpan.Start && Text[end - 1] == '\r')
+        {
+            end--;
+        }
+
+        return TextSpan.FromBounds(fullSpan.Start, end);
+    }
+
+    public TextSpan GetLineFullSpan(int line)
+    {
+        if ((uint)line >= (uint)LineCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(line));
+        }
+
+        var start = lineStarts[line];
+        var end = line + 1 < lineStarts.Length ? lineStarts[line + 1] : Length;
+        return TextSpan.FromBounds(start, end);
+    }
+
     private void ValidateSpan(TextSpan span)
     {
         if (span.End > Length)

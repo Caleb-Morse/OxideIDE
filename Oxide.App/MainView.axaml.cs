@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Oxide.App.Settings;
 using Oxide.App.ViewModels;
 
@@ -99,8 +101,101 @@ public partial class MainView : Window
     {
         if (sender is Button { Tag: SourceNavigationRequest request })
         {
+            e.Handled = true;
             ViewModel.RequestSourceNavigation(request);
+            ApplySourceSelection();
         }
+    }
+
+    private void CloseSourceViewer_Click(object? sender, RoutedEventArgs e) => ViewModel.CloseSourceViewer();
+
+    private void SourceHistoryBack_Click(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.NavigateSourceBack();
+        ApplySourceSelection();
+    }
+
+    private void SourceHistoryForward_Click(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.NavigateSourceForward();
+        ApplySourceSelection();
+    }
+
+    private void OpenRelatedSource_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: SourceNavigationRequest request })
+        {
+            ViewModel.RequestSourceNavigation(request);
+            ApplySourceSelection();
+        }
+    }
+
+    private void SourceFindNext_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SourceViewer?.FindNext() is true) ApplySourceSelection();
+    }
+
+    private void SourceFindPrevious_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SourceViewer?.FindPrevious() is true) ApplySourceSelection();
+    }
+
+    private void SourceViewer_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!ViewModel.IsSourceViewerVisible)
+        {
+            return;
+        }
+
+        var commandModifier = e.KeyModifiers.HasFlag(KeyModifiers.Control) ||
+                              e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+        if (commandModifier && e.Key is Key.F)
+        {
+            SourceFindTextBox.Focus();
+            SourceFindTextBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.Key is Key.Left && ViewModel.CanNavigateSourceBack)
+        {
+            ViewModel.NavigateSourceBack();
+            ApplySourceSelection();
+            e.Handled = true;
+        }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.Key is Key.Right && ViewModel.CanNavigateSourceForward)
+        {
+            ViewModel.NavigateSourceForward();
+            ApplySourceSelection();
+            e.Handled = true;
+        }
+        else if (e.Key is Key.Escape)
+        {
+            ViewModel.CloseSourceViewer();
+            e.Handled = true;
+        }
+    }
+
+    private void SourceDiagnostic_SelectionChanged(object? sender, SelectionChangedEventArgs e) => ApplySourceSelection();
+
+    private async void CopyFullSource_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SourceViewer is not { } sourceViewer || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        await clipboard.SetTextAsync(sourceViewer.FullText);
+    }
+
+    private void ApplySourceSelection()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ViewModel.SourceViewer is not { } sourceViewer) return;
+
+            SourceTextBlock.SelectionStart = sourceViewer.SelectionStart;
+            SourceTextBlock.SelectionEnd = sourceViewer.SelectionEnd;
+            SourceTextBlock.Focus();
+        }, DispatcherPriority.Loaded);
     }
 
     private static void ApplyTheme(OxideTheme theme)

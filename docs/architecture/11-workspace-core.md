@@ -154,6 +154,55 @@ together prevent stale work from publishing. Observable states distinguish
 watching, pending, refreshing, current, failed, unavailable, and stopped; a
 failing status observer cannot terminate coordination.
 
+## Snapshot-qualified source navigation
+
+`SourceNavigationTarget` identifies one exact snapshot version, document ID,
+content layer, virtual path, source span, semantic identity, and navigation
+reason. `SourceNavigationResolver` resolves that target only through the
+immutable snapshot indexes; it performs no filesystem access and never
+substitutes a same-path declaration from another layer.
+
+Resolution distinguishes an exact location from snapshot-version mismatch,
+missing document, source-identity mismatch, failed load, unavailable text,
+unsupported document kind, and invalid span. A resolved location includes the
+physical and virtual paths, complete layer and participation metadata, document
+kind and load state, exact span, and one-based start/end line and column. This
+contract is the read-only boundary used by the embedded source viewer.
+Application navigation history stores at most 50 resolved, snapshot-qualified
+targets. Back and forward navigation re-resolve the exact target without disk
+access, opening a new location after going back discards the forward branch, and
+publishing a replacement snapshot clears the history rather than substituting
+same-path content when the workspace configuration changes.
+
+Within the same workspace, refresh remapping is conservative. A history entry is
+carried into the new snapshot only when the same semantic identity still has one
+matching contribution from the exact document ID and layer. An unchanged span is
+preferred; a uniquely moved span in that same document may be remapped. Missing
+documents, changed layers, missing identities, and multiple same-source matches
+are stale outcomes rather than invitations to open a different contribution.
+Compatible active views preserve their find query. An incompatible active view
+closes, prunes navigation beyond the last safe entry, and publishes a visible
+stale-navigation explanation. Failed refreshes publish no snapshot and therefore
+leave the current viewer and history untouched.
+
+The viewer projects source relationships for every contribution competing for
+the current semantic identity. Effective, shadowed, ambiguous, invalid, and
+excluded dispositions remain distinct, the current location is identified, and
+every navigable relationship retains its exact document, layer, and source span.
+Relationship discovery uses the semantic snapshot's identity indexes and does
+not scan source files or semantic collections on the UI path.
+
+`SourceViewerPresenter` turns a resolved location into an exact-text, read-only
+document model. It exposes encoding and newline metadata, a bounded line window
+with the active span near its leading edge, token-derived Clausewitz or
+localisation highlight spans, and document diagnostics with their own navigation
+targets. Line windows,
+highlight spans, search results, and query length have explicit configurable
+limits. Search supports bounded all-results reporting plus next/previous wrapping;
+it operates on the snapshot string and performs no parsing or file access. The
+model retains the full snapshot text by reference so selection and copying remain
+lossless while visual materialization stays bounded.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

@@ -149,7 +149,11 @@ The implemented application is a read-only state explorer that can:
 8. switch among discovered languages without reloading the workspace;
 9. browse countries and navigate their owned or core state memberships; and
 10. display declaration, localisation, and two-sided region-membership provenance
-    alongside diagnostics.
+    alongside diagnostics;
+11. open exact snapshot source with bounded line, highlight, diagnostic, search,
+    relationship, and history projections; and
+12. conservatively preserve compatible source navigation across refreshes while
+    reporting stale declarations instead of substituting another layer.
 
 This exercises all core boundaries. Editing and map rendering remain product
 direction rather than current application capabilities.

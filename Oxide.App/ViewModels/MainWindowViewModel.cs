@@ -6,6 +6,7 @@ using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
 using Oxide.Core.Workspaces.Refresh;
+using Oxide.Core.Workspaces.Navigation;
 using Oxide.Core.Workspaces.Snapshots;
 using Oxide.Syntax.Diagnostics;
 
@@ -13,6 +14,7 @@ namespace Oxide.App.ViewModels;
 
 public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const int MaximumSourceHistoryEntries = 50;
     private readonly IWorkspaceService workspaceService;
     private readonly bool ownsWorkspaceService;
     private readonly IApplicationSettingsStore? settingsStore;
@@ -41,6 +43,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private OxideTheme theme = OxideTheme.IronRustDark;
     private bool showingCountryDetails;
     private SourceNavigationRequest? lastSourceNavigationRequest;
+    private SourceNavigationResolution? lastSourceNavigationResolution;
+    private SourceViewerViewModel? sourceViewer;
+    private readonly List<SourceNavigationRequest> sourceNavigationHistory = [];
+    private int sourceNavigationHistoryIndex = -1;
+    private string? sourceRefreshNotice;
     private bool automaticRefreshEnabled = true;
     private bool explicitLoadActive;
     private WorkspaceRefreshCoordinatorStatus refreshStatus = new(
@@ -105,18 +112,138 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null;
+    public bool HasSourceNavigationRequest => LastSourceNavigationRequest is not null || SourceRefreshNotice is not null;
 
-    public string SourceNavigationSummary => LastSourceNavigationRequest is null
+    public string? SourceRefreshNotice
+    {
+        get => sourceRefreshNotice;
+        private set
+        {
+            if (SetProperty(ref sourceRefreshNotice, value))
+            {
+                OnPropertyChanged(nameof(HasSourceNavigationRequest));
+                OnPropertyChanged(nameof(SourceNavigationSummary));
+            }
+        }
+    }
+
+    public bool CanNavigateSourceBack => sourceNavigationHistoryIndex > 0;
+
+    public bool CanNavigateSourceForward =>
+        sourceNavigationHistoryIndex >= 0 && sourceNavigationHistoryIndex < sourceNavigationHistory.Count - 1;
+
+    public string SourceHistorySummary => sourceNavigationHistoryIndex < 0
+        ? "No source history"
+        : $"{sourceNavigationHistoryIndex + 1:N0} of {sourceNavigationHistory.Count:N0}";
+
+    public SourceViewerViewModel? SourceViewer
+    {
+        get => sourceViewer;
+        private set
+        {
+            if (SetProperty(ref sourceViewer, value))
+            {
+                OnPropertyChanged(nameof(IsConceptWorkspaceVisible));
+                OnPropertyChanged(nameof(IsSourceViewerVisible));
+            }
+        }
+    }
+
+    public SourceNavigationResolution? LastSourceNavigationResolution
+    {
+        get => lastSourceNavigationResolution;
+        private set => SetProperty(ref lastSourceNavigationResolution, value);
+    }
+
+    public string SourceNavigationSummary => SourceRefreshNotice ?? (LastSourceNavigationRequest is null
         ? string.Empty
-        : $"Source target: {LastSourceNavigationRequest.VirtualPath} · {LastSourceNavigationRequest.Location}";
+        : LastSourceNavigationResolution?.IsResolved is true
+            ? $"Source target: {LastSourceNavigationRequest.VirtualPath} · {LastSourceNavigationRequest.Location}"
+            : LastSourceNavigationResolution?.Message ?? "The source target could not be resolved.");
 
     public void RequestSourceNavigation(SourceNavigationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        NavigateSource(request, recordHistory: true);
+    }
+
+    public void NavigateSourceBack()
+    {
+        if (!CanNavigateSourceBack) return;
+
+        sourceNavigationHistoryIndex--;
+        NavigateSource(sourceNavigationHistory[sourceNavigationHistoryIndex], recordHistory: false);
+        NotifySourceHistoryChanged();
+    }
+
+    public void NavigateSourceForward()
+    {
+        if (!CanNavigateSourceForward) return;
+
+        sourceNavigationHistoryIndex++;
+        NavigateSource(sourceNavigationHistory[sourceNavigationHistoryIndex], recordHistory: false);
+        NotifySourceHistoryChanged();
+    }
+
+    private void NavigateSource(SourceNavigationRequest request, bool recordHistory)
+    {
+        SourceRefreshNotice = null;
         LastSourceNavigationRequest = request;
+        LastSourceNavigationResolution = snapshot is null
+            ? null
+            : SourceNavigationResolver.Resolve(snapshot, request.Target);
+        OnPropertyChanged(nameof(SourceNavigationSummary));
+        SourceViewer = snapshot is not null && LastSourceNavigationResolution?.IsResolved is true
+            ? new SourceViewerViewModel(snapshot, request, LastSourceNavigationResolution)
+            : null;
+        if (recordHistory && SourceViewer is not null)
+        {
+            RecordSourceHistory(request);
+        }
+
         SourceNavigationRequested?.Invoke(request);
     }
+
+    private void RecordSourceHistory(SourceNavigationRequest request)
+    {
+        if (sourceNavigationHistoryIndex >= 0 &&
+            sourceNavigationHistory[sourceNavigationHistoryIndex] == request)
+        {
+            return;
+        }
+
+        if (sourceNavigationHistoryIndex < sourceNavigationHistory.Count - 1)
+        {
+            sourceNavigationHistory.RemoveRange(
+                sourceNavigationHistoryIndex + 1,
+                sourceNavigationHistory.Count - sourceNavigationHistoryIndex - 1);
+        }
+
+        sourceNavigationHistory.Add(request);
+        if (sourceNavigationHistory.Count > MaximumSourceHistoryEntries)
+        {
+            sourceNavigationHistory.RemoveAt(0);
+        }
+
+        sourceNavigationHistoryIndex = sourceNavigationHistory.Count - 1;
+        NotifySourceHistoryChanged();
+    }
+
+    private void ClearSourceHistory()
+    {
+        sourceNavigationHistory.Clear();
+        sourceNavigationHistoryIndex = -1;
+        NotifySourceHistoryChanged();
+    }
+
+    private void NotifySourceHistoryChanged()
+    {
+        OnPropertyChanged(nameof(CanNavigateSourceBack));
+        OnPropertyChanged(nameof(CanNavigateSourceForward));
+        OnPropertyChanged(nameof(SourceHistorySummary));
+    }
+
+    public void CloseSourceViewer() => SourceViewer = null;
 
     public ApplicationScreen Screen
     {
@@ -128,6 +255,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsWelcomeVisible));
                 OnPropertyChanged(nameof(IsLoadingVisible));
                 OnPropertyChanged(nameof(IsWorkspaceVisible));
+                OnPropertyChanged(nameof(IsConceptWorkspaceVisible));
+                OnPropertyChanged(nameof(IsSourceViewerVisible));
             }
         }
     }
@@ -137,6 +266,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsLoadingVisible => Screen is ApplicationScreen.Loading;
 
     public bool IsWorkspaceVisible => Screen is ApplicationScreen.Workspace;
+
+    public bool IsConceptWorkspaceVisible => IsWorkspaceVisible && SourceViewer is null;
+
+    public bool IsSourceViewerVisible => IsWorkspaceVisible && SourceViewer is not null;
 
     public string GameRootPath
     {
@@ -675,7 +808,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         var previousStateId = SelectedState?.Id;
         var previousCountryTag = SelectedCountry?.Tag;
-        LastSourceNavigationRequest = null;
+        var previousSnapshot = snapshot;
+        var previousHistory = sourceNavigationHistory.ToArray();
+        var previousHistoryIndex = sourceNavigationHistoryIndex;
+        var previousRequest = LastSourceNavigationRequest;
+        var sourceViewerWasOpen = SourceViewer is not null;
+        var previousSearch = SourceViewer?.SearchText;
         snapshot = loadedSnapshot;
         AvailableLanguages.Clear();
         foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)
@@ -706,11 +844,101 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedCountry = previousCountryTag is { } tag
             ? Countries.FirstOrDefault(country => country.Tag == tag)
             : Countries.FirstOrDefault();
+        RestoreSourceNavigation(
+            previousSnapshot,
+            loadedSnapshot,
+            previousHistory,
+            previousHistoryIndex,
+            previousRequest,
+            sourceViewerWasOpen,
+            previousSearch);
         OnPropertyChanged(nameof(WorkspaceName));
         OnPropertyChanged(nameof(WorkspaceSummary));
         OnPropertyChanged(nameof(StatusSummary));
         OnPropertyChanged(nameof(ErrorCount));
         OnPropertyChanged(nameof(WarningCount));
+    }
+
+    private void RestoreSourceNavigation(
+        WorkspaceSnapshot? previousSnapshot,
+        WorkspaceSnapshot loadedSnapshot,
+        IReadOnlyList<SourceNavigationRequest> previousHistory,
+        int previousHistoryIndex,
+        SourceNavigationRequest? previousRequest,
+        bool sourceViewerWasOpen,
+        string? previousSearch)
+    {
+        LastSourceNavigationRequest = null;
+        LastSourceNavigationResolution = null;
+        SourceViewer = null;
+        SourceRefreshNotice = null;
+        ClearSourceHistory();
+        if (previousSnapshot is null || !IsSameWorkspace(previousSnapshot.Configuration, loadedSnapshot.Configuration))
+        {
+            return;
+        }
+
+        for (var index = 0; index < previousHistory.Count; index++)
+        {
+            if (!SourceRelationshipProjector.TryRemap(loadedSnapshot, previousHistory[index], out var remapped, out _))
+            {
+                continue;
+            }
+
+            sourceNavigationHistory.Add(remapped);
+            if (index <= previousHistoryIndex)
+            {
+                sourceNavigationHistoryIndex = sourceNavigationHistory.Count - 1;
+            }
+        }
+
+        NotifySourceHistoryChanged();
+        if (previousRequest is null || !sourceViewerWasOpen)
+        {
+            return;
+        }
+
+        if (!SourceRelationshipProjector.TryRemap(
+                loadedSnapshot,
+                previousRequest,
+                out var current,
+                out var failureReason))
+        {
+            if (sourceNavigationHistoryIndex < sourceNavigationHistory.Count - 1)
+            {
+                sourceNavigationHistory.RemoveRange(
+                    sourceNavigationHistoryIndex + 1,
+                    sourceNavigationHistory.Count - sourceNavigationHistoryIndex - 1);
+                NotifySourceHistoryChanged();
+            }
+
+            SourceRefreshNotice = $"The previous source view became stale after refresh. {failureReason}";
+            return;
+        }
+
+        LastSourceNavigationRequest = current;
+        LastSourceNavigationResolution = SourceNavigationResolver.Resolve(loadedSnapshot, current.Target);
+        SourceViewer = new SourceViewerViewModel(loadedSnapshot, current, LastSourceNavigationResolution);
+        if (!string.IsNullOrEmpty(previousSearch))
+        {
+            SourceViewer.SearchText = previousSearch;
+        }
+    }
+
+    private static bool IsSameWorkspace(WorkspaceConfiguration left, WorkspaceConfiguration right)
+    {
+        if (left.Layers.Length != right.Layers.Length)
+        {
+            return false;
+        }
+
+        return left.Layers.Zip(right.Layers).All(pair =>
+            pair.First.Id == pair.Second.Id &&
+            pair.First.Kind == pair.Second.Kind &&
+            pair.First.Position == pair.Second.Position &&
+            pair.First.IsEnabled == pair.Second.IsEnabled &&
+            string.Equals(pair.First.RootPath, pair.Second.RootPath, StringComparison.Ordinal) &&
+            pair.First.ReplacementRules.SequenceEqual(pair.Second.ReplacementRules));
     }
 
     private async Task StartAutomaticRefreshAsync(WorkspaceConfiguration configuration)

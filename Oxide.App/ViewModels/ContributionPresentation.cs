@@ -18,6 +18,7 @@ public enum ContributionOutcomePresentation
 }
 
 public sealed record ContributionSourcePresentation(
+    long SnapshotVersion,
     DocumentId DocumentId,
     string PhysicalPath,
     string VirtualPath,
@@ -63,6 +64,8 @@ public sealed record ContributionSetPresentation(
 
     public SourceNavigationRequest? EffectiveNavigationRequest =>
         Contributions.FirstOrDefault(contribution => contribution.IsEffective)?.NavigationRequest;
+
+    public bool HasEffectiveSource => EffectiveNavigationRequest is not null;
 
     public string ContributionCountLabel => ContributionCount == 1
         ? "1 contribution"
@@ -255,6 +258,7 @@ public sealed record ContributionSetPresentation(
             ? $"Offset {provenance.Span.Start}"
             : DescribeLocation(document, provenance.Span.Start);
         return new ContributionSourcePresentation(
+            snapshot.Version,
             provenance.DocumentId,
             provenance.PhysicalPath,
             virtualPath,
@@ -277,6 +281,7 @@ public sealed record ContributionSetPresentation(
         ContributionSourcePresentation source,
         string semanticIdentity) =>
         new(
+            source.SnapshotVersion,
             source.DocumentId,
             source.PhysicalPath,
             source.VirtualPath,
@@ -285,7 +290,8 @@ public sealed record ContributionSetPresentation(
             source.SpanStart,
             source.SpanLength,
             semanticIdentity,
-            source.Location);
+            source.Location,
+            $"Open the source contribution for {semanticIdentity}");
 
     private static string DescribeDisposition(ContributionDisposition disposition) => disposition switch
     {

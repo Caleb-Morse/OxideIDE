@@ -111,10 +111,36 @@ Provenance is resolved through the published snapshot's document index.
 
 ## Current limitations
 
-This slice is read-only. It has no map, embedded source editor, saved
+This slice is read-only. It has no map, source editor, saved
 recent-workspace list, playset selection, DLC resolution, or
 dependency-mod ordering. Country naming currently recognizes the direct tag key;
 ideology-qualified naming remains future work. Provenance paths and exact source
-locations are visible, but navigation into an embedded source viewer awaits that
-viewer. Source actions already publish an exact `SourceNavigationRequest`, and
-the footer confirms its file and span; only embedded rendering remains deferred.
+locations are visible, and source actions open a snapshot-qualified embedded
+viewer. The viewer identifies the exact layer and participation outcome, selects
+the requested declaration, exposes diagnostic jumps and bounded find operations,
+and permits native selection plus explicit full-file copying. It never reads from
+disk: all displayed text and metadata come from the published immutable snapshot.
+Stale, missing, failed, mismatched, and invalid targets remain explicit outcomes
+and do not open substitute content.
+
+The source header provides bounded back and forward history, including standard
+forward-branch removal when a new source is opened from an earlier entry. The
+details panel lists every contribution related by the same semantic identity and
+labels its disposition and layer. The current contribution is visible but not a
+navigable self-link. Compatible same-workspace refreshes remap history and the
+active viewer through the exact semantic identity, document, and layer. If that
+proof fails, Oxide closes the viewer and explains that the location became stale
+instead of silently opening another layer's declaration. Changing workspace
+configuration clears source history.
+
+The reusable source-document presentation model below the Avalonia boundary
+provides exact snapshot text, bounded line materialization, selected spans,
+diagnostic navigation, token-derived highlight metadata, and bounded find
+operations. The first application surface renders a shared scrolling line-number
+gutter and text window; richer token-colored rendering remains future work.
+
+Source controls expose automation names and remain reachable in normal tab
+order. Control/Command+F focuses and selects the find field, Option+Left and
+Option+Right traverse source history, and Escape returns to the concept view.
+Symbol-only history buttons include descriptive tooltips; native selectable text
+retains standard keyboard selection and copying behavior.
