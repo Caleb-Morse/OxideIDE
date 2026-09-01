@@ -11,6 +11,7 @@ public enum EditRefusalReason
     ExternalConflict,
     MissingProvenance,
     FailedDocument,
+    NoChangeRequired,
 }
 
 public sealed record EditCapability

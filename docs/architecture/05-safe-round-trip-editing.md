@@ -75,6 +75,24 @@ preview text, updated bytes and fingerprints, syntax trees, and diagnostics in
 memory only. Semantic intent verification, disk-conflict checks, and writing
 remain later boundaries.
 
+## First semantic planner
+
+The first planner supports replacing an existing `manpower` or
+`state_category` scalar on a state whose single effective declaration is already
+in the writable active-mod layer. It resolves the effective state through the
+shared contribution model, requires exactly one sourced candidate for the
+selected property, and replaces only that candidate's value span. It validates
+manpower as a non-negative integer and state category as one unquoted Clausewitz
+identifier.
+
+After preparing the candidate text, the planner extracts state declarations
+again and proves that exactly one declaration for the intended state remains and
+that it contains exactly the requested semantic value. Missing properties,
+duplicate properties, ambiguous declarations, read-only base sources, invalid
+values, and semantic no-ops are explicit refusals. The planner does not yet
+insert missing properties, create mod overrides, write files, or publish a new
+workspace snapshot.
+
 ## Transactions and conflicts
 
 Multi-file operations are a single `WorkspaceEdit` containing versioned edits.

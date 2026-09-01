@@ -226,6 +226,13 @@ Clausewitz or localisation content. Prepared results expose the updated
 validation issues. Parser errors in the candidate text make the preparation
 invalid; the current snapshot remains unchanged.
 
+`StateScalarEditPlanner` is the first semantic client of that preparation
+boundary. It plans exact value-token replacements for existing active-mod state
+`manpower` and `state_category` declarations and then re-extracts the candidate
+state to verify the requested value. It refuses missing, duplicate, ambiguous,
+read-only, invalid, and unchanged inputs instead of choosing an insertion or
+override policy implicitly.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

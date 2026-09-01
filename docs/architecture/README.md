@@ -158,7 +158,8 @@ The implemented application is a read-only state explorer that can:
 The core also exposes a snapshot-qualified editing capability and contract
 boundary: it can explain why an exact source is or is not eligible for a future
 minimal edit, bind proposed changes to the original bytes, and prepare and
-reparse lossless candidate text entirely in memory. It does not yet derive
-changes from semantic intentions or write them, so the application remains
-read-only. Map rendering also remains product direction rather than a current
-capability.
+reparse lossless candidate text entirely in memory. The first semantic planner
+can derive validated replacements for existing active-mod state `manpower` and
+`state_category` values. It does not yet insert properties, create overrides,
+or write changes, so the application remains read-only. Map rendering also
+remains product direction rather than a current capability.
