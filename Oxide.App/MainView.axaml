@@ -7,6 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="Oxide.App.MainView" x:DataType="vm:MainWindowViewModel"
         Width="1280" Height="800" MinWidth="980" MinHeight="640"
+        KeyDown="SourceViewer_KeyDown"
         Background="{DynamicResource OxideBackground}" Foreground="{DynamicResource OxideText}">
 
     <Window.Styles>
@@ -744,9 +745,11 @@
                                 AutomationProperties.Name="Return to concept view" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <Button Classes="quiet" Content="‹" IsEnabled="{Binding CanNavigateSourceBack}"
-                                    Click="SourceHistoryBack_Click" AutomationProperties.Name="Previous source location" />
+                                    Click="SourceHistoryBack_Click" AutomationProperties.Name="Previous source location"
+                                    ToolTip.Tip="Previous source location (Option+Left)" />
                             <Button Classes="quiet" Content="›" IsEnabled="{Binding CanNavigateSourceForward}"
-                                    Click="SourceHistoryForward_Click" AutomationProperties.Name="Next source location" />
+                                    Click="SourceHistoryForward_Click" AutomationProperties.Name="Next source location"
+                                    ToolTip.Tip="Next source location (Option+Right)" />
                             <TextBlock Text="{Binding SourceHistorySummary}" Classes="muted" FontSize="11"
                                        VerticalAlignment="Center" />
                         </StackPanel>
@@ -774,17 +777,20 @@
                     <Border Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="0" Classes="card" Padding="10,8">
                         <Grid ColumnDefinitions="Auto,260,Auto,Auto,Auto,*,Auto" ColumnSpacing="8">
                             <TextBlock Grid.Column="0" Text="Find" VerticalAlignment="Center" FontWeight="SemiBold" />
-                            <TextBox Grid.Column="1" Text="{Binding SourceViewer.SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     Watermark="Find in this file…" MaxLength="512" />
+                            <TextBox x:Name="SourceFindTextBox" Grid.Column="1"
+                                     Text="{Binding SourceViewer.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     Watermark="Find in this file…" MaxLength="512"
+                                     AutomationProperties.Name="Find in source file" />
                             <Button Grid.Column="2" Classes="quiet" Content="Previous" IsEnabled="{Binding SourceViewer.CanSearch}"
-                                    Click="SourceFindPrevious_Click" />
+                                    Click="SourceFindPrevious_Click" AutomationProperties.Name="Previous source search result" />
                             <Button Grid.Column="3" Classes="quiet" Content="Next" IsEnabled="{Binding SourceViewer.CanSearch}"
-                                    Click="SourceFindNext_Click" />
+                                    Click="SourceFindNext_Click" AutomationProperties.Name="Next source search result" />
                             <TextBlock Grid.Column="4" Text="{Binding SourceViewer.SearchSummary}" Classes="muted"
                                        VerticalAlignment="Center" />
                             <TextBlock Grid.Column="5" Text="{Binding SourceViewer.WindowSummary}" Classes="muted"
                                        VerticalAlignment="Center" HorizontalAlignment="Right" />
-                            <Button Grid.Column="6" Classes="quiet" Content="Copy full file" Click="CopyFullSource_Click" />
+                            <Button Grid.Column="6" Classes="quiet" Content="Copy full file" Click="CopyFullSource_Click"
+                                    AutomationProperties.Name="Copy complete source file" />
                         </Grid>
                     </Border>
 

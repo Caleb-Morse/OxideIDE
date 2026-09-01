@@ -138,3 +138,9 @@ provides exact snapshot text, bounded line materialization, selected spans,
 diagnostic navigation, token-derived highlight metadata, and bounded find
 operations. The first application surface renders a shared scrolling line-number
 gutter and text window; richer token-colored rendering remains future work.
+
+Source controls expose automation names and remain reachable in normal tab
+order. Control/Command+F focuses and selects the find field, Option+Left and
+Option+Right traverse source history, and Escape returns to the concept view.
+Symbol-only history buttons include descriptive tooltips; native selectable text
+retains standard keyboard selection and copying behavior.

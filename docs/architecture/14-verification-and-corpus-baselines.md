@@ -149,6 +149,15 @@ incremental semantic fingerprint with a clean full reload. Coordinator stress
 tests constrain the command queue to one entry, force overflow, and verify
 serialized recovery through one reasoned full rescan.
 
+Source-navigation verification covers exact snapshot resolution, every supported
+semantic identity domain, effective and shadowed relationships, bounded history,
+forward-branch removal, compatible manual and automatic refresh remapping, stale
+layer removal, and watcher failure without publication. A 20,600-line stress
+fixture verifies the default viewer ceilings of 400 materialized lines, 4,000
+highlight spans, 500 diagnostics, and 500 search results. A 205-contribution
+identity verifies the 200-item application relationship ceiling. These are
+structural bounds rather than machine-dependent timing thresholds.
+
 ## Repository safeguards
 
 Root-level game installation directories are ignored, including `history`,

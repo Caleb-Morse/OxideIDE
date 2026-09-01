@@ -3,7 +3,9 @@ using Oxide.App.ViewModels;
 using Oxide.Core.Workspaces;
 using Oxide.Core.Workspaces.Configuration;
 using Oxide.Core.Workspaces.Loading;
+using Oxide.Core.Workspaces.Navigation;
 using Oxide.Tests.Workspaces;
+using Oxide.Syntax.Text;
 
 namespace Oxide.Tests.Performance;
 
@@ -118,6 +120,54 @@ public sealed class WorkspacePerformanceScenarioTests
         Assert.Same(published, service.CurrentSnapshot);
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10),
             $"Language projection took {stopwatch.Elapsed.TotalMilliseconds:N0} ms.");
+    }
+
+    [Fact]
+    [Trait("Category", "ExternalCorpus")]
+    public async Task Extracted_corpus_largest_source_projection_remains_bounded()
+    {
+        var root = Environment.GetEnvironmentVariable("OXIDE_HOI4_CORPUS_ROOT");
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return;
+        }
+
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(root));
+        var document = snapshot.Documents
+            .Where(candidate => candidate.Text is not null)
+            .MaxBy(candidate => candidate.Text!.Length)!;
+        var offsets = new[] { 0, document.Text!.Length / 2, document.Text.Length };
+        var stopwatch = Stopwatch.StartNew();
+
+        foreach (var offset in offsets)
+        {
+            var target = new SourceNavigationTarget(
+                snapshot.Version,
+                document.Id,
+                document.Layer.Id,
+                document.VirtualPath,
+                new TextSpan(offset, 0),
+                "performance:largest-source",
+                "Verify bounded external source presentation");
+            var presentation = SourceViewerPresenter.Create(SourceNavigationResolver.Resolve(snapshot, target));
+            Assert.InRange(
+                presentation.Lines.Length,
+                1,
+                SourceViewerPresentationOptions.DefaultMaximumMaterializedLines);
+            Assert.InRange(
+                presentation.Highlights.Length,
+                0,
+                SourceViewerPresentationOptions.DefaultMaximumHighlightSpans);
+            Assert.InRange(
+                presentation.Diagnostics.Length,
+                0,
+                SourceViewerPresentationOptions.DefaultMaximumDiagnosticResults);
+        }
+
+        stopwatch.Stop();
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
+            $"Three largest-source projections took {stopwatch.Elapsed.TotalMilliseconds:N0} ms.");
     }
 
     private static void AssertMetrics(WorkspaceLoadMetrics metrics, int expectedDocuments)

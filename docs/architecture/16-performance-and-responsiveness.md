@@ -81,6 +81,17 @@ immutable snapshot to observable UI state. Progress now includes the semantic
 construction stage, elapsed stage time, and diagnostic count, allowing the UI
 to remain informative without performing source work itself.
 
+The embedded source viewer performs no file I/O, decoding, lexing, parsing, or
+semantic construction. It projects only immutable snapshot data. Visual source
+materialization is capped at 400 lines and 4,000 highlight spans; diagnostic and
+find projections are capped at 500 items each; related contributions are capped
+at 200; and navigation history is capped at 50 entries. Full snapshot text is
+retained by reference for lossless selection and explicit copying rather than
+duplicated into visual line objects. Large-source tests assert these ceilings
+without imposing unstable wall-clock budgets. The safely scoped external suite
+also projects the beginning, midpoint, and end of the largest extracted source
+document and verifies the same materialization ceilings.
+
 The current extracted-corpus baseline loads 2,214 documents, builds 304 region
 entities and 13,413 province claims, and derived 1,081 complete state memberships.
 Two complete verification runs took about 17–23 seconds, peaked between

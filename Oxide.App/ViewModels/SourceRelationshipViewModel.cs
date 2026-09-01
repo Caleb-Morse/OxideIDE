@@ -18,25 +18,35 @@ public sealed record SourceRelationshipViewModel(
         : $"Open related source: {Label}; {Description}";
 }
 
+internal sealed record SourceRelationshipProjection(
+    ImmutableArray<SourceRelationshipViewModel> Items,
+    bool IsTruncated);
+
 internal static class SourceRelationshipProjector
 {
-    public static ImmutableArray<SourceRelationshipViewModel> Create(
+    public static SourceRelationshipProjection Create(
         WorkspaceSnapshot snapshot,
-        SourceNavigationRequest current)
+        SourceNavigationRequest current,
+        int maximumResults)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumResults);
         var contribution = FindContribution(snapshot, current.SemanticIdentity);
         if (contribution is null)
         {
-            return [];
+            return new SourceRelationshipProjection([], IsTruncated: false);
         }
 
-        return contribution.Contributions
+        var items = contribution.Contributions
             .Select(item => new SourceRelationshipViewModel(
                 $"{item.DispositionLabel} · {item.Source.LayerName}",
                 $"{item.Summary} · {item.Source.VirtualPath} · {item.Source.Location}",
                 IsSameLocation(item.NavigationRequest, current),
                 item.NavigationRequest))
-            .ToImmutableArray();
+            .Take(maximumResults + 1)
+            .ToArray();
+        return new SourceRelationshipProjection(
+            items.Take(maximumResults).ToImmutableArray(),
+            items.Length > maximumResults);
     }
 
     public static bool TryRemap(

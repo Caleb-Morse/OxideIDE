@@ -17,7 +17,8 @@ public sealed record SourceViewerDocument(
     ImmutableArray<SourceViewerLine> Lines,
     ImmutableArray<SourceHighlightSpan> Highlights,
     bool HighlightsTruncated,
-    ImmutableArray<SourceViewerDiagnostic> Diagnostics)
+    ImmutableArray<SourceViewerDiagnostic> Diagnostics,
+    bool DiagnosticsTruncated)
 {
     public bool LinesTruncated => Lines.Length < LineCount;
 

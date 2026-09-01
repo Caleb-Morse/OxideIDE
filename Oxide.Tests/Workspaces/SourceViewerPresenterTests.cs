@@ -142,6 +142,34 @@ public sealed class SourceViewerPresenterTests
     }
 
     [Fact]
+    public async Task Large_source_stress_scenario_bounds_lines_highlights_diagnostics_and_search_results()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var validLines = Enumerable.Range(1, 20_000).Select(index => $"value_{index}=yes");
+        var invalidLines = Enumerable.Repeat("\u0001", 600);
+        var text = string.Join('\n', validLines.Concat(invalidLines));
+        fixture.WriteGameFile("history/states/1-Stress.txt", text);
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot));
+        var document = snapshot.Documents[0];
+        var focus = text.IndexOf("value_19000", StringComparison.Ordinal);
+        var presentation = SourceViewerPresenter.Create(
+            Resolve(snapshot, document, new TextSpan(focus, "value_19000".Length)));
+        var search = SourceViewerPresenter.FindAll(presentation, "yes");
+
+        Assert.Equal(SourceViewerPresentationOptions.DefaultMaximumMaterializedLines, presentation.Lines.Length);
+        Assert.InRange(
+            presentation.Highlights.Length,
+            0,
+            SourceViewerPresentationOptions.DefaultMaximumHighlightSpans);
+        Assert.Equal(SourceViewerPresentationOptions.DefaultMaximumDiagnosticResults, presentation.Diagnostics.Length);
+        Assert.True(presentation.DiagnosticsTruncated);
+        Assert.Equal(SourceViewerPresentationOptions.DefaultMaximumSearchResults, search.Matches.Length);
+        Assert.True(search.IsTruncated);
+        Assert.Contains(presentation.Lines, line => line.Selection is not null);
+    }
+
+    [Fact]
     public async Task Unresolved_navigation_cannot_be_presented_as_source_text()
     {
         using var fixture = new TemporaryWorkspace();

@@ -688,6 +688,25 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Source_viewer_bounds_large_same_identity_relationship_sets()
+    {
+        using var fixture = new TemporaryWorkspace();
+        fixture.WriteGameFile(
+            "history/states/Duplicates.txt",
+            string.Join('\n', Enumerable.Range(1, 205).Select(_ => "state={ id=1 }")));
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service) { GameRootPath = fixture.GameRoot };
+        await viewModel.OpenWorkspaceAsync();
+        var contribution = Assert.Single(viewModel.States).Contribution;
+
+        viewModel.RequestSourceNavigation(contribution.Contributions[0].NavigationRequest);
+
+        Assert.Equal(200, viewModel.SourceViewer!.Relationships.Length);
+        Assert.True(viewModel.SourceViewer.RelationshipsTruncated);
+        Assert.Equal("200+ related contributions", viewModel.SourceViewer.RelationshipSummary);
+    }
+
+    [Fact]
     public async Task Automatic_refresh_reprojects_the_published_snapshot_and_preserves_selection()
     {
         using var fixture = new TemporaryWorkspace();

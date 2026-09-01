@@ -55,6 +55,7 @@ public static class SourceViewerPresenter
         var highlightsTruncated = highlights.Length > options.MaximumHighlightSpans;
         var diagnostics = document.Diagnostics
             .Where(diagnostic => diagnostic.Span is not null)
+            .Take(options.MaximumDiagnosticResults + 1)
             .Select(diagnostic =>
             {
                 var span = diagnostic.Span!.Value;
@@ -90,7 +91,8 @@ public static class SourceViewerPresenter
             lines.ToImmutable(),
             highlights.Take(options.MaximumHighlightSpans).ToImmutableArray(),
             highlightsTruncated,
-            diagnostics);
+            diagnostics.Take(options.MaximumDiagnosticResults).ToImmutableArray(),
+            diagnostics.Length > options.MaximumDiagnosticResults);
     }
 
     public static SourceSearchResults FindAll(

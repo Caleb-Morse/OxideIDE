@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -137,6 +138,40 @@ public partial class MainView : Window
     private void SourceFindPrevious_Click(object? sender, RoutedEventArgs e)
     {
         if (ViewModel.SourceViewer?.FindPrevious() is true) ApplySourceSelection();
+    }
+
+    private void SourceViewer_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!ViewModel.IsSourceViewerVisible)
+        {
+            return;
+        }
+
+        var commandModifier = e.KeyModifiers.HasFlag(KeyModifiers.Control) ||
+                              e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+        if (commandModifier && e.Key is Key.F)
+        {
+            SourceFindTextBox.Focus();
+            SourceFindTextBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.Key is Key.Left && ViewModel.CanNavigateSourceBack)
+        {
+            ViewModel.NavigateSourceBack();
+            ApplySourceSelection();
+            e.Handled = true;
+        }
+        else if (e.KeyModifiers.HasFlag(KeyModifiers.Alt) && e.Key is Key.Right && ViewModel.CanNavigateSourceForward)
+        {
+            ViewModel.NavigateSourceForward();
+            ApplySourceSelection();
+            e.Handled = true;
+        }
+        else if (e.Key is Key.Escape)
+        {
+            ViewModel.CloseSourceViewer();
+            e.Handled = true;
+        }
     }
 
     private void SourceDiagnostic_SelectionChanged(object? sender, SelectionChangedEventArgs e) => ApplySourceSelection();
