@@ -233,6 +233,13 @@ state to verify the requested value. It refuses missing, duplicate, ambiguous,
 read-only, invalid, and unchanged inputs instead of choosing an insertion or
 override policy implicitly.
 
+Before writing can be authorized, `WorkspaceEditPreflightValidator` repeats
+candidate preparation and asynchronously re-reads every live target. Exact byte
+fingerprints distinguish an unchanged target from an external modification or
+deletion. Validation is all-or-nothing across documents and reports rejected,
+conflict, failed, and cancelled outcomes separately. It performs no writes and
+does not publish a snapshot.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

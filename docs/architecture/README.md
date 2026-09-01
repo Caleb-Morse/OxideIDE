@@ -160,6 +160,9 @@ boundary: it can explain why an exact source is or is not eligible for a future
 minimal edit, bind proposed changes to the original bytes, and prepare and
 reparse lossless candidate text entirely in memory. The first semantic planner
 can derive validated replacements for existing active-mod state `manpower` and
-`state_category` values. It does not yet insert properties, create overrides,
-or write changes, so the application remains read-only. Map rendering also
-remains product direction rather than a current capability.
+`state_category` values. A read-only preflight gate also revalidates every live
+target fingerprint and rejects stale, changed, deleted, inaccessible, invalid,
+or cancelled edits as an all-or-nothing set. Oxide does not yet insert
+properties, create overrides, or write changes, so the application remains
+read-only. Map rendering also remains product direction rather than a current
+capability.

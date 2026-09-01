@@ -93,6 +93,24 @@ values, and semantic no-ops are explicit refusals. The planner does not yet
 insert missing properties, create mod overrides, write files, or publish a new
 workspace snapshot.
 
+## Pre-write validation
+
+`WorkspaceEditPreflightValidator` is the final read-only boundary before a
+future writer. It first repeats in-memory preparation against the supplied
+immutable snapshot. Only a valid candidate advances to live validation. It then
+reads every target file and compares its SHA-256 fingerprint with the bytes from
+which the edit was planned.
+
+Results distinguish ready, rejected candidate, external conflict, filesystem
+failure, and cancellation. A changed or deleted file is a conflict; an
+inaccessible file is a failure. Multi-document validation examines every target
+but is ready only when all targets still match, so a caller cannot interpret a
+partially valid set as permission to write. The live fingerprints are retained
+in the successful result for the writer's immediate conflict checks. This stage
+does not write temporary files, replace originals, or mutate the workspace, and
+its success cannot eliminate the need for the writer to guard the race between
+validation and replacement.
+
 ## Transactions and conflicts
 
 Multi-file operations are a single `WorkspaceEdit` containing versioned edits.
