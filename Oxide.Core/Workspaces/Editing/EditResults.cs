@@ -128,14 +128,22 @@ public enum WorkspaceEditUndoStatus
 
 public sealed record WorkspaceEditUndoResult
 {
-    public WorkspaceEditUndoResult(WorkspaceEditUndoStatus status, string message)
+    public WorkspaceEditUndoResult(
+        WorkspaceEditUndoStatus status,
+        string message,
+        ImmutableArray<EditValidationIssue> issues = default,
+        ImmutableArray<string> recoveryArtifacts = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         Status = status;
         Message = message.Trim();
+        Issues = issues.IsDefault ? [] : issues;
+        RecoveryArtifacts = recoveryArtifacts.IsDefault ? [] : recoveryArtifacts;
     }
 
     public WorkspaceEditUndoStatus Status { get; }
     public string Message { get; }
+    public ImmutableArray<EditValidationIssue> Issues { get; }
+    public ImmutableArray<string> RecoveryArtifacts { get; }
     public bool IsRestored => Status is WorkspaceEditUndoStatus.Restored;
 }

@@ -97,6 +97,50 @@ public sealed class WorkspaceEditWriterTests
         Assert.NotEqual(firstSource, File.ReadAllText(firstPath));
     }
 
+    [Fact]
+    public async Task Undo_restores_exact_original_bytes_through_the_same_safe_writer()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string source = "state = { id = 1 manpower = 10 state_category = rural }\r\n";
+        var originalBytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(source)).ToArray();
+        var path = fixture.WriteModFile("history/states/1-Test.txt", source);
+        File.WriteAllBytes(path, originalBytes);
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var plan = StateScalarEditPlanner.Plan(snapshot, StateScalarEditIntent.SetManpower(1, 25));
+        var application = await new WorkspaceEditWriter().ApplyAsync(snapshot, plan.Edit!);
+        var appliedSnapshot = await service.ReloadAsync();
+
+        var undo = await new WorkspaceEditUndoService().RestoreAsync(appliedSnapshot, application.UndoRecord!);
+
+        Assert.True(undo.IsRestored);
+        Assert.Equal(originalBytes, File.ReadAllBytes(path));
+        Assert.Empty(undo.RecoveryArtifacts);
+        Assert.Empty(Artifacts(path));
+    }
+
+    [Fact]
+    public async Task Undo_refuses_to_overwrite_content_changed_after_the_edit()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteModFile(
+            "history/states/1-Test.txt",
+            "state = { id = 1 manpower = 10 state_category = rural }");
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var plan = StateScalarEditPlanner.Plan(snapshot, StateScalarEditIntent.SetManpower(1, 25));
+        var application = await new WorkspaceEditWriter().ApplyAsync(snapshot, plan.Edit!);
+        var appliedSnapshot = await service.ReloadAsync();
+        const string external = "state = { id = 1 manpower = 99 state_category = rural }";
+        File.WriteAllText(path, external);
+
+        var undo = await new WorkspaceEditUndoService().RestoreAsync(appliedSnapshot, application.UndoRecord!);
+
+        Assert.Equal(WorkspaceEditUndoStatus.Conflict, undo.Status);
+        Assert.Equal(external, File.ReadAllText(path));
+        Assert.Contains(undo.Issues, issue => issue.Code is "OXIDE5015" or "OXIDE5024");
+    }
+
     private static WorkspaceEdit CombinedEdit(Oxide.Core.Workspaces.Snapshots.WorkspaceSnapshot snapshot)
     {
         var first = StateScalarEditPlanner.Plan(snapshot, StateScalarEditIntent.SetManpower(1, 11));

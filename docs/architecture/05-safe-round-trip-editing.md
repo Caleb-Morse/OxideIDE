@@ -151,7 +151,29 @@ the conflict-safe writer asynchronously and reloads the workspace only after a
 successful replacement, preserving the selected state when it still exists.
 External conflicts remain visible and do not overwrite the live file. The
 surface does not yet expose insertion, base-game override creation, multi-field
-transactions, or undo.
+transactions, or redo.
+
+## Refresh, conflict, and undo integration
+
+Before Apply or Undo, the application stops automatic file watching so its own
+atomic replacements cannot be mistaken for an unrelated edit burst. The writer
+still performs every live fingerprint check while watching is paused. Oxide then
+reloads through the workspace service and starts a fresh watcher generation;
+selection is restored by semantic identity. Failure and conflict paths also
+restart watching.
+
+A successful Apply retains one in-memory `WorkspaceEditUndoRecord`. Undo is
+planned against the newly published snapshot, requires each live document to
+match the fingerprint written by Apply, and restores the complete original byte
+sequence through the same staging, replacement, backup, and rollback writer.
+Consequently comments, BOM, newlines, and formatting return exactly. A later
+external modification makes Undo a visible conflict and is never overwritten.
+Undo history is intentionally one level and is cleared when it succeeds or the
+workspace changes; persistence and redo remain out of scope.
+
+Any snapshot published while an edit preview is open closes that preview and
+explains that the user must review current values again. This prevents a UI
+session from presenting snapshot-relative spans as though they were current.
 
 ## Transactions and conflicts
 

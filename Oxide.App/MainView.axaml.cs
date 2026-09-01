@@ -101,6 +101,9 @@ public partial class MainView : Window
     private async void ApplyStateEdit_Click(object? sender, RoutedEventArgs e) =>
         await ViewModel.ApplyStateEditAsync();
 
+    private async void UndoLastEdit_Click(object? sender, RoutedEventArgs e) =>
+        await ViewModel.UndoLastEditAsync();
+
     private void FocusStateEditValue() => Dispatcher.UIThread.Post(() =>
     {
         if (!ViewModel.IsStateEditOpen) return;

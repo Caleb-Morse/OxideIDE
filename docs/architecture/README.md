@@ -155,7 +155,10 @@ The implemented application is a read-only state explorer that can:
 12. conservatively preserve compatible source navigation across refreshes while
     reporting stale declarations instead of substituting another layer; and
 13. preview and safely apply existing active-mod state `manpower` and
-    `state_category` values while explaining why other sources are ineligible.
+    `state_category` values while explaining why other sources are ineligible;
+    and
+14. restore the last applied edit byte-for-byte when no later external change
+    conflicts, while coordinating automatic refresh around Apply and Undo.
 
 The core also exposes a snapshot-qualified editing capability and contract
 boundary: it can explain why an exact source is or is not eligible for a future
@@ -169,5 +172,7 @@ replace individual files, roll back a failed multi-file operation, and retain
 exact recovery evidence when rollback is incomplete. The application exposes
 that pipeline only for existing active-mod state `manpower` and
 `state_category` scalars, with an inline source preview and conflict reporting.
-Oxide does not yet insert properties or create overrides. Map rendering also
-remains product direction rather than a current capability.
+One-level in-memory Undo uses the same writer and refuses to overwrite later
+external changes. Oxide does not yet insert properties, create overrides, or
+provide redo. Map rendering also remains product direction rather than a current
+capability.

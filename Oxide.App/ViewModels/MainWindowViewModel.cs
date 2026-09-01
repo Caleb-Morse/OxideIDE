@@ -55,12 +55,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         WorkspaceRefreshCoordinatorState.Stopped,
         "Automatic refresh is not active.");
     private readonly WorkspaceEditWriter editWriter;
+    private readonly WorkspaceEditUndoService undoService;
     private StateScalarProperty? stateEditProperty;
     private string stateEditOriginalValue = string.Empty;
     private string stateEditDraftValue = string.Empty;
     private StateScalarEditPlan? stateEditPlan;
     private bool isApplyingStateEdit;
     private string? stateEditFeedback;
+    private WorkspaceEditUndoRecord? lastUndoRecord;
 
     public MainWindowViewModel()
         : this(new WorkspaceService(), new JsonApplicationSettingsStore(), ownsWorkspaceService: true)
@@ -87,6 +89,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             : null);
         ownsRefreshCoordinator = refreshCoordinator is null && this.refreshCoordinator is not null;
         this.editWriter = editWriter ?? new WorkspaceEditWriter();
+        undoService = new WorkspaceEditUndoService(this.editWriter);
         if (this.refreshCoordinator is not null)
         {
             this.refreshCoordinator.StatusChanged += OnRefreshStatusChanged;
@@ -499,6 +502,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             if (SetProperty(ref isApplyingStateEdit, value))
             {
                 OnPropertyChanged(nameof(CanApplyStateEdit));
+                OnPropertyChanged(nameof(CanUndoLastEdit));
             }
         }
     }
@@ -532,6 +536,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     public bool HasStateEditFeedback => !string.IsNullOrWhiteSpace(StateEditFeedback);
+
+    public bool CanUndoLastEdit => lastUndoRecord is not null && !IsApplyingStateEdit;
+
+    public string UndoLastEditLabel => lastUndoRecord is null ? "Nothing to undo" : "Undo last edit";
 
     public void BeginStateEdit(StateScalarProperty property)
     {
@@ -572,8 +580,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         IsApplyingStateEdit = true;
+        var resumeAutomaticRefresh = false;
         try
         {
+            resumeAutomaticRefresh = await PauseAutomaticRefreshForMutationAsync();
             var result = await editWriter.ApplyAsync(snapshot, edit);
             if (!result.IsApplied)
             {
@@ -583,9 +593,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             var editedProperty = StateEditPropertyLabel.ToLowerInvariant();
+            SetUndoRecord(result.UndoRecord);
             CloseStateEdit();
             StateEditFeedback = $"Saved {editedProperty}. Reloading the workspace…";
-            await ReloadAsync();
+            await ReloadAfterMutationAsync();
             StateEditFeedback = $"Saved {editedProperty}.";
         }
         catch (Exception exception)
@@ -594,6 +605,50 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
         finally
         {
+            if (resumeAutomaticRefresh)
+            {
+                await ResumeAutomaticRefreshAfterMutationAsync();
+            }
+
+            IsApplyingStateEdit = false;
+        }
+    }
+
+    public async Task UndoLastEditAsync()
+    {
+        if (snapshot is null || lastUndoRecord is null || IsApplyingStateEdit)
+        {
+            return;
+        }
+
+        IsApplyingStateEdit = true;
+        var resumeAutomaticRefresh = false;
+        try
+        {
+            resumeAutomaticRefresh = await PauseAutomaticRefreshForMutationAsync();
+            var result = await undoService.RestoreAsync(snapshot, lastUndoRecord);
+            if (!result.IsRestored)
+            {
+                StateEditFeedback = result.Issues.FirstOrDefault()?.Message ?? result.Message;
+                return;
+            }
+
+            SetUndoRecord(null);
+            StateEditFeedback = "Undo restored the exact source bytes. Reloading the workspace…";
+            await ReloadAfterMutationAsync();
+            StateEditFeedback = "Undid the last edit.";
+        }
+        catch (Exception exception)
+        {
+            StateEditFeedback = $"Oxide could not undo the edit: {exception.Message}";
+        }
+        finally
+        {
+            if (resumeAutomaticRefresh)
+            {
+                await ResumeAutomaticRefreshAfterMutationAsync();
+            }
+
             IsApplyingStateEdit = false;
         }
     }
@@ -860,6 +915,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public async Task ShowWelcomeAsync()
     {
         CancelLoading();
+        CloseStateEdit();
+        SetUndoRecord(null);
+        StateEditFeedback = null;
         if (refreshCoordinator is not null)
         {
             await refreshCoordinator.StopAsync();
@@ -975,6 +1033,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ApplySnapshot(WorkspaceSnapshot loadedSnapshot)
     {
+        var editPreviewWasOpen = IsStateEditOpen;
         var previousStateId = SelectedState?.Id;
         var previousCountryTag = SelectedCountry?.Tag;
         var previousSnapshot = snapshot;
@@ -983,6 +1042,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var previousRequest = LastSourceNavigationRequest;
         var sourceViewerWasOpen = SourceViewer is not null;
         var previousSearch = SourceViewer?.SearchText;
+        if (previousSnapshot is not null && !IsSameWorkspace(previousSnapshot, loadedSnapshot))
+        {
+            SetUndoRecord(null);
+        }
+
         snapshot = loadedSnapshot;
         AvailableLanguages.Clear();
         foreach (var language in loadedSnapshot.Semantics.LocalisationResolver.AvailableLanguages)
@@ -1013,6 +1077,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedCountry = previousCountryTag is { } tag
             ? Countries.FirstOrDefault(country => country.Tag == tag)
             : Countries.FirstOrDefault();
+        if (editPreviewWasOpen)
+        {
+            StateEditFeedback = "The edit preview was closed because the workspace refreshed. Review the current value before editing again.";
+        }
         RestoreSourceNavigation(
             previousSnapshot,
             loadedSnapshot,
@@ -1027,6 +1095,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ErrorCount));
         OnPropertyChanged(nameof(WarningCount));
     }
+
+    private static bool IsSameWorkspace(WorkspaceSnapshot first, WorkspaceSnapshot second) =>
+        string.Equals(first.Configuration.GameRoot, second.Configuration.GameRoot, StringComparison.Ordinal) &&
+        string.Equals(first.Configuration.ActiveModRoot, second.Configuration.ActiveModRoot, StringComparison.Ordinal);
 
     private void RestoreSourceNavigation(
         WorkspaceSnapshot? previousSnapshot,
@@ -1334,6 +1406,37 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StateEditSourcePath));
         OnPropertyChanged(nameof(StateEditPreviewBefore));
         OnPropertyChanged(nameof(StateEditPreviewAfter));
+    }
+
+    private void SetUndoRecord(WorkspaceEditUndoRecord? undoRecord)
+    {
+        lastUndoRecord = undoRecord;
+        OnPropertyChanged(nameof(CanUndoLastEdit));
+        OnPropertyChanged(nameof(UndoLastEditLabel));
+    }
+
+    private async Task<bool> PauseAutomaticRefreshForMutationAsync()
+    {
+        if (!AutomaticRefreshEnabled || refreshCoordinator is null)
+        {
+            return false;
+        }
+
+        await refreshCoordinator.StopAsync();
+        ApplyRefreshStatus(refreshCoordinator.Status);
+        return true;
+    }
+
+    private async Task ReloadAfterMutationAsync() => await LoadAsync(
+        (progress, cancellation) => workspaceService.ReloadAsync(progress, cancellation),
+        startAutomaticRefresh: false);
+
+    private async Task ResumeAutomaticRefreshAfterMutationAsync()
+    {
+        if (snapshot is not null && AutomaticRefreshEnabled)
+        {
+            await StartAutomaticRefreshAsync(snapshot.Configuration);
+        }
     }
 
     private void ApplyCountryFilter()

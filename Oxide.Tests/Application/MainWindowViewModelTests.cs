@@ -883,6 +883,14 @@ public sealed class MainWindowViewModelTests
         Assert.Equal("large_city", viewModel.SelectedState?.Category);
         Assert.Contains("state_category = large_city", File.ReadAllText(path));
         Assert.Equal("Saved state category.", viewModel.StateEditFeedback);
+        Assert.True(viewModel.CanUndoLastEdit);
+
+        await viewModel.UndoLastEditAsync();
+
+        Assert.False(viewModel.CanUndoLastEdit);
+        Assert.Equal("rural", viewModel.SelectedState?.Category);
+        Assert.Contains("state_category = rural", File.ReadAllText(path));
+        Assert.Equal("Undid the last edit.", viewModel.StateEditFeedback);
     }
 
     [Fact]
@@ -908,6 +916,109 @@ public sealed class MainWindowViewModelTests
         Assert.True(viewModel.IsStateEditOpen);
         Assert.Contains("changed", viewModel.StateEditFeedback!, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("manpower = 99", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public async Task Undo_surface_reports_conflict_after_a_later_external_change()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteModFile(
+            "history/states/1-Test.txt",
+            "state = { id = 1 manpower = 10 state_category = rural }");
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.BeginStateEdit(StateScalarProperty.Manpower);
+        viewModel.StateEditDraftValue = "20";
+        await viewModel.ApplyStateEditAsync();
+        const string external = "state = { id = 1 manpower = 99 state_category = rural }";
+        File.WriteAllText(path, external);
+
+        await viewModel.UndoLastEditAsync();
+
+        Assert.True(viewModel.CanUndoLastEdit);
+        Assert.Contains("changed", viewModel.StateEditFeedback!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(external, File.ReadAllText(path));
+    }
+
+    [Fact]
+    public async Task Automatic_refresh_closes_a_stale_edit_preview_with_an_explanation()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteModFile(
+            "history/states/1-Test.txt",
+            "state = { id = 1 manpower = 10 state_category = rural }");
+        using var service = new WorkspaceService();
+        await using var source = new DeterministicWorkspaceChangeSource();
+        await using var coordinator = new WorkspaceRefreshCoordinator(service);
+        using var viewModel = new MainWindowViewModel(
+            service,
+            refreshCoordinator: coordinator,
+            changeSourceFactory: _ => source)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.BeginStateEdit(StateScalarProperty.Manpower);
+        viewModel.StateEditDraftValue = "20";
+        var previousVersion = service.CurrentSnapshot!.Version;
+        File.WriteAllText(path, "state = { id = 1 manpower = 30 state_category = rural }");
+        var layer = service.CurrentSnapshot.Layers.Single(candidate => candidate.IsWritable);
+        var classified = WorkspaceChangeClassifier.Classify(layer, path);
+        source.Emit(new WorkspaceChangeBatch(
+        [
+            new DocumentChange(
+                new WorkspaceChange(
+                    WorkspaceChangeKind.Changed,
+                    classified.Source,
+                    classified.Source,
+                    DateTimeOffset.UnixEpoch,
+                    WorkspaceChangeOrigin.Watcher),
+                classified.DocumentKind!.Value,
+                classified.Category!.Value),
+        ]));
+
+        await WaitForAsync(() => service.CurrentSnapshot!.Version > previousVersion);
+        await WaitForAsync(() => !viewModel.IsStateEditOpen);
+
+        Assert.Contains("closed", viewModel.StateEditFeedback!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("30", viewModel.SelectedState?.Manpower);
+    }
+
+    [Fact]
+    public async Task Applying_an_edit_pauses_own_file_events_and_resumes_watching_after_reload()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var path = fixture.WriteModFile(
+            "history/states/1-Test.txt",
+            "state = { id = 1 manpower = 10 state_category = rural }");
+        using var service = new WorkspaceService();
+        await using var source = new DeterministicWorkspaceChangeSource();
+        await using var coordinator = new WorkspaceRefreshCoordinator(service);
+        using var viewModel = new MainWindowViewModel(
+            service,
+            refreshCoordinator: coordinator,
+            changeSourceFactory: _ => source)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.BeginStateEdit(StateScalarProperty.Manpower);
+        viewModel.StateEditDraftValue = "20";
+
+        await viewModel.ApplyStateEditAsync();
+
+        Assert.True(source.IsRunning);
+        Assert.Equal(WorkspaceRefreshCoordinatorState.Watching, coordinator.Status.State);
+        Assert.Equal("20", viewModel.SelectedState?.Manpower);
+        Assert.Contains("manpower = 20", File.ReadAllText(path));
+        Assert.True(viewModel.CanUndoLastEdit);
     }
 
     private static WorkspaceChangeBatch ChangeBatch(WorkspaceSnapshot snapshot, string path)

@@ -357,7 +357,13 @@
                                             </Border>
                                             <Border Classes="card" Padding="12" IsVisible="{Binding HasStateEditFeedback}"
                                                     BorderBrush="{DynamicResource OxideAccent}" BorderThickness="1">
-                                                <TextBlock Text="{Binding StateEditFeedback}" TextWrapping="Wrap" />
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <TextBlock Grid.Column="0" Text="{Binding StateEditFeedback}" TextWrapping="Wrap"
+                                                               VerticalAlignment="Center" />
+                                                    <Button Grid.Column="1" Classes="quiet" Content="{Binding UndoLastEditLabel}"
+                                                            IsEnabled="{Binding CanUndoLastEdit}" Click="UndoLastEdit_Click"
+                                                            AutomationProperties.Name="Undo last state edit" />
+                                                </Grid>
                                             </Border>
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="7"><TextBlock Classes="label" Text="CORES" /><TextBlock Text="{Binding SelectedState.Cores}" TextWrapping="Wrap" /></StackPanel></Border>
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="7"><TextBlock Classes="label" Text="RESOURCES" /><TextBlock Text="{Binding SelectedState.Resources}" TextWrapping="Wrap" /></StackPanel></Border>
