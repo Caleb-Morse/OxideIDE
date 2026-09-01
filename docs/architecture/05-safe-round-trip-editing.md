@@ -58,6 +58,23 @@ Preview, application, and exact-byte undo result types are defined so later
 sub-phases share one safety vocabulary. No planner, writer, application editing
 surface, or automatic override creation is implemented at this boundary.
 
+The in-memory preparation stage is also implemented. It validates every target
+against the immutable snapshot and its original-byte fingerprint, applies
+non-overlapping changes from the end of the source toward the beginning, encodes
+the result with the original UTF-8 BOM policy, and reparses the updated source
+according to its document kind. Because offsets refer only to the original
+snapshot, insertions and replacements may freely change the number of characters
+or lines without shifting another planned change. Two insertions at one exact
+position must be combined by the planner rather than relying on incidental sort
+order.
+
+Preparation rejects stale snapshots, mismatched source identities or
+fingerprints, unavailable or non-editable documents, out-of-range spans,
+unencodable replacements, and updated text with parser errors. It produces
+preview text, updated bytes and fingerprints, syntax trees, and diagnostics in
+memory only. Semantic intent verification, disk-conflict checks, and writing
+remain later boundaries.
+
 ## Transactions and conflicts
 
 Multi-file operations are a single `WorkspaceEdit` containing versioned edits.

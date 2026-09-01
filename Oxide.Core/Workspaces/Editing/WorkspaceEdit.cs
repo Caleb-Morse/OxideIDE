@@ -72,6 +72,13 @@ public sealed record DocumentEdit
             {
                 throw new ArgumentException("Text changes within one document cannot overlap.", nameof(changes));
             }
+
+            if (normalized[index - 1].Span.Start == normalized[index].Span.Start)
+            {
+                throw new ArgumentException(
+                    "Text changes within one document cannot share a starting position.",
+                    nameof(changes));
+            }
         }
 
         Target = target;

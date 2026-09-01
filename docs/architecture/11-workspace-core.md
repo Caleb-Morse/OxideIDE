@@ -218,6 +218,14 @@ conflict, cancellation, and exact-byte undo contracts are present, but this
 layer does not yet plan semantic edits or write files. The source viewer and
 desktop application therefore remain read-only.
 
+`InMemoryWorkspaceEditPreparer` realizes this contract without touching the
+filesystem. It applies each document's snapshot-relative changes in reverse
+offset order, preserves UTF-8 BOM policy and all untouched text, and reparses
+Clausewitz or localisation content. Prepared results expose the updated
+`SourceText`, exact bytes and fingerprint, appropriate syntax tree, preview, and
+validation issues. Parser errors in the candidate text make the preparation
+invalid; the current snapshot remains unchanged.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

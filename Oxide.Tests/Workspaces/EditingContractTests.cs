@@ -41,6 +41,8 @@ public sealed class EditingContractTests
         Assert.Throws<ArgumentException>(() => new DocumentEdit(target, []));
         Assert.Throws<ArgumentException>(() => new DocumentEdit(target,
             [new TextChange(new TextSpan(1, 4), "a"), new TextChange(new TextSpan(3, 2), "b")]));
+        Assert.Throws<ArgumentException>(() => new DocumentEdit(target,
+            [new TextChange(new TextSpan(3, 0), "a"), new TextChange(new TextSpan(3, 0), "b")]));
         Assert.Throws<ArgumentException>(() => new WorkspaceEdit(
             WorkspaceEditId.Create(),
             7,
@@ -138,6 +140,151 @@ public sealed class EditingContractTests
             edit,
             preview.Documents,
             [new EditValidationIssue("OXIDE5002", DiagnosticSeverity.Error, "Rejected.")]).IsValid);
+    }
+
+    [Fact]
+    public async Task In_memory_preparation_supports_insertions_that_increase_line_count_and_preserves_bom()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string source = "state = { id = 1 resources = { steel = 10 } }";
+        var originalBytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(source)).ToArray();
+        var path = fixture.WriteModFile("history/states/1-Test.txt", source);
+        File.WriteAllBytes(path, originalBytes);
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var document = Document(snapshot, "history/states/1-Test.txt");
+        var insertionPoint = source.IndexOf(" } }", StringComparison.Ordinal);
+        var change = new TextChange(new TextSpan(insertionPoint, 0), "\n    aluminium = 5");
+        var edit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version,
+            "Add aluminium",
+            [new DocumentEdit(EditCapabilityEvaluator.CreateTarget(snapshot, document.Id), [change])]);
+
+        var prepared = InMemoryWorkspaceEditPreparer.Prepare(snapshot, edit);
+        var result = Assert.Single(prepared.Documents);
+
+        Assert.True(prepared.IsValid);
+        Assert.Equal(document.Text!.LineCount + 1, result.UpdatedSource.LineCount);
+        Assert.Equal(SourceEncoding.Utf8WithBom, result.UpdatedSource.Encoding);
+        Assert.True(result.UpdatedSource.GetOriginalBytes().Span.StartsWith(Encoding.UTF8.GetPreamble()));
+        Assert.Equal(
+            "state = { id = 1 resources = { steel = 10\n    aluminium = 5 } }",
+            result.UpdatedSource.Text);
+        Assert.NotNull(result.SyntaxTree);
+        Assert.NotEqual(edit.Documents[0].Target.ExpectedFingerprint, result.UpdatedFingerprint);
+    }
+
+    [Fact]
+    public async Task In_memory_preparation_applies_multiple_snapshot_relative_changes_without_offset_drift()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string source = "state = { id = 1 manpower = 10 state_category = rural }";
+        fixture.WriteModFile("history/states/1-Test.txt", source);
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var document = Document(snapshot, "history/states/1-Test.txt");
+        var manpowerStart = source.IndexOf("10", StringComparison.Ordinal);
+        var categoryStart = source.IndexOf("rural", StringComparison.Ordinal);
+        var edit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version,
+            "Change two values",
+            [new DocumentEdit(
+                EditCapabilityEvaluator.CreateTarget(snapshot, document.Id),
+                [
+                    new TextChange(new TextSpan(manpowerStart, 2), "125000"),
+                    new TextChange(new TextSpan(categoryStart, 5), "large_city"),
+                ])]);
+
+        var prepared = InMemoryWorkspaceEditPreparer.Prepare(snapshot, edit);
+
+        Assert.True(prepared.IsValid);
+        Assert.Equal(
+            "state = { id = 1 manpower = 125000 state_category = large_city }",
+            Assert.Single(prepared.Documents).UpdatedSource.Text);
+    }
+
+    [Fact]
+    public async Task In_memory_preparation_preserves_exact_bytes_for_an_equivalent_replacement_and_reparses_localisation()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string source = "\uFEFFl_english:\r\n STATE_1:0 \"A state\"\r\n";
+        var path = fixture.WriteModFile("localisation/english/test_l_english.yml", source[1..]);
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(source[1..])).ToArray();
+        File.WriteAllBytes(path, bytes);
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var document = Document(snapshot, "localisation/english/test_l_english.yml");
+        var valueStart = document.Text!.Text.IndexOf("A state", StringComparison.Ordinal);
+        var edit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version,
+            "Equivalent localisation replacement",
+            [new DocumentEdit(
+                EditCapabilityEvaluator.CreateTarget(snapshot, document.Id),
+                [new TextChange(new TextSpan(valueStart, "A state".Length), "A state")])]);
+
+        var prepared = InMemoryWorkspaceEditPreparer.Prepare(snapshot, edit);
+        var result = Assert.Single(prepared.Documents);
+
+        Assert.True(prepared.IsValid);
+        Assert.Equal(bytes, result.UpdatedSource.GetOriginalBytes().ToArray());
+        Assert.Equal(NewlineKind.CarriageReturnLineFeed, result.UpdatedSource.Newlines);
+        Assert.NotNull(result.LocalisationSyntaxTree);
+        Assert.Null(result.SyntaxTree);
+        Assert.Equal(edit.Documents[0].Target.ExpectedFingerprint, result.UpdatedFingerprint);
+    }
+
+    [Fact]
+    public async Task In_memory_preparation_rejects_stale_fingerprint_out_of_range_and_malformed_results()
+    {
+        using var fixture = new TemporaryWorkspace();
+        const string source = "state = { id = 1 manpower = 10 }";
+        fixture.WriteModFile("history/states/1-Test.txt", source);
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var document = Document(snapshot, "history/states/1-Test.txt");
+        var target = EditCapabilityEvaluator.CreateTarget(snapshot, document.Id);
+
+        var staleEdit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version + 1,
+            "Stale",
+            [new DocumentEdit(Target(snapshot.Version + 1, "stale"), [new TextChange(new TextSpan(0, 0), "x")])]);
+        var wrongFingerprintTarget = new DocumentEditTarget(
+            snapshot.Version,
+            target.DocumentId,
+            target.LayerId,
+            target.VirtualPath,
+            target.PhysicalPath,
+            DocumentContentFingerprint.Create("different"u8));
+        var wrongFingerprintEdit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version,
+            "Wrong fingerprint",
+            [new DocumentEdit(wrongFingerprintTarget, [new TextChange(new TextSpan(0, 0), "#")])]);
+        var outOfRangeEdit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version,
+            "Out of range",
+            [new DocumentEdit(target, [new TextChange(new TextSpan(source.Length + 1, 0), "x")])]);
+        var malformedEdit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version,
+            "Malformed",
+            [new DocumentEdit(target, [new TextChange(new TextSpan(source.Length - 1, 1), string.Empty)])]);
+
+        Assert.Contains(InMemoryWorkspaceEditPreparer.Prepare(snapshot, staleEdit).Issues, issue => issue.Code == "OXIDE5001");
+        Assert.Contains(
+            Assert.Single(InMemoryWorkspaceEditPreparer.Prepare(snapshot, wrongFingerprintEdit).Documents).Issues,
+            issue => issue.Code == "OXIDE5004");
+        Assert.Contains(
+            Assert.Single(InMemoryWorkspaceEditPreparer.Prepare(snapshot, outOfRangeEdit).Documents).Issues,
+            issue => issue.Code == "OXIDE5006");
+        Assert.Contains(
+            Assert.Single(InMemoryWorkspaceEditPreparer.Prepare(snapshot, malformedEdit).Documents).Issues,
+            issue => issue.Code == "OXIDE5008");
     }
 
     private static EditCapability Assess(
