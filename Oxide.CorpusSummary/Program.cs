@@ -111,6 +111,9 @@ static void WriteHumanSummary(CorpusSummary summary)
         $"{contributions.Dispositions.Excluded:N0} excluded. " +
         $"Overrides: {contributions.CrossLayerOverrideCount:N0}; same-layer duplicates: {contributions.SameLayerDuplicateIdentityCount:N0}.");
     Console.Error.WriteLine($"Diagnostics: {summary.SyntaxDiagnosticCount:N0} syntax, {summary.SemanticDiagnosticCount:N0} semantic. Slowest stage: {slowestStage.Item1} ({slowestStage.Item2:N0} ms).");
+    Console.Error.WriteLine($"State editing: {summary.StateEditing.Manpower.Editable:N0}/{summary.StateEditing.StateCount:N0} manpower, " +
+        $"{summary.StateEditing.StateCategory.Editable:N0}/{summary.StateEditing.StateCount:N0} category, " +
+        $"{summary.StateEditing.EditableForBoth:N0} editable for both.");
     if (summary.IncrementalRefresh is { } refresh)
     {
         Console.Error.WriteLine($"Incremental probe: {refresh.Outcome}; {refresh.DocumentsReparsed:N0} reparsed, " +

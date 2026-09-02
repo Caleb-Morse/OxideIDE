@@ -82,6 +82,8 @@ public sealed class WorkspaceChangeSourceTests
     public async Task Filesystem_source_publishes_supported_changes_and_ignores_unsupported_files()
     {
         using var fixture = new TemporaryWorkspace();
+        Directory.CreateDirectory(Path.Combine(fixture.GameRoot, "events"));
+        Directory.CreateDirectory(Path.Combine(fixture.GameRoot, "history", "states"));
         var options = new WorkspaceChangeSourceOptions(TimeSpan.FromMilliseconds(75), 32);
         await using var source = new FileSystemWorkspaceChangeSource(
             new WorkspaceConfiguration(fixture.GameRoot),

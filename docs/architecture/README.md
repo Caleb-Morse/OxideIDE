@@ -153,7 +153,26 @@ The implemented application is a read-only state explorer that can:
 11. open exact snapshot source with bounded line, highlight, diagnostic, search,
     relationship, and history projections; and
 12. conservatively preserve compatible source navigation across refreshes while
-    reporting stale declarations instead of substituting another layer.
+    reporting stale declarations instead of substituting another layer; and
+13. preview and safely apply existing active-mod state `manpower` and
+    `state_category` values while explaining why other sources are ineligible;
+    and
+14. restore the last applied edit byte-for-byte when no later external change
+    conflicts, while coordinating automatic refresh around Apply and Undo.
 
-This exercises all core boundaries. Editing and map rendering remain product
-direction rather than current application capabilities.
+The core also exposes a snapshot-qualified editing capability and contract
+boundary: it can explain why an exact source is or is not eligible for a future
+minimal edit, bind proposed changes to the original bytes, and prepare and
+reparse lossless candidate text entirely in memory. The first semantic planner
+can derive validated replacements for existing active-mod state `manpower` and
+`state_category` values. A read-only preflight gate also revalidates every live
+target fingerprint and rejects stale, changed, deleted, inaccessible, invalid,
+or cancelled edits as an all-or-nothing set. A core writer can stage, atomically
+replace individual files, roll back a failed multi-file operation, and retain
+exact recovery evidence when rollback is incomplete. The application exposes
+that pipeline only for existing active-mod state `manpower` and
+`state_category` scalars, with an inline source preview and conflict reporting.
+One-level in-memory Undo uses the same writer and refuses to overwrite later
+external changes. Oxide does not yet insert properties, create overrides, or
+provide redo. Map rendering also remains product direction rather than a current
+capability.

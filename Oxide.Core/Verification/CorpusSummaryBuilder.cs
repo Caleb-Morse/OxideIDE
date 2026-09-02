@@ -4,6 +4,7 @@ using Oxide.Core.Semantics.Contributions;
 using Oxide.Core.Semantics.Identity;
 using Oxide.Core.Semantics.Resolution;
 using Oxide.Core.Workspaces.Documents;
+using Oxide.Core.Workspaces.Editing;
 using Oxide.Core.Workspaces.Refresh;
 using Oxide.Core.Workspaces.Snapshots;
 
@@ -48,6 +49,7 @@ public static class CorpusSummaryBuilder
             snapshot.Semantics.States.Count,
             snapshot.Semantics.CountryDeclarations.Length,
             snapshot.Semantics.Countries.Count,
+            BuildStateEditingSummary(snapshot),
             BuildContributionSummary(snapshot),
             BuildStrategicRegionSummary(snapshot),
             snapshot.Semantics.Diagnostics.Length,
@@ -62,6 +64,33 @@ public static class CorpusSummaryBuilder
             snapshot.LoadMetrics,
             totalLoadDuration.TotalMilliseconds,
             incrementalRefresh is null ? null : BuildIncrementalRefreshSummary(incrementalRefresh));
+    }
+
+    private static StateEditingCorpusSummary BuildStateEditingSummary(WorkspaceSnapshot snapshot)
+    {
+        var stateIds = snapshot.Semantics.States.Keys.Order().ToArray();
+        var manpower = stateIds
+            .Select(id => StateScalarEditPlanner.Assess(snapshot, id, StateScalarProperty.Manpower))
+            .ToArray();
+        var categories = stateIds
+            .Select(id => StateScalarEditPlanner.Assess(snapshot, id, StateScalarProperty.StateCategory))
+            .ToArray();
+        return new StateEditingCorpusSummary(
+            stateIds.Length,
+            CountEditingCapabilities(manpower),
+            CountEditingCapabilities(categories),
+            manpower.Zip(categories).Count(pair => pair.First.IsEditable && pair.Second.IsEditable));
+    }
+
+    private static EditingCapabilityCounts CountEditingCapabilities(IEnumerable<EditCapability> capabilities)
+    {
+        var values = capabilities.ToArray();
+        return new EditingCapabilityCounts(
+            values.Length,
+            values.Count(capability => capability.IsEditable),
+            values.Where(capability => capability.RefusalReason.HasValue)
+                .GroupBy(capability => capability.RefusalReason!.Value.ToString(), StringComparer.Ordinal)
+                .ToImmutableSortedDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal));
     }
 
     private static IncrementalRefreshCorpusSummary BuildIncrementalRefreshSummary(WorkspaceRefreshResult refresh) =>

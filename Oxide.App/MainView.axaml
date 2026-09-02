@@ -135,7 +135,7 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="Open an Oxide workspace" FontSize="28" FontWeight="Bold" />
                             <TextBlock Classes="muted" TextWrapping="Wrap"
-                                       Text="Choose your Hearts of Iron IV installation and, optionally, the mod you are actively developing. Oxide builds a read-only semantic view without changing either folder." />
+                                       Text="Choose your Hearts of Iron IV installation and, optionally, the mod you are actively developing. Base-game content stays read-only; supported active-mod values can be previewed before saving." />
                         </StackPanel>
                         <StackPanel Spacing="7">
                             <TextBlock Classes="label" Text="HEARTS OF IRON IV INSTALLATION" />
@@ -280,12 +280,91 @@
                                                     <StackPanel Spacing="5"><TextBlock Classes="label" Text="OWNER" /><TextBlock Text="{Binding SelectedState.Owner}" FontSize="18" FontWeight="SemiBold" /></StackPanel>
                                                 </Border>
                                                 <Border Grid.Column="1" Classes="card" Padding="16">
-                                                    <StackPanel Spacing="5"><TextBlock Classes="label" Text="CATEGORY" /><TextBlock Text="{Binding SelectedState.Category}" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                                                    <StackPanel Spacing="5">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <TextBlock Classes="label" Text="CATEGORY" VerticalAlignment="Center" />
+                                                            <Button Grid.Column="1" Classes="quiet" Content="Edit" Padding="8,3"
+                                                                    IsEnabled="{Binding CanEditSelectedStateCategory}"
+                                                                    ToolTip.Tip="{Binding EditSelectedStateCategoryExplanation}"
+                                                                    Click="EditStateCategory_Click"
+                                                                    AutomationProperties.Name="Edit state category" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding SelectedState.Category}" FontSize="18" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding SelectedStateCategoryEditHint}" Classes="muted" FontSize="10"
+                                                                   TextWrapping="Wrap" MaxLines="2" />
+                                                    </StackPanel>
                                                 </Border>
                                                 <Border Grid.Column="2" Classes="card" Padding="16">
-                                                    <StackPanel Spacing="5"><TextBlock Classes="label" Text="MANPOWER" /><TextBlock Text="{Binding SelectedState.Manpower}" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                                                    <StackPanel Spacing="5">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <TextBlock Classes="label" Text="MANPOWER" VerticalAlignment="Center" />
+                                                            <Button Grid.Column="1" Classes="quiet" Content="Edit" Padding="8,3"
+                                                                    IsEnabled="{Binding CanEditSelectedStateManpower}"
+                                                                    ToolTip.Tip="{Binding EditSelectedStateManpowerExplanation}"
+                                                                    Click="EditStateManpower_Click"
+                                                                    AutomationProperties.Name="Edit state manpower" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding SelectedState.Manpower}" FontSize="18" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding SelectedStateManpowerEditHint}" Classes="muted" FontSize="10"
+                                                                   TextWrapping="Wrap" MaxLines="2" />
+                                                    </StackPanel>
                                                 </Border>
                                             </Grid>
+                                            <Border Classes="card" Padding="18" IsVisible="{Binding IsStateEditOpen}">
+                                                <StackPanel Spacing="14">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <StackPanel Grid.Column="0" Spacing="3">
+                                                            <TextBlock Text="{Binding StateEditTitle}" FontSize="19" FontWeight="SemiBold" />
+                                                            <TextBlock Text="{Binding StateEditSourcePath}" Classes="muted" FontSize="11"
+                                                                       FontFamily="Menlo,Consolas,monospace" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" Classes="quiet" Content="Cancel" Click="CancelStateEdit_Click"
+                                                                AutomationProperties.Name="Cancel state edit" />
+                                                    </Grid>
+                                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                                        <StackPanel Grid.Column="0" Spacing="5">
+                                                            <TextBlock Classes="label" Text="CURRENT VALUE" />
+                                                            <TextBox Text="{Binding StateEditOriginalValue}" IsReadOnly="True" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Spacing="5">
+                                                            <TextBlock Classes="label" Text="{Binding StateEditPropertyLabel}" />
+                                                            <TextBox x:Name="StateEditValueTextBox"
+                                                                     Text="{Binding StateEditDraftValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                     AutomationProperties.Name="New state value" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding StateEditValidationMessage}" Classes="muted" TextWrapping="Wrap" />
+                                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                                        <StackPanel Grid.Column="0" Spacing="5">
+                                                            <TextBlock Classes="label" Text="BEFORE" />
+                                                            <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="10">
+                                                                <TextBlock Text="{Binding StateEditPreviewBefore}" FontFamily="Menlo,Consolas,monospace"
+                                                                           FontSize="11" TextWrapping="Wrap" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Spacing="5">
+                                                            <TextBlock Classes="label" Text="AFTER" />
+                                                            <Border Background="{DynamicResource OxideSurfaceRaised}" CornerRadius="7" Padding="10">
+                                                                <TextBlock Text="{Binding StateEditPreviewAfter}" FontFamily="Menlo,Consolas,monospace"
+                                                                           FontSize="11" TextWrapping="Wrap" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <Button Classes="primary" Content="Apply change" HorizontalAlignment="Right"
+                                                            IsEnabled="{Binding CanApplyStateEdit}" Click="ApplyStateEdit_Click"
+                                                            AutomationProperties.Name="Apply state edit" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Classes="card" Padding="12" IsVisible="{Binding HasStateEditFeedback}"
+                                                    BorderBrush="{DynamicResource OxideAccent}" BorderThickness="1">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <TextBlock Grid.Column="0" Text="{Binding StateEditFeedback}" TextWrapping="Wrap"
+                                                               VerticalAlignment="Center" />
+                                                    <Button Grid.Column="1" Classes="quiet" Content="{Binding UndoLastEditLabel}"
+                                                            IsEnabled="{Binding CanUndoLastEdit}" Click="UndoLastEdit_Click"
+                                                            AutomationProperties.Name="Undo last state edit" />
+                                                </Grid>
+                                            </Border>
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="7"><TextBlock Classes="label" Text="CORES" /><TextBlock Text="{Binding SelectedState.Cores}" TextWrapping="Wrap" /></StackPanel></Border>
                                             <Border Classes="card" Padding="16"><StackPanel Spacing="7"><TextBlock Classes="label" Text="RESOURCES" /><TextBlock Text="{Binding SelectedState.Resources}" TextWrapping="Wrap" /></StackPanel></Border>
                                             <Border Classes="card" Padding="16">
@@ -907,7 +986,7 @@
                     <TextBlock Text="{Binding AutomaticRefreshSummary}" FontSize="11" Classes="muted"
                                Classes.attention="{Binding RefreshNeedsAttention}" />
                 </StackPanel>
-                <TextBlock Grid.Column="3" Text="Read-only semantic workspace" VerticalAlignment="Center" FontSize="11" Classes="muted" />
+                <TextBlock Grid.Column="3" Text="Safe active-mod editing" VerticalAlignment="Center" FontSize="11" Classes="muted" />
             </Grid>
         </Border>
 

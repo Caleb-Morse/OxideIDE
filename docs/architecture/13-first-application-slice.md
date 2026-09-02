@@ -2,7 +2,8 @@
 
 ## Purpose
 
-The first Avalonia application slice exposes the complete read-only pipeline:
+The Avalonia application slice exposes the complete inspection pipeline and a
+narrow safe-editing path:
 
 ```text
 selected roots -> workspace documents -> syntax trees -> semantic snapshot -> state and country browsers
@@ -60,7 +61,15 @@ The workspace provides:
 - selected localisation source, language, resolution reason, and line/column.
 
 The first state is selected after a successful open. Reload retains the prior
-state selection when the same identity remains available.
+state selection when the same identity remains available. Existing effective
+`manpower` and `state_category` values in the writable active-mod layer expose
+Edit actions. The inline surface provides live validation and bounded
+before/after source context; Apply performs conflict-safe replacement and reloads
+the published workspace. The watcher is paused across Oxide's own mutation and
+restarted after reload. One-level Undo restores the exact original bytes when no
+later change conflicts; a later external edit is preserved and reported instead.
+An unrelated refresh closes a stale preview with an explanation. Ineligible
+values remain disabled with an explicit reason.
 
 ### Country workspace
 
@@ -111,9 +120,11 @@ Provenance is resolved through the published snapshot's document index.
 
 ## Current limitations
 
-This slice is read-only. It has no map, source editor, saved
-recent-workspace list, playset selection, DLC resolution, or
-dependency-mod ordering. Country naming currently recognizes the direct tag key;
+This slice has no general source editor, insertion or override creation, map,
+saved recent-workspace list, playset selection, DLC resolution, or dependency-mod
+ordering. Undo is in-memory and one level; redo and persisted recovery history
+are not implemented. Base-game and unsupported values remain read-only. Country naming
+currently recognizes the direct tag key;
 ideology-qualified naming remains future work. Provenance paths and exact source
 locations are visible, and source actions open a snapshot-qualified embedded
 viewer. The viewer identifies the exact layer and participation outcome, selects

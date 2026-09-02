@@ -203,6 +203,51 @@ it operates on the snapshot string and performs no parsing or file access. The
 model retains the full snapshot text by reference so selection and copying remain
 lossless while visual materialization stays bounded.
 
+## Snapshot-qualified editing boundary
+
+Editing eligibility is evaluated entirely from an immutable workspace snapshot.
+An eligible document can be captured as a `DocumentEditTarget` containing its
+exact snapshot, document, layer, paths, and original-byte fingerprint. Planned
+changes are ordered, non-overlapping text spans; workspace edits reject mixed
+snapshot versions and duplicate document targets.
+
+Capability refusals preserve the reason a source cannot be changed, including a
+read-only layer, stale snapshot, missing or ambiguous provenance, failed or
+malformed source, and unsupported encoding or operation. Preview, application,
+conflict, cancellation, and exact-byte undo contracts are present, but this
+layer does not yet plan semantic edits or write files. The source viewer and
+desktop application therefore remain read-only.
+
+`InMemoryWorkspaceEditPreparer` realizes this contract without touching the
+filesystem. It applies each document's snapshot-relative changes in reverse
+offset order, preserves UTF-8 BOM policy and all untouched text, and reparses
+Clausewitz or localisation content. Prepared results expose the updated
+`SourceText`, exact bytes and fingerprint, appropriate syntax tree, preview, and
+validation issues. Parser errors in the candidate text make the preparation
+invalid; the current snapshot remains unchanged.
+
+`StateScalarEditPlanner` is the first semantic client of that preparation
+boundary. It plans exact value-token replacements for existing active-mod state
+`manpower` and `state_category` declarations and then re-extracts the candidate
+state to verify the requested value. It refuses missing, duplicate, ambiguous,
+read-only, invalid, and unchanged inputs instead of choosing an insertion or
+override policy implicitly.
+
+Before writing can be authorized, `WorkspaceEditPreflightValidator` repeats
+candidate preparation and asynchronously re-reads every live target. Exact byte
+fingerprints distinguish an unchanged target from an external modification or
+deletion. Validation is all-or-nothing across documents and reports rejected,
+conflict, failed, and cancelled outcomes separately. It performs no writes and
+does not publish a snapshot.
+
+`WorkspaceEditWriter` stages and durably flushes every prepared byte sequence in
+the target directory, repeats preflight and immediate fingerprint checks, and
+uses per-file atomic replacement with an exact backup. Later replacement
+failures trigger reverse-order rollback. Application results include exact-byte
+undo state; incomplete rollback retains and reports recovery artifacts. The
+writer does not publish a workspace snapshot, and the application has not yet
+exposed this capability.
+
 ## Diagnostics
 
 Workspace diagnostic codes introduced by this layer are:

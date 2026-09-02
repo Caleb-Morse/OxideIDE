@@ -142,12 +142,27 @@ error so redirected automation retains clean JSON.
 The canonical synthetic report requests Spanish with English fallback enabled,
 deliberately exercising exact, fallback, missing, ambiguous, and no-key paths,
 plus layered overrides, excluded documents, same-layer duplicates, and a
-whole-value localisation alias.
+whole-value localisation alias. Its active-mod state fixture also contains one
+state whose existing manpower and state-category values are safely editable.
 Tests assert exact structural counts and normalize only volatile timing and
 memory observations when checking repeatability. Cross-domain tests compare an
 incremental semantic fingerprint with a clean full reload. Coordinator stress
 tests constrain the command queue to one entry, force overflow, and verify
 serialized recovery through one reasoned full rescan.
+
+The report includes state-edit eligibility totals for manpower,
+state-category, and both properties together. Refused states are grouped by
+the shared capability reason instead of being collapsed into one unavailable
+count. Eligibility is derived from the immutable snapshot only; corpus commands
+never prepare, apply, or undo edits.
+
+Editing verification uses 75 deterministic randomized state documents spanning
+newline, BOM, comment, layout, and replacement-length variations. A
+three-document fault-injection matrix fails each replacement position in turn
+and proves that originals are restored without staging or backup debris. Tests
+also cover exact-byte undo, conflict refusal, watcher coordination, application
+flows, and the 4,000-character ceiling applied independently to each side of a
+source preview.
 
 Source-navigation verification covers exact snapshot resolution, every supported
 semantic identity domain, effective and shadowed relationships, bounded history,
