@@ -841,6 +841,28 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task State_edit_source_preview_has_a_hard_character_bound_for_single_line_files()
+    {
+        using var fixture = new TemporaryWorkspace();
+        var source = "state = { id = 1 manpower = 10 state_category = rural }" + new string(' ', 20_000);
+        fixture.WriteModFile("history/states/1-Test.txt", source);
+        using var service = new WorkspaceService();
+        using var viewModel = new MainWindowViewModel(service)
+        {
+            GameRootPath = fixture.GameRoot,
+            ActiveModRootPath = fixture.ModRoot,
+        };
+        await viewModel.OpenWorkspaceAsync();
+        viewModel.BeginStateEdit(StateScalarProperty.Manpower);
+        viewModel.StateEditDraftValue = "20";
+
+        Assert.InRange(viewModel.StateEditPreviewBefore.Length, 1, 4_000);
+        Assert.InRange(viewModel.StateEditPreviewAfter.Length, 1, 4_000);
+        Assert.Contains("manpower = 10", viewModel.StateEditPreviewBefore);
+        Assert.Contains("manpower = 20", viewModel.StateEditPreviewAfter);
+    }
+
+    [Fact]
     public async Task State_edit_surface_explains_read_only_base_values()
     {
         using var fixture = new TemporaryWorkspace();

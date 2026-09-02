@@ -175,6 +175,22 @@ Any snapshot published while an edit preview is open closes that preview and
 explains that the user must review current values again. This prevents a UI
 session from presenting snapshot-relative spans as though they were current.
 
+## Verification guarantees
+
+Editing verification exercises bounded randomized state sources with different
+newline, BOM, comment, layout, and replacement-length combinations. It also
+covers stale snapshots, external conflicts, durable staging, failures at every
+position in a three-file replacement sequence, coordinated rollback, exact-byte
+undo, watcher restart, selection preservation, and the application Apply and
+Undo flows. Before/after preview text is independently capped at 4,000
+characters so a pathological single-line source cannot create an unbounded UI
+projection.
+
+Corpus reporting evaluates the current snapshot's state edit eligibility for
+both supported properties and groups every refusal by its explicit reason. This
+assessment is read-only: external corpus verification never prepares or writes
+an edit to installation or mod files.
+
 ## Transactions and conflicts
 
 Multi-file operations are a single `WorkspaceEdit` containing versioned edits.

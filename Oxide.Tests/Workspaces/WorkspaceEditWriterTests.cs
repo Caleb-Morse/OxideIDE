@@ -141,6 +141,41 @@ public sealed class WorkspaceEditWriterTests
         Assert.Contains(undo.Issues, issue => issue.Code is "OXIDE5015" or "OXIDE5024");
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Failure_at_each_replacement_position_restores_the_complete_three_file_set(int failReplaceCall)
+    {
+        using var fixture = new TemporaryWorkspace();
+        var originals = Enumerable.Range(1, 3).ToDictionary(
+            stateId => stateId,
+            stateId => $"state = {{ id = {stateId} manpower = {stateId * 10} state_category = rural }}");
+        var paths = originals.ToDictionary(
+            entry => entry.Key,
+            entry => fixture.WriteModFile($"history/states/{entry.Key}-Test.txt", entry.Value));
+        using var service = new WorkspaceService();
+        var snapshot = await service.OpenAsync(new WorkspaceConfiguration(fixture.GameRoot, fixture.ModRoot));
+        var edits = originals.Keys.Select(stateId =>
+            StateScalarEditPlanner.Plan(snapshot, StateScalarEditIntent.SetManpower(stateId, stateId * 100L))
+                .Edit!.Documents[0]);
+        var workspaceEdit = new WorkspaceEdit(
+            WorkspaceEditId.Create(),
+            snapshot.Version,
+            "Three-file fault matrix",
+            edits);
+
+        var result = await new WorkspaceEditWriter(
+            new FaultingFileSystem(failReplaceCall, failRestore: false)).ApplyAsync(snapshot, workspaceEdit);
+
+        Assert.Equal(WorkspaceEditApplicationStatus.Failed, result.Status);
+        foreach (var stateId in originals.Keys)
+        {
+            Assert.Equal(originals[stateId], File.ReadAllText(paths[stateId]));
+            Assert.Empty(Artifacts(paths[stateId]));
+        }
+    }
+
     private static WorkspaceEdit CombinedEdit(Oxide.Core.Workspaces.Snapshots.WorkspaceSnapshot snapshot)
     {
         var first = StateScalarEditPlanner.Plan(snapshot, StateScalarEditIntent.SetManpower(1, 11));

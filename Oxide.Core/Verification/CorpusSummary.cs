@@ -16,6 +16,7 @@ public sealed record CorpusSummary(
     int StateEntityCount,
     int CountryDeclarationCount,
     int CountryEntityCount,
+    StateEditingCorpusSummary StateEditing,
     ContributionCorpusSummary Contributions,
     StrategicRegionCorpusSummary StrategicRegions,
     int SemanticDiagnosticCount,

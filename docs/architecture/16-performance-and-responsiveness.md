@@ -92,6 +92,13 @@ without imposing unstable wall-clock budgets. The safely scoped external suite
 also projects the beginning, midpoint, and end of the largest extracted source
 document and verifies the same materialization ceilings.
 
+State-edit eligibility reporting is computed from the immutable snapshot and
+performs no live file reads or writes. Edit planning and preview preparation are
+in-memory operations; live conflict validation and writing remain asynchronous
+application operations rather than UI-thread work. Each before/after edit
+preview is capped at 4,000 characters, including a single source line longer
+than that ceiling.
+
 The current extracted-corpus baseline loads 2,214 documents, builds 304 region
 entities and 13,413 province claims, and derived 1,081 complete state memberships.
 Two complete verification runs took about 17–23 seconds, peaked between

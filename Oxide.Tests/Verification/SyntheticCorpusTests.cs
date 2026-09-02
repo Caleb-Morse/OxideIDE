@@ -37,6 +37,12 @@ public sealed class SyntheticCorpusTests
         Assert.Equal(9, summary.StateEntityCount);
         Assert.Equal(3, summary.CountryDeclarationCount);
         Assert.Equal(2, summary.CountryEntityCount);
+        Assert.Equal(9, summary.StateEditing.StateCount);
+        Assert.Equal(1, summary.StateEditing.Manpower.Editable);
+        Assert.Equal(1, summary.StateEditing.StateCategory.Editable);
+        Assert.Equal(1, summary.StateEditing.EditableForBoth);
+        Assert.Equal(8, summary.StateEditing.Manpower.RefusalsByReason.Values.Sum());
+        Assert.Equal(8, summary.StateEditing.StateCategory.RefusalsByReason.Values.Sum());
         var contributions = summary.Contributions;
         Assert.Equal(new ContributionDispositionCounts(10, 9, 0, 0, 0, 1), contributions.States.Dispositions);
         Assert.Equal(new ContributionDispositionCounts(3, 2, 1, 0, 0, 0), contributions.Countries.Dispositions);

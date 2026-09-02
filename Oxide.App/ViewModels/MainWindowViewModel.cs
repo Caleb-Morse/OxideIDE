@@ -16,6 +16,7 @@ namespace Oxide.App.ViewModels;
 public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
     private const int MaximumSourceHistoryEntries = 50;
+    private const int MaximumStateEditPreviewCharacters = 4_000;
     private readonly IWorkspaceService workspaceService;
     private readonly bool ownsWorkspaceService;
     private readonly IApplicationSettingsStore? settingsStore;
@@ -1367,7 +1368,27 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var span = Oxide.Syntax.Text.TextSpan.FromBounds(
             source.GetLineFullSpan(firstLine).Start,
             source.GetLineFullSpan(lastLine).End);
-        return source.GetText(span);
+        if (span.Length <= MaximumStateEditPreviewCharacters)
+        {
+            return source.GetText(span);
+        }
+
+        var previewStart = Math.Clamp(
+            offset - MaximumStateEditPreviewCharacters / 2,
+            span.Start,
+            span.End - MaximumStateEditPreviewCharacters);
+        var hasPrefix = previewStart > span.Start;
+        var previewLength = MaximumStateEditPreviewCharacters - (hasPrefix ? 1 : 0);
+        var hasSuffix = previewStart + previewLength < span.End;
+        if (hasSuffix)
+        {
+            previewLength--;
+        }
+
+        var preview = source.GetText(new Oxide.Syntax.Text.TextSpan(
+            previewStart,
+            previewLength));
+        return $"{(hasPrefix ? "…" : string.Empty)}{preview}{(hasSuffix ? "…" : string.Empty)}";
     }
 
     private void CloseStateEdit()
