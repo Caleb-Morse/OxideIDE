@@ -9,7 +9,8 @@ This directory is the architectural reference for contributors. It is not a
 development diary. A reader should be able to use it to understand the system,
 its design decisions, its implemented guarantees, and its known limitations
 without reconstructing the order in which features were built. Milestone
-history and delivery notes belong in pull requests and releases.
+history and delivery notes belong in pull requests and releases. Planned phase
+order and scope live in the [development roadmap](../roadmap.md).
 
 ## How to read and maintain this directory
 

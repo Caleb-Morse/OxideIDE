@@ -18,13 +18,20 @@ The goal of Oxide is to streamline and enhance the modding experience by making 
 
 ## 🚧 Project Status
 
-This project is in early development. The first read-only vertical slice is
-working: Oxide can open a game installation and optional active mod, build an
-immutable semantic workspace, browse and search states, inspect provenance, and
-show workspace and semantic problems. It resolves multilingual names for states,
-countries, and strategic regions, derives every state's province-backed region
-membership, and keeps split, partial, missing, and ambiguous outcomes inspectable
-with provenance from both source files.
+This project is in early development, with a hardened vertical slice now
+working. Oxide can open a game installation and optional active mod, build and
+incrementally refresh an immutable semantic workspace, browse states and
+countries, inspect effective and shadowed contributions, and navigate exact
+source provenance. It resolves multilingual names and province-backed strategic
+region membership while keeping missing, split, partial, duplicate, and
+ambiguous outcomes visible.
+
+Oxide also provides its first deliberately narrow editing workflow: existing
+`manpower` and `state_category` values in writable effective mod-state
+declarations can be previewed, conflict-checked, applied atomically, and undone
+byte-for-byte. It does not yet insert missing properties or create overrides.
+See the [development roadmap](docs/roadmap.md) for the current phase order and
+scope.
 
 ---
 
@@ -98,11 +105,16 @@ The reporter can also be run directly with `--language <language>` and
 
 ## 🧪 Planned Features
 
-- **State browser** with cross-reference listing (events, decisions, focuses, etc.)
-- **Focus tree visual editor**
-- **Event scripting interface**
-- **Mod validation and linting**
-- **Custom mod templates and wizards**
+The next planned milestones are:
+
+- **Phase 12:** project creation, import, and playset-aware workspace
+  configuration;
+- **Phase 13:** focus-tree and event-chain inspection and navigation; and
+- **Phase 14:** validation runs and explicitly authorized game-launch
+  integration.
+
+The full scope, boundaries, and links to supporting architecture are maintained
+in the [roadmap](docs/roadmap.md).
 
 ---
 
@@ -112,6 +124,7 @@ The reporter can also be run directly with `--language <language>` and
 - `Oxide.Core`: workspace, semantic, diagnostic, and application services.
 - `Oxide.App`: Avalonia composition and presentation.
 - `Oxide.Tests`: unit, integration, and architecture tests.
+- `docs/roadmap.md`: delivery order and planned phase boundaries.
 - `docs/architecture`: product and architecture decisions.
 
 Dependencies point inward: `Oxide.App` depends on `Oxide.Core`, and
